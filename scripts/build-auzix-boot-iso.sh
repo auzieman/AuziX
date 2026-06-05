@@ -29,6 +29,24 @@ need_cmd() {
   fi
 }
 
+copy_root_payload() {
+  local source="$1"
+  local target="$2"
+
+  mkdir -p "${target}"
+  (
+    cd "${source}"
+    tar \
+      --exclude='./Users/root/.config' \
+      --exclude='./Users/root/.cache' \
+      --exclude='./Users/root/.local/share/Trash' \
+      -cf - .
+  ) | (
+    cd "${target}"
+    tar -xf -
+  )
+}
+
 select_kernel() {
   if [[ -n "${KERNEL_IMAGE}" ]]; then
     return
@@ -403,7 +421,7 @@ mkdir -p "${WORK_DIR}/initramfs" "${WORK_DIR}/iso/boot/grub" "${ARTIFACT_DIR}"
 case "${LIVE_ROOT_MODE}" in
   initramfs)
     log "Using whole-root initramfs live mode"
-    cp -a "${ROOT_SOURCE}/." "${WORK_DIR}/initramfs/"
+    copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/initramfs"
     if [[ "${INCLUDE_LIVE_NATIVE_MIRRORS}" != "1" ]]; then
       rm -rf \
         "${WORK_DIR}/initramfs/System/Drivers/Xorg" \
@@ -441,7 +459,7 @@ EOF
       ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${WORK_DIR}/initramfs/System/Compatibility/bin/${applet}"
       ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${WORK_DIR}/initramfs/bin/${applet}"
     done
-    cp -a "${ROOT_SOURCE}/." "${WORK_DIR}/iso/AuzixRoot/"
+    copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/iso/AuzixRoot"
     if [[ "${INCLUDE_LIVE_ASSETS}" != "1" ]]; then
       rm -rf "${WORK_DIR}/iso/AuzixRoot/System/Settings/display/assets"
       mkdir -p "${WORK_DIR}/iso/AuzixRoot/System/Settings/display/assets"
