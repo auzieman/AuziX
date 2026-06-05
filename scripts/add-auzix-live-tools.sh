@@ -1992,10 +1992,14 @@ usage() {
 Usage:
   auzix-install-disk /dev/vda
   auzix-install-disk --force /dev/vda
+  auzix-install-disk --force --bootloader grub /dev/vda
 
-This creates one ext2 Linux partition, copies the live Auzix root to it, and
-marks it as an installed Auzix root. For now the ISO still provides the kernel
-and bootloader. Boot the installed root with:
+This creates an ext2 Linux root partition, copies the live Auzix root to it,
+and marks it as an installed Auzix root. If --bootloader grub is supplied and
+grub-install is available in the live system, it also attempts a BIOS GRUB
+install and writes a simple grub.cfg.
+
+Without --bootloader grub, boot the installed root through the ISO with:
 
   auzix.root=/dev/vda1
 
@@ -2004,20 +2008,37 @@ USAGE
 }
 
 force=0
+bootloader=iso
 target=""
-case "${1:-}" in
-  --help|-h)
-    usage
-    exit 0
-    ;;
-  --force)
-    force=1
-    target="${2:-}"
-    ;;
-  *)
-    target="${1:-}"
-    ;;
-esac
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --force)
+      force=1
+      shift
+      ;;
+    --bootloader)
+      bootloader="${2:-}"
+      shift 2
+      ;;
+    --bootloader=*)
+      bootloader="${1#--bootloader=}"
+      shift
+      ;;
+    --*)
+      usage >&2
+      exit 2
+      ;;
+    *)
+      target="$1"
+      shift
+      ;;
+  esac
+done
 
 if [ -z "${target}" ]; then
   usage >&2
@@ -2046,6 +2067,107 @@ partition="${target}1"
 case "${target}" in
   *nvme*|*mmcblk*) partition="${target}p1" ;;
 esac
+
+find_cmd() {
+  for cmd in "$@"; do
+    [ -x "${cmd}" ] && {
+      printf '%s\n' "${cmd}"
+      return 0
+    }
+    command -v "${cmd}" >/dev/null 2>&1 && {
+      command -v "${cmd}"
+      return 0
+    }
+  done
+  return 1
+}
+
+is_mounted() {
+  "${BB}" grep -q " $1 " /proc/mounts 2>/dev/null
+}
+
+mount_live_media_for_install() {
+  [ -d /run/auzix-iso ] || "${BB}" mkdir -p /run/auzix-iso
+  if is_mounted /run/auzix-iso; then
+    return 0
+  fi
+  for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE; do
+    [ -e "${dev}" ] || continue
+    "${BB}" mount -t iso9660 -o ro "${dev}" /run/auzix-iso 2>/dev/null && return 0
+  done
+  return 1
+}
+
+copy_boot_payload() {
+  "${BB}" mkdir -p /Work/InstallTarget/boot
+  if mount_live_media_for_install && [ -d /run/auzix-iso/boot ]; then
+    ( cd /run/auzix-iso && "${BB}" tar -cf - boot ) | ( cd /Work/InstallTarget && "${BB}" tar -xf - )
+  fi
+}
+
+write_installed_fstab() {
+  cat > /Work/InstallTarget/System/Settings/fstab <<EOF
+proc /proc proc defaults 0 0
+sysfs /sys sysfs defaults 0 0
+devtmpfs /dev devtmpfs defaults 0 0
+devpts /dev/pts devpts gid=5,mode=620,ptmxmode=666 0 0
+tmpfs /dev/shm tmpfs mode=1777,nosuid,nodev 0 0
+tmpfs /run tmpfs defaults 0 0
+LABEL=AUZIXROOT / ext2 defaults 0 1
+EOF
+}
+
+write_grub_cfg() {
+  kernel=""
+  initrd=""
+  for candidate in /Work/InstallTarget/boot/vmlinuz /Work/InstallTarget/boot/vmlinuz-* /Work/InstallTarget/boot/linux; do
+    [ -f "${candidate}" ] || continue
+    kernel="/boot/$("${BB}" basename "${candidate}")"
+    break
+  done
+  for candidate in /Work/InstallTarget/boot/initrd.img /Work/InstallTarget/boot/initrd.img-* /Work/InstallTarget/boot/initramfs.img /Work/InstallTarget/boot/initramfs-*; do
+    [ -f "${candidate}" ] || continue
+    initrd="/boot/$("${BB}" basename "${candidate}")"
+    break
+  done
+  [ -n "${kernel}" ] || return 1
+  "${BB}" mkdir -p /Work/InstallTarget/boot/grub
+  cat > /Work/InstallTarget/boot/grub/grub.cfg <<EOF
+set timeout=3
+set default=0
+
+menuentry "AuziX installed root" {
+    linux ${kernel} root=LABEL=AUZIXROOT auzix.root=LABEL=AUZIXROOT init=/init rw
+EOF
+  if [ -n "${initrd}" ]; then
+    echo "    initrd ${initrd}" >> /Work/InstallTarget/boot/grub/grub.cfg
+  fi
+  cat >> /Work/InstallTarget/boot/grub/grub.cfg <<'EOF'
+}
+EOF
+}
+
+install_grub_bootloader() {
+  grub_install="$(find_cmd \
+    /System/Compatibility/usr/sbin/grub-install \
+    /System/Compatibility/sbin/grub-install \
+    /Programs/GRUB/host/Commands/grub-install \
+    grub-install || true)"
+  if [ -z "${grub_install}" ]; then
+    echo "GRUB requested, but grub-install is not available in this live image." >&2
+    echo "Install or package GRUB-host, then rerun with --bootloader grub." >&2
+    return 1
+  fi
+  write_grub_cfg || {
+    echo "GRUB requested, but no kernel was found under /boot on the installed root." >&2
+    return 1
+  }
+  "${BB}" mkdir -p /Work/InstallTarget/dev /Work/InstallTarget/proc /Work/InstallTarget/sys
+  is_mounted /Work/InstallTarget/dev || "${BB}" mount --bind /dev /Work/InstallTarget/dev 2>/dev/null || true
+  is_mounted /Work/InstallTarget/proc || "${BB}" mount -t proc proc /Work/InstallTarget/proc 2>/dev/null || true
+  is_mounted /Work/InstallTarget/sys || "${BB}" mount -t sysfs sysfs /Work/InstallTarget/sys 2>/dev/null || true
+  "${grub_install}" --boot-directory=/Work/InstallTarget/boot "${target}"
+}
 
 echo "Creating Auzix partition on ${target}"
 "${BB}" dd if=/dev/zero of="${target}" bs=1M count=8
@@ -2082,6 +2204,11 @@ echo "Copying live Auzix root to ${partition}"
 "${BB}" mkdir -p /Work/InstallTarget/dev /Work/InstallTarget/proc /Work/InstallTarget/sys /Work/InstallTarget/run
 "${BB}" cp /Work/InstallTarget/System/Boot/InstalledInit /Work/InstallTarget/init
 "${BB}" chmod 0755 /Work/InstallTarget/init
+"${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install
+write_installed_fstab
+copy_boot_payload
+"${BB}" mkdir -p /Work/InstallTarget/boot/grub
+write_grub_cfg 2>/dev/null || true
 "${BB}" mkdir -p /Work/InstallTarget/System/State/install
 "${BB}" date > /Work/InstallTarget/System/State/install/installed-at.txt 2>/dev/null || true
 if [ -s /Work/InstallTarget/System/Settings/packages/installed.json ]; then
@@ -2099,10 +2226,21 @@ Boot it with the Auzix ISO and add this kernel argument:
 
   auzix.root=${partition}
 
-Native disk bootloader installation is a later package/stage.
+If --bootloader grub was used successfully, the target disk also has a GRUB
+configuration under /boot/grub/grub.cfg.
 NOTE
 
+if [ "${bootloader}" = "grub" ]; then
+  install_grub_bootloader
+elif [ "${bootloader}" != "iso" ] && [ "${bootloader}" != "none" ]; then
+  echo "Unsupported bootloader: ${bootloader}" >&2
+  exit 2
+fi
+
 "${BB}" sync
+"${BB}" umount /Work/InstallTarget/proc 2>/dev/null || true
+"${BB}" umount /Work/InstallTarget/sys 2>/dev/null || true
+"${BB}" umount /Work/InstallTarget/dev 2>/dev/null || true
 "${BB}" umount /Work/InstallTarget
 echo "Installed Auzix root to ${partition}"
 echo "Next boot argument: auzix.root=${partition}"
@@ -2112,7 +2250,8 @@ chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-disk"
 
 cat > "${AUZIX_ROOT}/System/Settings/install/live-tools.txt" <<'TXT'
 auzix-install-disk transposes the live strict root to local storage.
-Independent disk bootloader installation is intentionally deferred.
+Use --bootloader grub for an experimental BIOS GRUB install when grub-install
+is available inside the live image.
 TXT
 
 cat > "${AUZIX_ROOT}/System/Settings/display/e27-stage.txt" <<'TXT'

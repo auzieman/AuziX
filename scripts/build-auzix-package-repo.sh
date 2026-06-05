@@ -41,6 +41,7 @@ receipt_paths() {
       .prefix?,
       .paths?.prefix?,
       .paths?.current?,
+      (.paths? // {} | to_entries[]?.value),
       (.commands? | arrayish[]),
       (.compatibility_exports? | arrayish[]),
       (.settings? | arrayish[]),
@@ -84,6 +85,18 @@ package_receipt() {
   done < <(receipt_paths "${receipt}")
 
   sort -u -o "${tmp_list}" "${tmp_list}"
+  awk '
+    {
+      for (i = 1; i <= kept_count; i++) {
+        if ($0 == kept[i] || index($0, kept[i] "/") == 1) {
+          next
+        }
+      }
+      kept[++kept_count] = $0
+      print
+    }
+  ' "${tmp_list}" >"${tmp_list}.dedup"
+  mv "${tmp_list}.dedup" "${tmp_list}"
   if [[ ! -s "${tmp_list}" ]]; then
     log "Skipping ${name}-${version}; no owned paths exist in ${AUZIX_ROOT}"
     rm -f "${tmp_list}"

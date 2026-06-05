@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 SOURCE_HOME="${AUZIX_ASSET_HOME:-${HOME}}"
+SOURCE_EXTRA_ROOT="${AUZIX_ASSET_EXTRA_ROOT:-}"
 SOURCE_SSH="${AUZIX_ASSET_SSH:-}"
 SOURCE_RSYNC_SSH="${AUZIX_ASSET_RSYNC_SSH:-ssh}"
 DISPLAY_ROOT="${AUZIX_ROOT}/System/Settings/display"
@@ -49,6 +50,10 @@ copy_tree_if_present "${SOURCE_HOME}/.e/e/backgrounds" "${ASSET_ROOT}/background
 copy_tree_if_present "${SOURCE_HOME}/.e/e/themes" "${ASSET_ROOT}/themes"
 copy_tree_if_present "${SOURCE_HOME}/.elementary/themes" "${ASSET_ROOT}/themes"
 copy_tree_if_present "${SOURCE_HOME}/Pictures/Wallpapers" "${ASSET_ROOT}/backgrounds"
+if [[ -n "${SOURCE_EXTRA_ROOT}" ]]; then
+  copy_tree_if_present "${SOURCE_EXTRA_ROOT}/backgrounds" "${ASSET_ROOT}/backgrounds"
+  copy_tree_if_present "${SOURCE_EXTRA_ROOT}/themes" "${ASSET_ROOT}/themes"
+fi
 
 if [[ -n "${SOURCE_SSH}" ]]; then
   mkdir -p "${ASSET_ROOT}/config"
