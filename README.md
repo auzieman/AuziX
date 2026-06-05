@@ -2,6 +2,7 @@
 
 AuziX is a small custom Linux distribution experiment built around readable
 system structure, live workstation boot, and explicit package receipts.
+   <img width="1185" height="737" alt="image" src="https://github.com/user-attachments/assets/be8e7786-9d3a-402a-b027-0ca8af2c21c3" />
 
 The current root contract is:
 
