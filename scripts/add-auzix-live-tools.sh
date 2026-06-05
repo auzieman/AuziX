@@ -607,6 +607,18 @@ start_services() {
   done
 }
 
+report_service_status() {
+  console_note "services: process summary follows"
+  "${BB}" ps | "${BB}" grep -E "sshd|dbus-daemon|acpid|udevd|Xorg|enlightenment|start-e" | "${BB}" grep -v grep | while IFS= read -r line; do
+    console_note "services: ${line}"
+  done
+  if command -v nc >/dev/null 2>&1; then
+    nc -z 127.0.0.1 22 >/dev/null 2>&1 &&
+      console_note "services: ssh tcp/22 listening" ||
+      console_note "services: ssh tcp/22 not listening"
+  fi
+}
+
 start_device_manager() {
   [ -x /Services/udev/run ] || return 0
   log "starting udev"
@@ -674,8 +686,13 @@ start_network
 report_network_status
 console_note "stage: starting declared services"
 start_services
-console_note "stage: starting display"
-start_display
+report_service_status
+if [ "${AUZIX_GUI_AUTOSTART:-0}" = "1" ]; then
+  console_note "stage: starting display"
+  start_display
+else
+  console_note "gui: autostart disabled; run /System/Tools/start-gui-stage or AUZIX_GUI_AUTOSTART=1 /System/Boot/StartSequence"
+fi
 console_note "stage: complete"
 SCRIPT
 
@@ -1126,7 +1143,7 @@ chmod 0755 "${AUZIX_ROOT}/System/Boot/InstalledInit"
 cp "${AUZIX_ROOT}/System/Boot/InstalledInit" "${AUZIX_ROOT}/init"
 chmod 0755 "${AUZIX_ROOT}/init"
 cat > "${AUZIX_ROOT}/System/Settings/display/autostart" <<'TXT'
-x11
+manual
 TXT
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-load-module" <<'SCRIPT'
