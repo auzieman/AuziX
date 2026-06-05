@@ -94,6 +94,24 @@ FSTAB
   "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
 }
 
+repair_live_user_home() {
+  "${BB}" mkdir -p \
+    /Users \
+    /Users/auzix \
+    /Users/auzix/.cache \
+    /Users/auzix/.cache/efreet \
+    /Users/auzix/.config \
+    /Users/auzix/.local/share \
+    /Users/auzix/.e/e \
+    /Users/auzix/.elementary/config/standard \
+    /Users/root 2>/dev/null || true
+  "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
+  "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /Users/auzix 2>/dev/null || true
+  "${BB}" chmod 0755 /Users/auzix 2>/dev/null || true
+  "${BB}" chmod -R u+rwX /Users/auzix/.cache /Users/auzix/.config /Users/auzix/.local /Users/auzix/.e /Users/auzix/.elementary 2>/dev/null || true
+}
+
 start_network() {
   cat > /run/auzix-udhcpc.script <<'NETSCRIPT'
 #!/System/Compatibility/bin/sh
@@ -257,11 +275,12 @@ stage_enlightenment_user_assets() {
   fi
 
   "${BB}" chmod -R u+rwX /Users/auzix/.e/e/config 2>/dev/null || true
-  "${BB}" chown -R auzix:auzix /Users/auzix/.e 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /Users/auzix/.e 2>/dev/null || true
   log "enlightenment live defaults staged from ${asset_dir}"
 }
 
 fix_session_permissions() {
+  repair_live_user_home
   "${BB}" mkdir -p \
     /Users/auzix/.cache \
     /Users/auzix/.cache/efreet \
@@ -286,7 +305,7 @@ fix_session_permissions() {
 	    eet -i /Users/auzix/.e/e/config/profile.cfg config /Users/auzix/.cache/auzix-e-profile 0 2>/dev/null || true
 	    "${BB}" rm -f /Users/auzix/.cache/auzix-e-profile 2>/dev/null || true
 	  fi
-  "${BB}" chown -R auzix:auzix /Users/auzix 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /Users/auzix 2>/dev/null || true
   stage_enlightenment_user_assets
   "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
   "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true
@@ -303,7 +322,7 @@ fix_session_permissions() {
     "${BB}" ln -s /usr/lib/x86_64-linux-gnu/enlightenment /usr/lib/enlightenment 2>/dev/null || true
   fi
   "${BB}" mkdir -p /run/user/1000
-  "${BB}" chown auzix:auzix /run/user/1000 2>/dev/null || true
+  "${BB}" chown 1000:1000 /run/user/1000 2>/dev/null || true
   "${BB}" chmod 0700 /run/user/1000 2>/dev/null || true
   "${BB}" mkdir -p /System/Logs/display
   "${BB}" touch \
@@ -311,9 +330,9 @@ fix_session_permissions() {
     /System/Logs/display/openvt.log \
     /System/Logs/display/hardware-display.log \
     /System/Logs/display/e-module-tuning.log 2>/dev/null || true
-  "${BB}" chown -R auzix:auzix /System/Logs/display 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /System/Logs/display 2>/dev/null || true
   "${BB}" chmod 0755 /System/Logs/display 2>/dev/null || true
-  "${BB}" chown auzix:auzix \
+  "${BB}" chown 1000:1000 \
     /System/Logs/display/start-e.log \
     /System/Logs/display/openvt.log \
     /System/Logs/display/hardware-display.log \
@@ -560,6 +579,7 @@ start_display() {
 
 log "mounting runtime filesystems"
 mount_runtime
+repair_live_user_home
 start_device_manager
 log "staging live assets"
 stage_live_assets
@@ -682,7 +702,7 @@ if [ -d "${asset_dir}" ]; then
   done
   fi
   "${BB}" chmod -R u+rwX /Users/auzix/.e/e/config 2>/dev/null || true
-  "${BB}" chown -R auzix:auzix /Users/auzix/.e 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /Users/auzix/.e 2>/dev/null || true
 fi
 
 if command -v pulseaudio >/dev/null 2>&1 || command -v pipewire >/dev/null 2>&1; then
@@ -702,14 +722,14 @@ elif [ "${AUZIX_MASK_NOAUDIO_MODULES:-1}" = "1" ]; then
     fi
     "${BB}" rm -f "/Users/auzix/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
-  "${BB}" chown -R auzix:auzix "${disabled_dir}" /Users/auzix/.e 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 "${disabled_dir}" /Users/auzix/.e 2>/dev/null || true
 fi
 
 "${BB}" touch /System/Logs/display/start-e.log /System/Logs/display/openvt.log /System/Logs/display/hardware-display.log 2>/dev/null || true
-"${BB}" chown auzix:auzix /System/Logs/display/start-e.log /System/Logs/display/openvt.log /System/Logs/display/hardware-display.log 2>/dev/null || true
+"${BB}" chown 1000:1000 /System/Logs/display/start-e.log /System/Logs/display/openvt.log /System/Logs/display/hardware-display.log 2>/dev/null || true
 "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
 "${BB}" mkdir -p /run/user/1000
-"${BB}" chown auzix:auzix /run/user/1000 2>/dev/null || true
+"${BB}" chown 1000:1000 /run/user/1000 2>/dev/null || true
 "${BB}" chmod 0700 /run/user/1000 2>/dev/null || true
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/prepare-livecd-state"
@@ -739,7 +759,7 @@ mount | "${BB}" grep -q " /dev/shm " 2>/dev/null ||
   "${BB}" mount -t tmpfs tmpfs /dev/shm -o mode=1777,nosuid,nodev 2>/dev/null || true
 
 "${BB}" chmod 1777 /dev/shm /Work/Temp /tmp 2>/dev/null || true
-"${BB}" chown -R "${USER_NAME}:${USER_NAME}" \
+"${BB}" chown -R 1000:1000 \
   "${HOME_DIR}/.cache" \
   "${HOME_DIR}/.config" \
   "${HOME_DIR}/.local" \
