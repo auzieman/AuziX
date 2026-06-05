@@ -1,0 +1,46 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "Alacritty",
+  "version": "host",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-1-compat-install",
+  "source": {
+    "type": "distro-source",
+    "origin": "alacritty",
+    "reference": "First terminal template after Terminology; source build can later move this to stage-2-native-paths."
+  },
+  "paths": {
+    "prefix": "/Programs/Alacritty/host",
+    "settings": "/System/Settings/alacritty",
+    "state": "/System/State/alacritty",
+    "logs": "/System/Logs/alacritty",
+    "libraries": "/Programs/Alacritty/host/Libraries"
+  },
+  "build": {
+    "system": "custom",
+    "arguments": [
+      "install -D -m 0755 /usr/bin/alacritty /Programs/Alacritty/host/Commands/alacritty",
+      "install -D -m 0644 /usr/share/applications/Alacritty.desktop /Programs/Alacritty/host/Resources/share/applications/Alacritty.desktop"
+    ],
+    "environment": {
+      "XDG_CONFIG_HOME": "/System/Settings/alacritty",
+      "XDG_DATA_DIRS": "/Programs/Alacritty/host/Resources/share:/System/Compatibility/usr/share",
+      "LIBGL_DRIVERS_PATH": "/System/Compatibility/usr/lib/x86_64-linux-gnu/dri"
+    }
+  },
+  "compatibility": {
+    "/System/Compatibility/bin/alacritty": "/Programs/Alacritty/host/Commands/alacritty",
+    "/System/Compatibility/usr/share/applications/Alacritty.desktop": "/Programs/Alacritty/host/Resources/share/applications/Alacritty.desktop"
+  },
+  "validation": {
+    "commands": [
+      "/Programs/Alacritty/host/Commands/alacritty --version",
+      "ldd /Programs/Alacritty/host/Commands/alacritty"
+    ],
+    "forbidden_paths": [
+      "/usr/local"
+    ]
+  },
+  "notes": "Alacritty is a good lean terminal target once Rust/Cargo build inputs exist. Terminology remains the current E-native proof terminal."
+}

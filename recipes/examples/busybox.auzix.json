@@ -1,0 +1,49 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "BusyBox",
+  "version": "1.36.1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-2-native-paths",
+  "source": {
+    "type": "url",
+    "origin": "https://busybox.net/downloads/busybox-1.36.1.tar.bz2"
+  },
+  "paths": {
+    "prefix": "/Programs/BusyBox/1.36.1",
+    "settings": "/System/Settings/busybox",
+    "state": "/System/State/busybox",
+    "logs": "/System/Logs/busybox",
+    "libraries": "/Programs/BusyBox/1.36.1/Libraries"
+  },
+  "build": {
+    "system": "custom",
+    "arguments": [
+      "make defconfig",
+      "enable CONFIG_STATIC",
+      "make busybox",
+      "install busybox /Programs/BusyBox/1.36.1/Commands/busybox"
+    ]
+  },
+  "compatibility": {
+    "/System/Compatibility/bin/busybox": "/Programs/BusyBox/1.36.1/Commands/busybox",
+    "/System/Compatibility/bin/sh": "/Programs/BusyBox/1.36.1/Commands/busybox"
+  },
+  "validation": {
+    "commands": [
+      "readelf -h /Programs/BusyBox/1.36.1/Commands/busybox",
+      "ldd /Programs/BusyBox/1.36.1/Commands/busybox",
+      "/Programs/BusyBox/1.36.1/Commands/busybox sh -c 'echo busybox-shell-ok'"
+    ],
+    "forbidden_paths": [
+      "/bin",
+      "/sbin",
+      "/lib",
+      "/lib64",
+      "/usr",
+      "/usr/local"
+    ]
+  },
+  "notes": "BusyBox is the first practical shell payload for a tiny runnable Auzix root. The initial build is static to keep the dynamic linker migration separate."
+}
+

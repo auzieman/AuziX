@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/auzix-service.json",
+  "title": "Auzix Service Receipt",
+  "type": "object",
+  "required": ["name", "runtime", "program", "paths", "policy"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["host-process", "containerd", "kubernetes", "external"]
+    },
+    "program": {
+      "type": "object",
+      "required": ["command"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "pattern": "^/(Programs|System)/.*"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "containerd": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "snapshotter": {
+          "type": "string"
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "required": ["settings", "state", "logs"],
+      "additionalProperties": false,
+      "properties": {
+        "settings": {
+          "type": "string",
+          "pattern": "^/System/Settings(/.*)?$"
+        },
+        "state": {
+          "type": "string",
+          "pattern": "^/System/State(/.*)?$"
+        },
+        "logs": {
+          "type": "string",
+          "pattern": "^/System/Logs(/.*)?$"
+        },
+        "work": {
+          "type": "string",
+          "pattern": "^/Work(/.*)?$"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["start", "restart"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "string",
+          "enum": ["manual", "boot", "on-demand", "stack"]
+        },
+        "restart": {
+          "type": "string",
+          "enum": ["never", "on-failure", "always"]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "protocol", "port"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": ["tcp", "udp", "unix"]
+          },
+          "port": {
+            "type": ["integer", "string"]
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "Enlightenment",
+  "version": "0.27.1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-1-compat-install",
+  "source": {
+    "type": "url",
+    "origin": "https://download.enlightenment.org/rel/apps/enlightenment/enlightenment-0.27.1.tar.xz"
+  },
+  "paths": {
+    "prefix": "/Programs/Enlightenment/0.27.1",
+    "settings": "/System/Settings/enlightenment",
+    "state": "/System/State/enlightenment",
+    "logs": "/System/Logs/enlightenment",
+    "libraries": "/Programs/Enlightenment/0.27.1/Libraries"
+  },
+  "build": {
+    "system": "meson",
+    "arguments": [
+      "--prefix=/Programs/Enlightenment/0.27.1",
+      "--libdir=Libraries"
+    ],
+    "environment": {
+      "PKG_CONFIG_PATH": "/Programs/EFL/1.28.1/Libraries/pkgconfig:/Programs/Enlightenment/0.27.1/Libraries/pkgconfig",
+      "LD_LIBRARY_PATH": "/Programs/EFL/1.28.1/Libraries:/Programs/Enlightenment/0.27.1/Libraries"
+    }
+  },
+  "compatibility": {
+    "/System/Compatibility/usr/local": "/Programs/Enlightenment/0.27.1"
+  },
+  "validation": {
+    "commands": [
+      "/Programs/Enlightenment/0.27.1/Commands/enlightenment -version",
+      "/System/Tools/start-e"
+    ],
+    "forbidden_paths": [
+      "/usr/local"
+    ]
+  },
+  "notes": "Manual startup remains /System/Tools/start-e. Wayland should be tried first when DRM, input, and seat support are present; X11 remains the early VM fallback."
+}

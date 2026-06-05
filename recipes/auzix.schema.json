@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/auzix-recipe.json",
+  "title": "Auzix Recipe",
+  "type": "object",
+  "required": ["name", "version", "kind", "target_arch", "migration_stage", "source", "paths"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["program", "service", "stack", "system"]
+    },
+    "target_arch": {
+      "type": "string",
+      "examples": ["x86_64", "powerpcspe"]
+    },
+    "migration_stage": {
+      "type": "string",
+      "enum": [
+        "stage-0-fhs-build",
+        "stage-1-compat-install",
+        "stage-2-native-paths",
+        "stage-3-target-arch-trimmed",
+        "stage-4-dead-code-trimmed"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": ["type", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["url", "git", "distro-source", "local"]
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "required": ["prefix"],
+      "additionalProperties": {
+        "type": "string"
+      },
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "pattern": "^/(Programs|System|Services|Stacks|Work|Users|Volumes|Network)(/.*)?$"
+        },
+        "settings": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "logs": {
+          "type": "string"
+        },
+        "libraries": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "system": {
+          "type": "string",
+          "enum": ["configure-make", "cmake", "meson", "cargo", "go", "custom"]
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "libraries": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "owned": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compatibility_exports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/System/Compatibility/.*"
+          }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
+

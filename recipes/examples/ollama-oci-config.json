@@ -1,0 +1,94 @@
+{
+  "ociVersion": "1.1.0",
+  "process": {
+    "terminal": false,
+    "user": {
+      "uid": 1000,
+      "gid": 1000,
+      "additionalGids": [44, 105]
+    },
+    "args": ["/bin/ollama", "serve"],
+    "env": [
+      "HOME=/Work/Containers/ollama/home",
+      "OLLAMA_HOST=0.0.0.0:11434",
+      "OLLAMA_MODELS=/Work/Containers/ollama/models",
+      "LD_LIBRARY_PATH=/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu",
+      "LIBGL_DRIVERS_PATH=/System/Compatibility/usr/lib/x86_64-linux-gnu/dri"
+    ],
+    "cwd": "/Work/Containers/ollama",
+    "capabilities": {
+      "bounding": ["CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_SETGID", "CAP_SETUID"],
+      "effective": ["CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_SETGID", "CAP_SETUID"],
+      "inheritable": [],
+      "permitted": ["CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER", "CAP_SETGID", "CAP_SETUID"],
+      "ambient": []
+    },
+    "noNewPrivileges": true
+  },
+  "root": {
+    "path": "rootfs",
+    "readonly": false
+  },
+  "mounts": [
+    {
+      "destination": "/proc",
+      "type": "proc",
+      "source": "proc"
+    },
+    {
+      "destination": "/dev",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": ["nosuid", "strictatime", "mode=755", "size=65536k"]
+    },
+    {
+      "destination": "/dev/dri",
+      "type": "bind",
+      "source": "/dev/dri",
+      "options": ["rbind", "rw"]
+    },
+    {
+      "destination": "/System/Compatibility",
+      "type": "bind",
+      "source": "/System/Compatibility",
+      "options": ["rbind", "ro"]
+    },
+    {
+      "destination": "/Work/Containers/ollama",
+      "type": "bind",
+      "source": "/Work/Containers/ollama",
+      "options": ["rbind", "rw"]
+    }
+  ],
+  "linux": {
+    "namespaces": [
+      {"type": "pid"},
+      {"type": "ipc"},
+      {"type": "uts"},
+      {"type": "mount"},
+      {"type": "network"}
+    ],
+    "devices": [
+      {
+        "path": "/dev/dri/renderD128",
+        "type": "c",
+        "major": 226,
+        "minor": 128,
+        "fileMode": 432,
+        "uid": 0,
+        "gid": 105
+      }
+    ],
+    "resources": {
+      "devices": [
+        {
+          "allow": true,
+          "type": "c",
+          "major": 226,
+          "minor": -1,
+          "access": "rwm"
+        }
+      ]
+    }
+  }
+}

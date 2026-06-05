@@ -1,0 +1,44 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "AuzixProbe",
+  "version": "0.1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-2-native-paths",
+  "source": {
+    "type": "local",
+    "origin": "sources/auzix-probe"
+  },
+  "paths": {
+    "prefix": "/Programs/AuzixProbe/0.1",
+    "settings": "/System/Settings/auzix-probe",
+    "state": "/System/State/auzix-probe",
+    "logs": "/System/Logs/auzix-probe",
+    "libraries": "/Programs/AuzixProbe/0.1/Libraries"
+  },
+  "build": {
+    "system": "custom",
+    "arguments": [
+      "gcc -static -Os -s -o /Programs/AuzixProbe/0.1/Commands/auzix-probe sources/auzix-probe/auzix-probe.c"
+    ]
+  },
+  "compatibility": {
+    "/System/Compatibility/bin/auzix-probe": "/Programs/AuzixProbe/0.1/Commands/auzix-probe"
+  },
+  "validation": {
+    "commands": [
+      "readelf -h /Programs/AuzixProbe/0.1/Commands/auzix-probe",
+      "ldd /Programs/AuzixProbe/0.1/Commands/auzix-probe"
+    ],
+    "forbidden_paths": [
+      "/bin",
+      "/sbin",
+      "/lib",
+      "/lib64",
+      "/usr",
+      "/usr/local"
+    ]
+  },
+  "notes": "First strict-root payload. It is intentionally static so the first package proves ownership and compatibility exports before dynamic linker migration begins."
+}
+

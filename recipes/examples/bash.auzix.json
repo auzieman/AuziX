@@ -1,0 +1,53 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "Bash",
+  "version": "5.2",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-2-native-paths",
+  "source": {
+    "type": "distro-source",
+    "origin": "gnu/bash",
+    "reference": "Use distro or upstream source as the input; do not install into FHS paths."
+  },
+  "paths": {
+    "prefix": "/Programs/Bash/5.2",
+    "settings": "/System/Settings/bash",
+    "state": "/System/State/bash",
+    "logs": "/System/Logs/bash",
+    "libraries": "/Programs/Bash/5.2/Libraries"
+  },
+  "build": {
+    "system": "configure-make",
+    "arguments": [
+      "--prefix=/Programs/Bash/5.2",
+      "--bindir=/Programs/Bash/5.2/Commands",
+      "--libdir=/Programs/Bash/5.2/Libraries",
+      "--sysconfdir=/System/Settings/bash",
+      "--localstatedir=/System/State/bash"
+    ],
+    "environment": {
+      "PATH": "/System/Tools:/Programs/Coreutils/Current/Commands"
+    }
+  },
+  "compatibility": {
+    "/System/Compatibility/bin/bash": "/Programs/Bash/5.2/Commands/bash",
+    "/System/Compatibility/bin/sh": "/Programs/Bash/5.2/Commands/bash"
+  },
+  "validation": {
+    "commands": [
+      "readelf -d /Programs/Bash/5.2/Commands/bash",
+      "ldd /Programs/Bash/5.2/Commands/bash"
+    ],
+    "forbidden_paths": [
+      "/bin",
+      "/sbin",
+      "/lib",
+      "/lib64",
+      "/usr",
+      "/usr/local"
+    ]
+  },
+  "notes": "This example is a path contract, not a claim that unpatched bash already honors every path without help."
+}
+

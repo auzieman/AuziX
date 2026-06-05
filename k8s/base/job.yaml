@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auzix-build
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: builder
+          image: ghcr.io/auzieman/auzix-builder:latest
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace
+          command:
+            - /bin/bash
+            - -lc
+            - |
+              set -euo pipefail
+              if [ ! -d /workspace/.git ]; then
+                git clone --depth=1 https://github.com/auzieman/AuziX.git /workspace
+              else
+                git -C /workspace pull --ff-only
+              fi
+              cd /workspace
+              ./scripts/build-auzix-strict-all.sh
+          env:
+            - name: AUZIX_ISO_NAME
+              value: auzix-strict-shell.iso
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: auzix-workspace

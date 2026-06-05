@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/auzix-stack.json",
+  "title": "Auzix Stack Receipt",
+  "type": "object",
+  "required": ["name", "purpose", "services", "programs", "paths"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/Services/.*"
+      }
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/Programs/.*"
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work": {
+          "type": "string",
+          "pattern": "^/Work(/.*)?$"
+        },
+        "settings": {
+          "type": "string",
+          "pattern": "^/System/Settings(/.*)?$"
+        },
+        "state": {
+          "type": "string",
+          "pattern": "^/System/State(/.*)?$"
+        },
+        "logs": {
+          "type": "string",
+          "pattern": "^/System/Logs(/.*)?$"
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+# Auzix thin desktop seed package set for a Debian-based x86_64 KVM image.
+#
+# This is not a full manifest yet. It is the first explicit package seed for
+# the Auzix rootfs track so we can discuss image contents concretely.
+#
+# `mkvtoolnix-gui` is included intentionally because it pulls in a useful slice
+# of desktop and multimedia dependencies that are likely relevant later anyway.
+
+# Bootstrapping and remote access
+ca-certificates
+openssh-server
+
+# Shell and basic tooling
+bash
+less
+nano
+ripgrep
+
+# Network and diagnostics
+curl
+iproute2
+iputils-ping
+net-tools
+
+# Thin graphical stack
+xorg
+lightdm
+enlightenment
+network-manager
+elementary-icon-theme
+
+# Small daily-driver applications
+midori
+firefox-esr
+pcmanfm
+kitty
+xfce4-terminal
+
+# Multimedia and dependency trigger
+mkvtoolnix-gui

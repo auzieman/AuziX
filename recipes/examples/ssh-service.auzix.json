@@ -1,0 +1,27 @@
+{
+  "$schema": "../service.schema.json",
+  "name": "ssh",
+  "runtime": "host-process",
+  "program": {
+    "command": "/Programs/OpenSSH/10.0/Commands/sshd",
+    "arguments": ["-D", "-f", "/System/Settings/ssh/sshd_config"]
+  },
+  "paths": {
+    "settings": "/System/Settings/ssh",
+    "state": "/System/State/ssh",
+    "logs": "/System/Logs/ssh"
+  },
+  "policy": {
+    "start": "boot",
+    "restart": "on-failure",
+    "dependencies": ["network-online"]
+  },
+  "ports": [
+    {
+      "name": "ssh",
+      "protocol": "tcp",
+      "port": 22
+    }
+  ],
+  "notes": "SFTP is initially an SSH subsystem capability, not a separate daemon."
+}

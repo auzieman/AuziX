@@ -1,0 +1,11 @@
+out/
+artifacts/
+.vagrant/
+*.log
+*.tmp
+*.iso
+*.img
+*.qcow2
+*.raw
+*.vdi
+__pycache__/

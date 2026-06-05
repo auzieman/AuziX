@@ -1,0 +1,43 @@
+{
+  "$schema": "../auzix.schema.json",
+  "name": "EFL",
+  "version": "1.28.1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-1-compat-install",
+  "source": {
+    "type": "url",
+    "origin": "https://download.enlightenment.org/rel/libs/efl/efl-1.28.1.tar.xz"
+  },
+  "paths": {
+    "prefix": "/Programs/EFL/1.28.1",
+    "settings": "/System/Settings/efl",
+    "state": "/System/State/efl",
+    "logs": "/System/Logs/efl",
+    "libraries": "/Programs/EFL/1.28.1/Libraries"
+  },
+  "build": {
+    "system": "meson",
+    "arguments": [
+      "--prefix=/Programs/EFL/1.28.1",
+      "--libdir=Libraries"
+    ],
+    "environment": {
+      "PKG_CONFIG_PATH": "/Programs/EFL/1.28.1/Libraries/pkgconfig",
+      "LD_LIBRARY_PATH": "/Programs/EFL/1.28.1/Libraries"
+    }
+  },
+  "compatibility": {
+    "/System/Compatibility/usr/local": "/Programs/EFL/1.28.1"
+  },
+  "validation": {
+    "commands": [
+      "/Programs/EFL/1.28.1/Commands/edje_cc -h",
+      "/Programs/EFL/1.28.1/Commands/efl_debug -h"
+    ],
+    "forbidden_paths": [
+      "/usr/local"
+    ]
+  },
+  "notes": "EFL is the prerequisite for Enlightenment. Stage 1 keeps compatibility exports available while the native /Programs prefix is proven."
+}

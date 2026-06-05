@@ -1,0 +1,30 @@
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: docker/builder/Dockerfile
+    image: auzix/builder:local
+    working_dir: /workspace
+    environment:
+      AUZIX_ROOT_SOURCE: /workspace/out/auzix-strict/AuzixRoot
+      AUZIX_ISO_NAME: auzix-strict-shell.iso
+    volumes:
+      - .:/workspace
+      - ./out:/workspace/out
+      - ./artifacts:/workspace/artifacts
+      - auzix-cache:/root/.cache
+    command: ["./scripts/build-auzix-strict-all.sh"]
+
+  shell:
+    image: auzix/builder:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./out:/workspace/out
+      - ./artifacts:/workspace/artifacts
+      - auzix-cache:/root/.cache
+    command: ["bash"]
+    profiles: ["shell"]
+
+volumes:
+  auzix-cache:

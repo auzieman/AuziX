@@ -1,0 +1,84 @@
+# Build seed for the first Auzix Enlightenment 0.27.x experiment.
+#
+# This is intentionally a build-host/profile list, not a promise that strict
+# Auzix has adopted Debian packaging as its native package model.
+
+# Build tools
+build-essential
+ca-certificates
+check
+curl
+file
+git
+meson
+ninja-build
+pkg-config
+python3
+wayland-protocols
+
+# Core libraries listed by upstream EFL/Enlightenment guidance
+libblkid-dev
+libbullet-dev
+libcurl4-openssl-dev
+libdbus-1-dev
+libfontconfig1-dev
+libfreetype-dev
+libfribidi-dev
+libgif-dev
+libgstreamer1.0-dev
+libjpeg-dev
+liblua5.1-0-dev
+libluajit-5.1-dev
+libmount-dev
+libpam0g-dev
+libpng-dev
+libpulse-dev
+libsndfile1-dev
+libssl-dev
+libsystemd-dev
+libtiff-dev
+libudev-dev
+zlib1g-dev
+
+# Image/document loaders that EFL can use
+librsvg2-dev
+libpoppler-cpp-dev
+libspectre-dev
+libraw-dev
+
+# Graphics, input, X11, and Wayland substrate
+libdrm-dev
+libegl1-mesa-dev
+libgbm-dev
+libgl1-mesa-dev
+libgles2-mesa-dev
+libinput-dev
+libseat-dev
+libwayland-dev
+libx11-dev
+libxcb-keysyms1-dev
+libxcb-shape0-dev
+libxcb1-dev
+libxcomposite-dev
+libxcursor-dev
+libxdamage-dev
+libxext-dev
+libxfixes-dev
+libxi-dev
+libxinerama-dev
+libxkbcommon-dev
+libxkbcommon-x11-dev
+libxkbfile-dev
+libxrandr-dev
+libxrender-dev
+libxss-dev
+libxtst-dev
+mesa-utils
+xinit
+xorg
+
+# Runtime debug and first-session basics
+dbus
+fonts-dejavu-core
+seatd
+terminology

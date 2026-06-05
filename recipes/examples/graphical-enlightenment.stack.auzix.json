@@ -1,0 +1,32 @@
+{
+  "$schema": "../stack.schema.json",
+  "name": "graphical-enlightenment",
+  "purpose": "First graphical Auzix stack using EFL and Enlightenment 0.27.x.",
+  "services": [
+    "/Services/seat",
+    "/Services/display-manager"
+  ],
+  "programs": [
+    "/Programs/EFL/1.28.1",
+    "/Programs/Enlightenment/0.27.1"
+  ],
+  "paths": {
+    "work": "/Work/Builds/graphical",
+    "settings": "/System/Settings/display",
+    "state": "/System/State/display",
+    "logs": "/System/Logs/display"
+  },
+  "relationships": [
+    {
+      "from": "/Programs/Enlightenment/0.27.1",
+      "to": "/Programs/EFL/1.28.1",
+      "type": "requires"
+    },
+    {
+      "from": "/Services/display-manager",
+      "to": "/Services/seat",
+      "type": "after"
+    }
+  ],
+  "notes": "Do not auto-start this stack yet. The first boot path remains shell-first, with /System/Tools/start-e as the operator-controlled session launcher."
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "../service.schema.json",
+  "name": "ollama",
+  "runtime": "containerd",
+  "program": {
+    "command": "/Programs/containerd/current/Commands/ctr",
+    "arguments": [
+      "--namespace",
+      "auzix.desktop",
+      "run",
+      "--rm",
+      "--config",
+      "/Services/ollama/oci/config.json",
+      "docker.io/ollama/ollama:latest",
+      "ollama"
+    ],
+    "environment": {
+      "PATH": "/Programs/containerd/current/Commands:/Programs/runc/current/Commands:/System/Compatibility/bin",
+      "CONTAINERD_ADDRESS": "/run/containerd/containerd.sock"
+    }
+  },
+  "containerd": {
+    "namespace": "auzix.desktop",
+    "image": "docker.io/ollama/ollama:latest",
+    "snapshotter": "overlayfs"
+  },
+  "paths": {
+    "settings": "/System/Settings/ollama",
+    "state": "/System/State/ollama",
+    "logs": "/System/Logs/ollama",
+    "work": "/Work/Containers/ollama"
+  },
+  "policy": {
+    "start": "manual",
+    "restart": "on-failure",
+    "dependencies": [
+      "containerd",
+      "local-storage",
+      "drm-render-node"
+    ]
+  },
+  "ports": [
+    {
+      "name": "ollama-api",
+      "protocol": "tcp",
+      "port": 11434
+    }
+  ],
+  "notes": "Template only. GPU acceleration requires passing /dev/dri/renderD* and the matching Mesa/DRM userspace from /System/Compatibility or a native /System graphics runtime."
+}

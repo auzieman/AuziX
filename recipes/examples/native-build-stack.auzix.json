@@ -1,0 +1,38 @@
+{
+  "$schema": "../stack.schema.json",
+  "name": "native-build",
+  "purpose": "Compile and inspect native Auzix packages while keeping source, cache, and build output under /Work.",
+  "services": [
+    "/Services/containerd",
+    "/Services/buildkit"
+  ],
+  "programs": [
+    "/Programs/GCC",
+    "/Programs/Binutils",
+    "/Programs/Make",
+    "/Programs/PkgConfig",
+    "/Programs/Git",
+    "/Programs/Patchelf",
+    "/Programs/File",
+    "/Programs/Strace"
+  ],
+  "paths": {
+    "work": "/Work/Builds",
+    "settings": "/System/Settings/build",
+    "state": "/System/State/build",
+    "logs": "/System/Logs/build"
+  },
+  "relationships": [
+    {
+      "from": "/Services/buildkit",
+      "to": "/Services/containerd",
+      "type": "uses-runtime"
+    },
+    {
+      "from": "/Programs/Patchelf",
+      "to": "/Programs/Binutils",
+      "type": "validates-elf-paths"
+    }
+  ],
+  "notes": "BuildKit/containerd can accelerate repeatable builds, but native compiler and ELF inspection paths remain first-class."
+}
