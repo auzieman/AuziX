@@ -334,8 +334,8 @@ fi
 
 mount_live_iso_root || true
 
-if [ -c /dev/tty1 ]; then
-  "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on tty1. Startup continues on console." >/dev/tty1; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty1 >/dev/tty1 2>&1' &
+if [ -c /dev/tty2 ]; then
+  "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on tty2. Startup continues on console/tty1." >/dev/tty2; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty2 >/dev/tty2 2>&1' &
 fi
 
 if [ -c /dev/ttyS0 ]; then

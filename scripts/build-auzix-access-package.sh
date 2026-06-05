@@ -274,6 +274,10 @@ BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
 "\${BB}" mkdir -p /run/sshd /System/Logs/ssh
 "\${BB}" chmod 0755 /run/sshd
+"\${BB}" chown -R 0:0 /System/State/ssh 2>/dev/null || true
+"\${BB}" chmod 0700 /System/State/ssh 2>/dev/null || true
+"\${BB}" chmod 0600 /System/State/ssh/ssh_host_*_key 2>/dev/null || true
+"\${BB}" chmod 0644 /System/State/ssh/ssh_host_*_key.pub 2>/dev/null || true
 exec /Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sshd -D -e -f /System/Settings/ssh/sshd_config
 EOF
 chmod 0755 "${AUZIX_ROOT}/Services/ssh/run"

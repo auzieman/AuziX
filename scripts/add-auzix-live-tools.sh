@@ -61,8 +61,11 @@ prepare_live_runtime_state() {
   if [ -d /run/auzix-state-seed/ssh ]; then
     "${BB}" cp -a /run/auzix-state-seed/ssh/. /System/State/ssh/ 2>/dev/null || true
   fi
+  "${BB}" chown -R 0:0 /System/State/ssh 2>/dev/null || true
   "${BB}" chmod 0755 /System/State /System/State/dbus /System/Logs /System/Logs/display 2>/dev/null || true
   "${BB}" chmod 0700 /System/State/ssh 2>/dev/null || true
+  "${BB}" chmod 0600 /System/State/ssh/ssh_host_*_key 2>/dev/null || true
+  "${BB}" chmod 0644 /System/State/ssh/ssh_host_*_key.pub 2>/dev/null || true
 }
 
 mount_runtime() {
