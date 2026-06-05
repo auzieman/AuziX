@@ -33,6 +33,31 @@ is_mounted() {
   "${BB}" grep -q " $1 " /proc/mounts 2>/dev/null
 }
 
+prepare_live_runtime_state() {
+  [ -d /run/live/iso/AuzixRoot ] || return 0
+
+  "${BB}" mkdir -p /run/auzix-state-seed /run/auzix-log-seed 2>/dev/null || true
+  if [ -d /System/State/ssh ] && [ ! -d /run/auzix-state-seed/ssh ]; then
+    "${BB}" mkdir -p /run/auzix-state-seed/ssh 2>/dev/null || true
+    "${BB}" cp -a /System/State/ssh/. /run/auzix-state-seed/ssh/ 2>/dev/null || true
+  fi
+
+  "${BB}" mkdir -p /System/State /System/Logs 2>/dev/null || true
+  if ! is_mounted /System/State; then
+    "${BB}" mount -t tmpfs tmpfs /System/State 2>/dev/null || true
+  fi
+  if ! is_mounted /System/Logs; then
+    "${BB}" mount -t tmpfs tmpfs /System/Logs 2>/dev/null || true
+  fi
+
+  "${BB}" mkdir -p /System/State/ssh /System/State/dbus /System/State/display /System/Logs/display 2>/dev/null || true
+  if [ -d /run/auzix-state-seed/ssh ]; then
+    "${BB}" cp -a /run/auzix-state-seed/ssh/. /System/State/ssh/ 2>/dev/null || true
+  fi
+  "${BB}" chmod 0755 /System/State /System/State/dbus /System/Logs /System/Logs/display 2>/dev/null || true
+  "${BB}" chmod 0700 /System/State/ssh 2>/dev/null || true
+}
+
 mount_runtime() {
   is_mounted /proc || "${BB}" mount -t proc proc /proc 2>/dev/null || true
   is_mounted /sys || "${BB}" mount -t sysfs sysfs /sys 2>/dev/null || true
@@ -42,6 +67,7 @@ mount_runtime() {
   is_mounted /dev/shm || "${BB}" mount -t tmpfs tmpfs /dev/shm -o mode=1777,nosuid,nodev 2>/dev/null || true
   "${BB}" mkdir -p /run
   is_mounted /run || "${BB}" mount -t tmpfs tmpfs /run 2>/dev/null || true
+  prepare_live_runtime_state
   if ! is_mounted /run; then
     "${BB}" rm -rf /run/user /run/dbus /run/sshd 2>/dev/null || true
   fi
@@ -341,6 +367,10 @@ fix_session_permissions() {
 
 ensure_dbus_machine_id() {
   "${BB}" mkdir -p /System/State/dbus /var/lib/dbus /etc 2>/dev/null || true
+  if [ ! -d /System/State/dbus ]; then
+    "${BB}" mkdir -p /run/dbus-state 2>/dev/null || true
+    [ -e /System/State/dbus ] || "${BB}" ln -s /run/dbus-state /System/State/dbus 2>/dev/null || true
+  fi
 
   machine_id=""
   if [ -s /etc/machine-id ]; then
