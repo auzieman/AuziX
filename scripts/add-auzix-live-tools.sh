@@ -29,6 +29,13 @@ log() {
   echo "[StartSequence] $*"
 }
 
+console_note() {
+  msg="[StartSequence] $*"
+  echo "${msg}"
+  [ -c /dev/tty1 ] && echo "${msg}" >/dev/tty1 2>/dev/null || true
+  [ -c /dev/ttyS0 ] && echo "${msg}" >/dev/ttyS0 2>/dev/null || true
+}
+
 is_mounted() {
   "${BB}" grep -q " $1 " /proc/mounts 2>/dev/null
 }
@@ -139,6 +146,7 @@ repair_live_user_home() {
 }
 
 start_network() {
+  console_note "network: starting DHCP"
   cat > /run/auzix-udhcpc.script <<'NETSCRIPT'
 #!/System/Compatibility/bin/sh
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
@@ -174,6 +182,21 @@ NETSCRIPT
         ;;
     esac
   done
+}
+
+report_network_status() {
+  console_note "network: interface summary follows"
+  for iface in $("${BB}" ls /sys/class/net 2>/dev/null); do
+    [ "${iface}" = "lo" ] && continue
+    ipv4="$("${BB}" ip -4 addr show dev "${iface}" 2>/dev/null | "${BB}" awk '/inet / {print $2}' | "${BB}" head -n 1)"
+    mac="$("${BB}" cat "/sys/class/net/${iface}/address" 2>/dev/null || true)"
+    state="$("${BB}" cat "/sys/class/net/${iface}/operstate" 2>/dev/null || true)"
+    console_note "network: ${iface} state=${state:-unknown} mac=${mac:-unknown} ipv4=${ipv4:-none}"
+  done
+  if [ -s /run/resolv.conf ]; then
+    dns="$("${BB}" tr '\n' ' ' </run/resolv.conf 2>/dev/null || true)"
+    console_note "network: dns=${dns}"
+  fi
 }
 
 start_hardware() {
@@ -607,23 +630,29 @@ start_display() {
     >/System/Logs/display/openvt.log 2>&1 &
 }
 
-log "mounting runtime filesystems"
+console_note "stage: mounting runtime filesystems"
 mount_runtime
+console_note "stage: repairing live user home"
 repair_live_user_home
+console_note "stage: starting udev"
 start_device_manager
-log "staging live assets"
+console_note "stage: staging live assets"
 stage_live_assets
-log "detecting hardware"
+console_note "stage: detecting hardware"
 start_hardware
 write_xorg_config
+console_note "stage: fixing session permissions"
 fix_session_permissions
+console_note "stage: starting dbus"
 start_system_bus
-log "starting network"
+console_note "stage: starting network"
 start_network
-log "starting declared services"
+report_network_status
+console_note "stage: starting declared services"
 start_services
+console_note "stage: starting display"
 start_display
-log "complete"
+console_note "stage: complete"
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Boot/StartSequence"

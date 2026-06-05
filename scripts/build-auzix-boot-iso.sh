@@ -334,7 +334,14 @@ fi
 
 mount_live_iso_root || true
 
-clear 2>/dev/null || true
+if [ -c /dev/tty1 ]; then
+  "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on tty1. Startup continues on console." >/dev/tty1; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty1 >/dev/tty1 2>&1' &
+fi
+
+if [ -c /dev/ttyS0 ]; then
+  "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on ttyS0. Startup continues on console." >/dev/ttyS0; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/ttyS0 >/dev/ttyS0 2>&1' &
+fi
+
 if [ -x /System/Boot/StartSequence ]; then
   /System/Boot/StartSequence
 fi
@@ -348,14 +355,6 @@ echo "network=best-effort-udhcpc"
 echo "startup=/System/Boot/StartSequence"
 echo "gui=/System/Tools/start-gui-stage"
 echo
-
-if [ -c /dev/tty1 ]; then
-  "${BB}" setsid "${BB}" sh -c 'echo "Auzix console shell. Run /System/Tools/start-gui-stage for desktop." >/dev/tty1; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty1 >/dev/tty1 2>&1' &
-fi
-
-if [ -c /dev/ttyS0 ]; then
-  "${BB}" setsid "${BB}" sh -c 'exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/ttyS0 >/dev/ttyS0 2>&1' &
-fi
 
 if [ -e /System/Settings/display/autostart ]; then
   exec "${BB}" sh -c 'while true; do sleep 3600; done'
