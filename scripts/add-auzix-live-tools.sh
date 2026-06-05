@@ -413,11 +413,19 @@ ensure_dbus_machine_id() {
   fi
   [ -n "${machine_id}" ] || machine_id=00000000000000000000000000000000
 
-  printf '%s\n' "${machine_id}" >/System/State/dbus/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
+  dbus_state_dir=/System/State/dbus
+  if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+  else
+    "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
+  fi
+
+  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
   "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id /System/State/dbus/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
@@ -616,6 +624,22 @@ start_display() {
 
   "${BB}" mkdir -p /System/Logs/display
   "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
+  delay="${AUZIX_GUI_DELAY:-15}"
+  if [ "${delay}" -gt 0 ] 2>/dev/null; then
+    console_note "gui: starting in ${delay}s; run 'touch /run/auzix-skip-gui' from rescue shell to stop autostart"
+    while [ "${delay}" -gt 0 ]; do
+      [ -e /run/auzix-skip-gui ] && {
+        console_note "gui: autostart skipped by /run/auzix-skip-gui"
+        return 0
+      }
+      "${BB}" sleep 1
+      delay=$((delay - 1))
+    done
+  fi
+  [ -e /run/auzix-skip-gui ] && {
+    console_note "gui: autostart skipped by /run/auzix-skip-gui"
+    return 0
+  }
   log "starting display on tty2"
   [ -n "${display_mode}" ] || display_mode=wayland
   case "${display_mode}" in
@@ -940,11 +964,19 @@ ensure_dbus_machine_id() {
   fi
   [ -n "${machine_id}" ] || machine_id=00000000000000000000000000000000
 
-  printf '%s\n' "${machine_id}" >/System/State/dbus/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
+  dbus_state_dir=/System/State/dbus
+  if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+  else
+    "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
+  fi
+
+  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
   "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id /System/State/dbus/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
@@ -1752,11 +1784,19 @@ ensure_dbus_machine_id() {
   fi
   [ -n "${machine_id}" ] || machine_id=00000000000000000000000000000000
 
-  printf '%s\n' "${machine_id}" >/System/State/dbus/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
+  dbus_state_dir=/System/State/dbus
+  if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+  else
+    "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
+  fi
+
+  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
   "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id /System/State/dbus/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
