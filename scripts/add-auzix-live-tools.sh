@@ -83,6 +83,7 @@ mount_runtime() {
   fi
   "${BB}" rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true
   "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /var/cache /var/lib /var/log /Work/Temp /System/State /System/Logs /Network/DNS
+  "${BB}" touch /var/log/lastlog 2>/dev/null || true
   if [ "$("${BB}" hostname 2>/dev/null || echo "(none)")" = "(none)" ]; then
     "${BB}" hostname auzix-live 2>/dev/null || true
   fi
@@ -109,6 +110,10 @@ FSTAB
     "${BB}" chown root:root /Programs/Sudo/host/Commands/sudo 2>/dev/null || true
     "${BB}" chmod 4755 /Programs/Sudo/host/Commands/sudo 2>/dev/null || true
   fi
+  if [ -e /System/Compatibility/usr/lib/xorg/Xorg.wrap ]; then
+    "${BB}" chown root:root /System/Compatibility/usr/lib/xorg/Xorg.wrap 2>/dev/null || true
+    "${BB}" chmod 4755 /System/Compatibility/usr/lib/xorg/Xorg.wrap 2>/dev/null || true
+  fi
   if [ -e /System/Settings/sudoers ]; then
     "${BB}" chown root:root /System/Settings/sudoers /System/Settings/sudo.conf 2>/dev/null || true
     "${BB}" chmod 0440 /System/Settings/sudoers 2>/dev/null || true
@@ -124,6 +129,7 @@ FSTAB
   [ -e /dev/null ] || "${BB}" mknod /dev/null c 1 3
   [ -e /dev/tty1 ] || "${BB}" mknod /dev/tty1 c 4 1
   [ -e /dev/tty2 ] || "${BB}" mknod /dev/tty2 c 4 2
+  [ -e /dev/tty7 ] || "${BB}" mknod /dev/tty7 c 4 7
   [ -e /dev/ttyS0 ] || "${BB}" mknod /dev/ttyS0 c 4 64
   "${BB}" mdev -s 2>/dev/null || true
   "${BB}" chmod 0666 /dev/null 2>/dev/null || true
@@ -655,17 +661,17 @@ start_display() {
     console_note "gui: autostart skipped by /run/auzix-skip-gui"
     return 0
   }
-  log "starting display on tty2"
+  log "starting display on tty7"
   [ -n "${display_mode}" ] || display_mode=wayland
   case "${display_mode}" in
     wayland)
-      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=wayland AUZIX_X_VT=2 E_WL_FORCE=drm"
+      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=wayland AUZIX_X_VT=7 E_WL_FORCE=drm"
       ;;
     *)
-      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${display_mode} AUZIX_X_VT=2"
+      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${display_mode} AUZIX_X_VT=7"
       ;;
   esac
-  "${BB}" openvt -c 2 -s -- "${BB}" su auzix -c "${display_env} /System/Tools/start-e" \
+  "${BB}" openvt -c 7 -s -- "${BB}" su auzix -c "${display_env} /System/Tools/start-e" \
     >/System/Logs/display/openvt.log 2>&1 &
 }
 
@@ -909,7 +915,7 @@ export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
 mode="${AUZIX_E_MODE:-x11}"
-vt="${AUZIX_X_VT:-2}"
+vt="${AUZIX_X_VT:-7}"
 stop_flag=/System/State/display/stop-gui
 log=/System/Logs/display/supervisor.log
 
@@ -1095,13 +1101,13 @@ if [ "${manager}" = "lightdm" ]; then
   exit 0
 fi
 
-if "${BB}" ps | "${BB}" grep -E "[s]tart-e-supervisor|[e]nlightenment|[X]org|[x]init" >/dev/null 2>&1; then
+if "${BB}" pidof start-e-supervisor enlightenment enlightenment_start Xorg xinit >/dev/null 2>&1; then
   echo "gui-stage=already-running"
   exit 0
 fi
 
 mode="${AUZIX_E_MODE:-x11}"
-vt="${AUZIX_X_VT:-2}"
+vt="${AUZIX_X_VT:-7}"
 "${BB}" rm -f /System/State/display/stop-gui 2>/dev/null || true
 env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${mode} AUZIX_X_VT=${vt}"
 "${BB}" openvt -c "${vt}" -s -- "${BB}" su auzix -c "${env} /System/Tools/start-e-supervisor" \
@@ -1934,7 +1940,7 @@ run_x11() {
   xinit="$(find_cmd xinit)"
   xorg="$(find_cmd Xorg X)"
   enlightenment="$(find_cmd /System/Tools/start-enlightenment-session enlightenment_start enlightenment)"
-  vt="${AUZIX_X_VT:-2}"
+  vt="${AUZIX_X_VT:-7}"
   if [ -z "${xinit}" ] || [ -z "${xorg}" ] || [ -z "${enlightenment}" ]; then
     return 1
   fi
