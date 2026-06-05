@@ -40,6 +40,7 @@ receipt_paths() {
     [
       .prefix?,
       .paths?.prefix?,
+      .paths?.current?,
       (.commands? | arrayish[]),
       (.compatibility_exports? | arrayish[]),
       (.settings? | arrayish[]),

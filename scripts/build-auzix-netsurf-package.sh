@@ -188,6 +188,9 @@ cat > "${AUZIX_ROOT}/System/PackageDB/NetSurf-${NETSURF_VERSION}.auzix.json" <<E
   "kind": "program",
   "migration_stage": "stage-1-compat-install",
   "prefix": "/Programs/NetSurf/${NETSURF_VERSION}",
+  "paths": {
+    "current": "/Programs/NetSurf/current"
+  },
   "commands": [
     "/Programs/NetSurf/${NETSURF_VERSION}/Commands/netsurf",
     "/Programs/NetSurf/${NETSURF_VERSION}/Commands/netsurf-gtk.real"
