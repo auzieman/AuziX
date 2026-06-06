@@ -84,6 +84,7 @@ mount_runtime() {
   "${BB}" rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true
   "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /var/cache /var/lib /var/log /Work/Temp /System/State /System/Logs /Network/DNS
   "${BB}" touch /var/log/lastlog 2>/dev/null || true
+  "${BB}" ln -sfn /run/resolv.conf /System/Settings/resolv.conf 2>/dev/null || true
   if [ "$("${BB}" hostname 2>/dev/null || echo "(none)")" = "(none)" ]; then
     "${BB}" hostname auzix-live 2>/dev/null || true
   fi
@@ -175,6 +176,7 @@ case "$1" in
       echo "nameserver ${server}" >> /run/resolv.conf
     done
     "${BB}" cp /run/resolv.conf /Network/DNS/resolv.conf 2>/dev/null || true
+    "${BB}" ln -sfn /run/resolv.conf /System/Settings/resolv.conf 2>/dev/null || true
     echo "dhcp-lease=${interface} ip=${ip} router=${router} dns=${dns}"
     ;;
 esac
@@ -862,7 +864,9 @@ USER_NAME="${2:-auzix}"
   "${HOME_DIR}/.e/e/themes" \
   "${HOME_DIR}/.e/e/themes-available" \
   "${HOME_DIR}/.e/e/backgrounds" \
-  "${HOME_DIR}/.e/e/config" 2>/dev/null || true
+  "${HOME_DIR}/.e/e/config" \
+  "${HOME_DIR}/.elementary/themes" \
+  "${HOME_DIR}/.elementary/config/standard" 2>/dev/null || true
 
 mount | "${BB}" grep -q " /dev/shm " 2>/dev/null ||
   "${BB}" mount -t tmpfs tmpfs /dev/shm -o mode=1777,nosuid,nodev 2>/dev/null || true
@@ -872,15 +876,45 @@ mount | "${BB}" grep -q " /dev/shm " 2>/dev/null ||
   "${HOME_DIR}/.cache" \
   "${HOME_DIR}/.config" \
   "${HOME_DIR}/.local" \
-  "${HOME_DIR}/.e" 2>/dev/null || true
+  "${HOME_DIR}/.e" \
+  "${HOME_DIR}/.elementary" 2>/dev/null || true
 "${BB}" chmod -R u+rwX \
   "${HOME_DIR}/.cache" \
   "${HOME_DIR}/.config" \
   "${HOME_DIR}/.local" \
-  "${HOME_DIR}/.e" 2>/dev/null || true
+  "${HOME_DIR}/.e" \
+  "${HOME_DIR}/.elementary" 2>/dev/null || true
 
 if [ "${AUZIX_CLEAR_EFREET_CACHE:-0}" = "1" ]; then
   "${BB}" rm -f "${HOME_DIR}/.cache/efreet/"* 2>/dev/null || true
+fi
+
+if [ "${AUZIX_SAFE_E_THEMES:-1}" = "1" ]; then
+  for theme_dir in \
+    "${HOME_DIR}/.e/e/themes" \
+    "${HOME_DIR}/.elementary/themes"
+  do
+    [ -d "${theme_dir}" ] || continue
+    quarantine="${theme_dir}-incompatible"
+    "${BB}" mkdir -p "${quarantine}" 2>/dev/null || true
+    for pattern in '*E22*.edj' '*NightBling*.edj'; do
+      for item in "${theme_dir}"/${pattern}; do
+        [ -e "${item}" ] || continue
+        "${BB}" mv -f "${item}" "${quarantine}/" 2>/dev/null || true
+      done
+    done
+  done
+fi
+
+if [ "${AUZIX_RESET_E_THEME_STATE:-0}" = "1" ] &&
+   [ -s /System/Compatibility/usr/share/enlightenment/data/config/standard/e.cfg ]; then
+  profile_dir="${HOME_DIR}/.e/e/config/standard"
+  "${BB}" mkdir -p "${profile_dir}" "${HOME_DIR}/.e/e/config/recovery" 2>/dev/null || true
+  if [ -s "${profile_dir}/e.cfg" ]; then
+    stamp="$(date +%Y%m%d%H%M%S 2>/dev/null || echo now)"
+    "${BB}" cp -f "${profile_dir}/e.cfg" "${HOME_DIR}/.e/e/config/recovery/e.cfg.broken-${stamp}" 2>/dev/null || true
+  fi
+  "${BB}" cp -f /System/Compatibility/usr/share/enlightenment/data/config/standard/e.cfg "${profile_dir}/e.cfg" 2>/dev/null || true
 fi
 
 if command -v eet >/dev/null 2>&1 &&
@@ -905,6 +939,17 @@ fi
 echo "E state repaired for ${USER_NAME} at ${HOME_DIR}"
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/repair-e-state"
+
+cat > "${AUZIX_ROOT}/System/Tools/reset-e-theme-state" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -u
+
+PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/System/Compatibility/usr/bin
+export PATH
+
+AUZIX_RESET_E_THEME_STATE=1 AUZIX_SAFE_E_THEMES=1 /System/Tools/repair-e-state /Users/auzix auzix
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/reset-e-theme-state"
 
 cat > "${AUZIX_ROOT}/System/Tools/start-e-supervisor" <<'SCRIPT'
 #!/System/Compatibility/bin/sh

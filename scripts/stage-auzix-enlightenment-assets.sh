@@ -73,6 +73,9 @@ elif [[ -d "${SOURCE_HOME}/.e/e/config" ]]; then
   log "staged selected Enlightenment config from ${SOURCE_HOME}/.e/e/config"
 fi
 
+find "${ASSET_ROOT}" -type d -exec chmod 0755 {} + 2>/dev/null || true
+find "${ASSET_ROOT}" -type f -exec chmod 0644 {} + 2>/dev/null || true
+
 cat > "${DISPLAY_ROOT}/asset-note.txt" <<TXT
 Enlightenment assets staged from:
   ${SOURCE_SSH:+${SOURCE_SSH}:}${SOURCE_HOME}

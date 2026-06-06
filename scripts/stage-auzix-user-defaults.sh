@@ -71,6 +71,11 @@ copy_filtered_tree "${SOURCE_HOME}/Pictures/Wallpapers" "${TARGET_HOME}/Pictures
   --include='*.png' \
   --exclude='*'
 
+find "${TARGET_HOME}/.e" "${TARGET_HOME}/.elementary" "${TARGET_HOME}/Pictures/Wallpapers" \
+  -type d -exec chmod 0755 {} + 2>/dev/null || true
+find "${TARGET_HOME}/.e" "${TARGET_HOME}/.elementary" "${TARGET_HOME}/Pictures/Wallpapers" \
+  -type f -exec chmod 0644 {} + 2>/dev/null || true
+
 cat > "${AUZIX_ROOT}/System/Settings/display/defaults/user-defaults-note.txt" <<TXT
 User desktop defaults staged from:
   ${SOURCE_HOME}
