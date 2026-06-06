@@ -44,6 +44,7 @@ receipt_paths() {
       (.paths? // {} | to_entries[]?.value),
       (.commands? | arrayish[]),
       (.compatibility_exports? | arrayish[]),
+      .hooks?.post_install?,
       (.settings? | arrayish[]),
       .paths?.settings?,
       .service?,
@@ -139,6 +140,7 @@ package_receipt() {
       prefix: ($receipt_json[0].prefix // $receipt_json[0].paths.prefix // null),
       commands: ($receipt_json[0].commands // []),
       service: ($receipt_json[0].service // null),
+      hooks: ($receipt_json[0].hooks // {}),
       compatibility_exports: ($receipt_json[0].compatibility_exports // [])
     }'
 

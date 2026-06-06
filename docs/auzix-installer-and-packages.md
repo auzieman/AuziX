@@ -2,18 +2,14 @@
 
 ## Immediate Goal
 
-The strict-root ISO now boots to a shell. The next practical goal is early
-machine access and persistence:
+The strict-root ISO now provides live desktop access and standalone
+persistence:
 
 1. boot from the ISO
 2. transpose the live Auzix root to local storage
-3. boot the installed root through the ISO with `auzix.root=/dev/...`
-4. add SSH/SFTP and containerd so the system can be worked remotely
-5. later package a disk bootloader so the ISO is no longer required
-
-This deliberately separates "install a root filesystem" from "own the entire
-boot chain." It lets us start testing persistence without pretending the
-bootloader package is finished.
+3. install GRUB and the Auzix kernel/initramfs
+4. boot the installed root without the ISO
+5. refresh the repository and add packages persistently
 
 ## Current Installer Shape
 
@@ -35,27 +31,21 @@ That command:
 - creates one Linux partition
 - formats it as ext2 with label `AUZIXROOT`
 - copies the live Auzix root onto it
+- installs GRUB for BIOS boot
+- writes the kernel command line using `root=LABEL=AUZIXROOT`
 - writes an install note under `/System/Settings/install`
 
-For now, boot the installed root through the ISO by adding:
+The normal result boots directly from the target disk. The ISO remains a
+recovery fallback and can still hand off to an installed root with:
 
 ```text
-auzix.root=/dev/vda1
+auzix.root=LABEL=AUZIXROOT
 ```
 
 The ISO init then mounts that root and `switch_root`s into it.
 
-## Bootloader Follow-Up
-
-Independent disk boot needs one of these later packages:
-
-- GRUB for BIOS/UEFI VM targets
-- syslinux/extlinux for a smaller BIOS-first path
-- systemd-boot only after an EFI-first path exists
-
-For the first Proxmox VM iteration, ISO-provided kernel plus installed root is
-good enough. It avoids dragging a full bootloader toolchain into the first tiny
-live image.
+The current GRUB package is BIOS-first. UEFI installation remains follow-up
+work.
 
 ## Package Manager Choice
 

@@ -163,9 +163,30 @@ repair_live_user_home() {
     /Users/root 2>/dev/null || true
   "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
   "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true
-  "${BB}" chown -R 1000:1000 /Users/auzix 2>/dev/null || true
+  "${BB}" chown 1000:1000 \
+    /Users/auzix \
+    /Users/auzix/.cache \
+    /Users/auzix/.cache/efreet \
+    /Users/auzix/.config \
+    /Users/auzix/.local \
+    /Users/auzix/.local/share \
+    /Users/auzix/.e \
+    /Users/auzix/.e/e \
+    /Users/auzix/.elementary \
+    /Users/auzix/.elementary/config \
+    /Users/auzix/.elementary/config/standard 2>/dev/null || true
   "${BB}" chmod 0755 /Users/auzix 2>/dev/null || true
-  "${BB}" chmod -R u+rwX /Users/auzix/.cache /Users/auzix/.config /Users/auzix/.local /Users/auzix/.e /Users/auzix/.elementary 2>/dev/null || true
+  "${BB}" chmod u+rwx \
+    /Users/auzix/.cache \
+    /Users/auzix/.cache/efreet \
+    /Users/auzix/.config \
+    /Users/auzix/.local \
+    /Users/auzix/.local/share \
+    /Users/auzix/.e \
+    /Users/auzix/.e/e \
+    /Users/auzix/.elementary \
+    /Users/auzix/.elementary/config \
+    /Users/auzix/.elementary/config/standard 2>/dev/null || true
 }
 
 start_network() {
@@ -317,8 +338,7 @@ stage_live_assets() {
 
 stage_enlightenment_user_assets() {
   asset_dir="$(find_live_assets || true)"
-  [ -n "${asset_dir}" ] || asset_dir=/System/Settings/display/assets
-  [ -d "${asset_dir}" ] || return 0
+  [ -n "${asset_dir}" ] || return 0
   prepare_enlightenment_background_path "${asset_dir}"
 
   "${BB}" mkdir -p \
@@ -366,7 +386,18 @@ fix_session_permissions() {
 	    eet -i /Users/auzix/.e/e/config/profile.cfg config /Users/auzix/.cache/auzix-e-profile 0 2>/dev/null || true
 	    "${BB}" rm -f /Users/auzix/.cache/auzix-e-profile 2>/dev/null || true
 	  fi
-  "${BB}" chown -R 1000:1000 /Users/auzix 2>/dev/null || true
+  "${BB}" chown 1000:1000 \
+    /Users/auzix \
+    /Users/auzix/.cache \
+    /Users/auzix/.cache/efreet \
+    /Users/auzix/.config \
+    /Users/auzix/.local \
+    /Users/auzix/.local/share \
+    /Users/auzix/.e \
+    /Users/auzix/.e/e \
+    /Users/auzix/.elementary \
+    /Users/auzix/.elementary/config \
+    /Users/auzix/.elementary/config/standard 2>/dev/null || true
   stage_enlightenment_user_assets
   "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
   "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true
@@ -699,7 +730,8 @@ report_network_status
 console_note "stage: starting declared services"
 start_services
 report_service_status
-if [ "${AUZIX_GUI_AUTOSTART:-0}" = "1" ]; then
+display_autostart="$("${BB}" head -n 1 /System/Settings/display/autostart 2>/dev/null || echo manual)"
+if [ "${AUZIX_GUI_AUTOSTART:-0}" = "1" ] || [ "${display_autostart}" != "manual" ]; then
   console_note "stage: starting display"
   start_display
 else
@@ -790,9 +822,8 @@ asset_dir="$(find_live_assets || true)"
 if [ -n "${asset_dir}" ] && ! is_mounted /System/Settings/display/assets; then
   "${BB}" mount --bind "${asset_dir}" /System/Settings/display/assets 2>/dev/null || true
 fi
-[ -n "${asset_dir}" ] || asset_dir=/System/Settings/display/assets
-prepare_enlightenment_background_path "${asset_dir}"
-if [ -d "${asset_dir}" ]; then
+if [ -n "${asset_dir}" ]; then
+  prepare_enlightenment_background_path "${asset_dir}"
   "${BB}" mkdir -p /Users/auzix/.e/e/config 2>/dev/null || true
   if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
     "${BB}" cp -f "${asset_dir}/config/profile.cfg" /Users/auzix/.e/e/config/profile.cfg 2>/dev/null || true
@@ -1188,7 +1219,7 @@ chmod 0755 "${AUZIX_ROOT}/System/Boot/InstalledInit"
 cp "${AUZIX_ROOT}/System/Boot/InstalledInit" "${AUZIX_ROOT}/init"
 chmod 0755 "${AUZIX_ROOT}/init"
 cat > "${AUZIX_ROOT}/System/Settings/display/autostart" <<'TXT'
-manual
+x11
 TXT
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-load-module" <<'SCRIPT'
@@ -2183,14 +2214,13 @@ usage() {
 Usage:
   auzix-install-disk /dev/vda
   auzix-install-disk --force /dev/vda
-  auzix-install-disk --force --bootloader grub /dev/vda
+  auzix-install-disk --force --bootloader iso /dev/vda
 
 This creates an ext2 Linux root partition, copies the live Auzix root to it,
-and marks it as an installed Auzix root. If --bootloader grub is supplied and
-grub-install is available in the live system, it also attempts a BIOS GRUB
-install and writes a simple grub.cfg.
+and marks it as an installed Auzix root. The default bootloader is BIOS GRUB
+when grub-install is available in the live system.
 
-Without --bootloader grub, boot the installed root through the ISO with:
+With --bootloader iso, boot the installed root through the ISO with:
 
   auzix.root=/dev/vda1
 
@@ -2199,7 +2229,7 @@ USAGE
 }
 
 force=0
-bootloader=iso
+bootloader=grub
 target=""
 
 while [ "$#" -gt 0 ]; do
@@ -2316,7 +2346,7 @@ write_grub_cfg() {
     kernel="/boot/$("${BB}" basename "${candidate}")"
     break
   done
-  for candidate in /Work/InstallTarget/boot/initrd.img /Work/InstallTarget/boot/initrd.img-* /Work/InstallTarget/boot/initramfs.img /Work/InstallTarget/boot/initramfs-*; do
+  for candidate in /Work/InstallTarget/boot/initrd.img /Work/InstallTarget/boot/initrd.img-* /Work/InstallTarget/boot/initramfs.img /Work/InstallTarget/boot/initramfs.cpio.gz /Work/InstallTarget/boot/initramfs-*; do
     [ -f "${candidate}" ] || continue
     initrd="/boot/$("${BB}" basename "${candidate}")"
     break
@@ -2376,6 +2406,10 @@ echo "Formatting ${partition}"
 
 "${BB}" mkdir -p /Work/InstallTarget
 "${BB}" mount "${partition}" /Work/InstallTarget
+is_mounted /Work/InstallTarget || {
+  echo "Target partition did not mount at /Work/InstallTarget." >&2
+  exit 1
+}
 
 echo "Copying live Auzix root to ${partition}"
 (
@@ -2385,6 +2419,7 @@ echo "Copying live Auzix root to ${partition}"
     --exclude='./proc/*' \
     --exclude='./sys/*' \
     --exclude='./run/*' \
+    --exclude='./System/Settings/display/assets/*' \
     --exclude='./Work/InstallTarget/*' \
     -cf - .
 ) | (
@@ -2393,6 +2428,8 @@ echo "Copying live Auzix root to ${partition}"
 )
 
 "${BB}" mkdir -p /Work/InstallTarget/dev /Work/InstallTarget/proc /Work/InstallTarget/sys /Work/InstallTarget/run
+"${BB}" rm -rf /Work/InstallTarget/System/Settings/display/assets 2>/dev/null || true
+"${BB}" mkdir -p /Work/InstallTarget/System/Settings/display/assets
 "${BB}" cp /Work/InstallTarget/System/Boot/InstalledInit /Work/InstallTarget/init
 "${BB}" chmod 0755 /Work/InstallTarget/init
 "${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install

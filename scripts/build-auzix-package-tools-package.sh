@@ -186,6 +186,20 @@ validate_archive() {
     ' || die "unsafe path found in ${archive}"
 }
 
+run_post_install() {
+  package_json="$1"
+  hook="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.hooks.post_install // empty')"
+  [ -n "${hook}" ] || return 0
+  case "${hook}" in
+    /Programs/*) ;;
+    *) die "refusing post-install hook outside /Programs: ${hook}" ;;
+  esac
+  [ -x "${hook}" ] || die "post-install hook is missing or not executable: ${hook}"
+  AUZIX_PACKAGE_NAME="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name')" \
+    AUZIX_PACKAGE_VERSION="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')" \
+    "${hook}"
+}
+
 install_one() {
   requested="$1"
   stack="${2:-}"
@@ -236,6 +250,7 @@ install_one() {
 
   validate_archive "${archive}"
   "${BB}" tar -xzf "${archive}" -C /
+  run_post_install "${package_json}"
   record_install "${package_json}" "${base_url}"
   echo "Installed ${name} $(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')"
 }

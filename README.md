@@ -33,10 +33,10 @@ bridges, not as the distro identity.
 - NetSurf as the first small optional browser proof
 - package receipts under `/System/PackageDB`
 - package repo builder producing `.auzix.tar.gz` artifacts and `index.json`
-- early disk installer that transposes the live root to a target disk
+- GRUB-backed disk installer for standalone BIOS VM boot
 
-The stable VM test path currently uses the whole-root initramfs ISO. The
-split ISO-root mode is promising but still experimental.
+The live image uses a small boot initramfs and keeps the complete root on the
+ISO. VM130 also boots its installed root directly from GRUB without the ISO.
 
 ## Build
 
@@ -75,6 +75,7 @@ make auzix-strict-host-terminology
 make auzix-strict-host-xterm
 make auzix-strict-netsurf
 make auzix-strict-lightdm
+make auzix-strict-desktop-repo-packages
 make auzix-strict-package-repo
 make auzix-strict-iso
 ```
@@ -85,9 +86,9 @@ The same sequence is wrapped by:
 make auzix-strict-all
 ```
 
-Local Enlightenment wallpapers/themes can be staged separately with
-`make auzix-strict-e-assets`, but they are not part of the default reproducible
-build.
+Local Enlightenment wallpapers/themes can be staged with
+`make auzix-strict-e-assets` and published as repository packages with
+`make auzix-strict-desktop-repo-packages`.
 
 The default ISO output is:
 

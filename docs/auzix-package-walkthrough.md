@@ -46,11 +46,15 @@ The cached repository index and installed transaction state are stored at:
 ```sh
 auzix-pkg install XTerm
 auzix-pkg install Midori
+auzix-pkg install AuzixThemes
+auzix-pkg install AuzixWallpapers
 ```
 
 The client resolves published dependencies, downloads each archive, verifies
 its SHA-256 checksum, rejects unsafe archive paths, extracts it, and atomically
-updates local installed state.
+updates local installed state. Package-owned post-install hooks may export
+assets into global catalogs; hooks are restricted to executable paths under
+`/Programs`.
 
 Installing an unchanged package is a no-op. A package with the same version but
 a different repository checksum is reinstalled, allowing early AuziX package
