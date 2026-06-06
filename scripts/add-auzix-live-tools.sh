@@ -71,6 +71,9 @@ prepare_live_runtime_state() {
 mount_runtime() {
   is_mounted /proc || "${BB}" mount -t proc proc /proc 2>/dev/null || true
   is_mounted /sys || "${BB}" mount -t sysfs sysfs /sys 2>/dev/null || true
+  if [ -w /proc/sys/net/ipv4/ping_group_range ]; then
+    echo "0 2147483647" >/proc/sys/net/ipv4/ping_group_range 2>/dev/null || true
+  fi
   is_mounted /dev || "${BB}" mount -t devtmpfs devtmpfs /dev 2>/dev/null || "${BB}" mount -t tmpfs tmpfs /dev 2>/dev/null || true
   "${BB}" mkdir -p /dev/pts /dev/shm
   is_mounted /dev/pts || "${BB}" mount -t devpts devpts /dev/pts -o gid=5,mode=620,ptmxmode=666 2>/dev/null || "${BB}" mount -t devpts devpts /dev/pts 2>/dev/null || true
@@ -143,6 +146,7 @@ FSTAB
   [ -e /dev/ttyS0 ] || "${BB}" mknod /dev/ttyS0 c 4 64
   "${BB}" mdev -s 2>/dev/null || true
   "${BB}" chmod 0666 /dev/null 2>/dev/null || true
+  "${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
   "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
 }
 
