@@ -4,29 +4,46 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 ASSET_ROOT="${AUZIX_ROOT}/System/Settings/display/assets"
+ASSET_SOURCE_ROOT="${ASSET_ROOT}"
 ASSET_PROGRAM="${AUZIX_ROOT}/Programs/DesktopAssets/auzietek"
 RECEIPT="${AUZIX_ROOT}/System/PackageDB/DesktopAssets-auzietek.auzix.json"
+GLOBAL_E_ROOT="${AUZIX_ROOT}/System/Compatibility/usr/share/enlightenment"
+GLOBAL_THEMES="${GLOBAL_E_ROOT}/themes"
+GLOBAL_BACKGROUNDS="${GLOBAL_E_ROOT}/data/backgrounds"
+STAGED_COPY="$(mktemp -d)"
+
+trap 'rm -rf "${STAGED_COPY}"' EXIT
 
 log() {
   printf '[auzix-desktop-assets] %s\n' "$*" >&2
 }
+
+for command_name in find jq readlink rsync; do
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    printf 'Required command not found: %s\n' "${command_name}" >&2
+    exit 1
+  fi
+done
 
 if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
   printf 'Auzix strict root is missing: %s\n' "${AUZIX_ROOT}" >&2
   exit 1
 fi
 
-if [[ ! -d "${ASSET_ROOT}" ]]; then
+if [[ -L "${ASSET_ROOT}" ]]; then
+  asset_link="$(readlink "${ASSET_ROOT}")"
+  if [[ "${asset_link}" = /* ]]; then
+    ASSET_SOURCE_ROOT="${AUZIX_ROOT}${asset_link}"
+  else
+    ASSET_SOURCE_ROOT="$(dirname "${ASSET_ROOT}")/${asset_link}"
+  fi
+fi
+
+if [[ ! -d "${ASSET_SOURCE_ROOT}" ]]; then
   printf 'No staged display assets found: %s\n' "${ASSET_ROOT}" >&2
   printf 'Run scripts/stage-auzix-enlightenment-assets.sh first.\n' >&2
   exit 1
 fi
-
-rm -rf "${ASSET_PROGRAM}"
-mkdir -p \
-  "${ASSET_PROGRAM}/Resources/display/assets" \
-  "${AUZIX_ROOT}/System/Settings/display" \
-  "${AUZIX_ROOT}/System/PackageDB"
 
 rsync -a \
   --include='*/' \
@@ -34,22 +51,56 @@ rsync -a \
   --include='*.jpg' \
   --include='*.jpeg' \
   --include='*.png' \
+  --include='*.cfg' \
   --exclude='*' \
-  "${ASSET_ROOT}/" "${ASSET_PROGRAM}/Resources/display/assets/"
+  "${ASSET_SOURCE_ROOT}/" "${STAGED_COPY}/"
+
+rm -rf "${ASSET_PROGRAM}"
+mkdir -p \
+  "${ASSET_PROGRAM}/Resources/display/assets" \
+  "${GLOBAL_THEMES}" \
+  "${GLOBAL_BACKGROUNDS}" \
+  "${AUZIX_ROOT}/System/Settings/display" \
+  "${AUZIX_ROOT}/System/PackageDB"
+
+rsync -a "${STAGED_COPY}/" "${ASSET_PROGRAM}/Resources/display/assets/"
 
 rm -rf "${AUZIX_ROOT}/System/Settings/display/assets"
 ln -sfn /Programs/DesktopAssets/auzietek/Resources/display/assets \
   "${AUZIX_ROOT}/System/Settings/display/assets"
 
+for asset in "${ASSET_PROGRAM}"/Resources/display/assets/themes/*.edj; do
+  [[ -f "${asset}" ]] || continue
+  ln -sfn "/Programs/DesktopAssets/auzietek/Resources/display/assets/themes/$(basename "${asset}")" \
+    "${GLOBAL_THEMES}/$(basename "${asset}")"
+done
+for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
+  [[ -f "${asset}" ]] || continue
+  case "${asset}" in
+    *.edj|*.jpg|*.jpeg|*.png|*.JPG|*.JPEG|*.PNG) ;;
+    *) continue ;;
+  esac
+  ln -sfn "/Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/$(basename "${asset}")" \
+    "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
+done
+
 asset_count="$(find "${ASSET_PROGRAM}/Resources/display/assets" -type f | wc -l | tr -d ' ')"
 asset_size="$(du -sb "${ASSET_PROGRAM}/Resources/display/assets" | awk '{print $1}')"
+exports_json="$(
+  {
+    find "${GLOBAL_THEMES}" -maxdepth 1 -type l -printf '/%P\n' |
+      sed "s#^/#/System/Compatibility/usr/share/enlightenment/themes/#"
+    find "${GLOBAL_BACKGROUNDS}" -maxdepth 1 -type l -printf '/%P\n' |
+      sed "s#^/#/System/Compatibility/usr/share/enlightenment/data/backgrounds/#"
+  } | sort -u | jq -R . | jq -s .
+)"
 
 cat > "${ASSET_PROGRAM}/Resources/display/assets/README.auzix-assets.txt" <<EOF
 AuziTek desktop asset pack.
 
-This package carries selected Enlightenment backgrounds, themes, and display
-assets. Themes are intentionally staged but not force-enabled because E themes
-are tightly coupled to the packaged EFL/Enlightenment generation.
+This package carries selected Enlightenment backgrounds and themes. Assets are
+exported into E's global data directories so every user inherits the catalog.
+No theme is force-selected because themes remain coupled to the EFL/E release.
 EOF
 
 cat > "${RECEIPT}" <<EOF
@@ -62,11 +113,15 @@ cat > "${RECEIPT}" <<EOF
   "paths": {
     "assets": "/Programs/DesktopAssets/auzietek/Resources/display/assets"
   },
+  "global_exports": {
+    "themes": "/System/Compatibility/usr/share/enlightenment/themes",
+    "backgrounds": "/System/Compatibility/usr/share/enlightenment/data/backgrounds"
+  },
   "settings": [],
   "asset_count": ${asset_count},
   "asset_size": ${asset_size},
-  "compatibility_exports": [],
-  "notes": "Optional personal desktop asset pack. It is not part of the default reproducible build."
+  "compatibility_exports": ${exports_json},
+  "notes": "Optional personal desktop asset pack exported through Enlightenment's global theme and background directories. It is not part of the default reproducible build."
 }
 EOF
 

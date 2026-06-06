@@ -284,13 +284,21 @@ find_live_assets() {
 prepare_enlightenment_background_path() {
   asset_dir="${1:-}"
   e_background_dir=/System/Compatibility/usr/share/enlightenment/data/backgrounds
+  e_theme_dir=/System/Compatibility/usr/share/enlightenment/themes
 
-  "${BB}" mkdir -p "${e_background_dir}" 2>/dev/null || true
+  "${BB}" mkdir -p "${e_background_dir}" "${e_theme_dir}" 2>/dev/null || true
   [ -n "${asset_dir}" ] || return 0
-  [ -d "${asset_dir}/backgrounds" ] || return 0
-
-  if ! is_mounted "${e_background_dir}"; then
-    "${BB}" mount --bind "${asset_dir}/backgrounds" "${e_background_dir}" 2>/dev/null || true
+  if [ -d "${asset_dir}/backgrounds" ]; then
+    for item in "${asset_dir}"/backgrounds/*; do
+      [ -f "${item}" ] || continue
+      "${BB}" ln -sfn "${item}" "${e_background_dir}/$("${BB}" basename "${item}")" 2>/dev/null || true
+    done
+  fi
+  if [ -d "${asset_dir}/themes" ]; then
+    for item in "${asset_dir}"/themes/*.edj; do
+      [ -f "${item}" ] || continue
+      "${BB}" ln -sfn "${item}" "${e_theme_dir}/$("${BB}" basename "${item}")" 2>/dev/null || true
+    done
   fi
 }
 
@@ -314,28 +322,8 @@ stage_enlightenment_user_assets() {
   prepare_enlightenment_background_path "${asset_dir}"
 
   "${BB}" mkdir -p \
-    /Users/auzix/.e/e/themes \
-    /Users/auzix/.e/e/backgrounds \
     /Users/auzix/.e/e/config 2>/dev/null || true
 
-  if [ -d "${asset_dir}/themes" ] && [ "${AUZIX_EXPOSE_E_THEMES:-0}" = "1" ]; then
-    "${BB}" mkdir -p /Users/auzix/.e/e/themes-available 2>/dev/null || true
-    for item in "${asset_dir}"/themes/*.edj; do
-      [ -e "${item}" ] || continue
-      base="$("${BB}" basename "${item}")"
-      if [ "${AUZIX_STAGE_E_THEMES:-0}" = "1" ]; then
-        "${BB}" cp -f "${item}" "/Users/auzix/.e/e/themes/${base}" 2>/dev/null || true
-      else
-        "${BB}" cp -f "${item}" "/Users/auzix/.e/e/themes-available/${base}" 2>/dev/null || true
-      fi
-    done
-  fi
-  if [ -d "${asset_dir}/backgrounds" ]; then
-    for item in "${asset_dir}"/backgrounds/*; do
-      [ -f "${item}" ] || continue
-      "${BB}" ln -sfn "${item}" "/Users/auzix/.e/e/backgrounds/$("${BB}" basename "${item}")" 2>/dev/null || true
-    done
-  fi
   if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
     "${BB}" cp -f "${asset_dir}/config/profile.cfg" /Users/auzix/.e/e/config/profile.cfg 2>/dev/null || true
   fi
@@ -764,13 +752,21 @@ find_live_assets() {
 prepare_enlightenment_background_path() {
   asset_dir="${1:-}"
   e_background_dir=/System/Compatibility/usr/share/enlightenment/data/backgrounds
+  e_theme_dir=/System/Compatibility/usr/share/enlightenment/themes
 
-  "${BB}" mkdir -p "${e_background_dir}" 2>/dev/null || true
+  "${BB}" mkdir -p "${e_background_dir}" "${e_theme_dir}" 2>/dev/null || true
   [ -n "${asset_dir}" ] || return 0
-  [ -d "${asset_dir}/backgrounds" ] || return 0
-
-  if ! is_mounted "${e_background_dir}"; then
-    "${BB}" mount --bind "${asset_dir}/backgrounds" "${e_background_dir}" 2>/dev/null || true
+  if [ -d "${asset_dir}/backgrounds" ]; then
+    for item in "${asset_dir}"/backgrounds/*; do
+      [ -f "${item}" ] || continue
+      "${BB}" ln -sfn "${item}" "${e_background_dir}/$("${BB}" basename "${item}")" 2>/dev/null || true
+    done
+  fi
+  if [ -d "${asset_dir}/themes" ]; then
+    for item in "${asset_dir}"/themes/*.edj; do
+      [ -f "${item}" ] || continue
+      "${BB}" ln -sfn "${item}" "${e_theme_dir}/$("${BB}" basename "${item}")" 2>/dev/null || true
+    done
   fi
 }
 
@@ -797,24 +793,7 @@ fi
 [ -n "${asset_dir}" ] || asset_dir=/System/Settings/display/assets
 prepare_enlightenment_background_path "${asset_dir}"
 if [ -d "${asset_dir}" ]; then
-  "${BB}" mkdir -p /Users/auzix/.e/e/themes /Users/auzix/.e/e/themes-available /Users/auzix/.e/e/backgrounds /Users/auzix/.e/e/config 2>/dev/null || true
-  if [ -d "${asset_dir}/themes" ] && [ "${AUZIX_EXPOSE_E_THEMES:-0}" = "1" ]; then
-    for item in "${asset_dir}"/themes/*.edj; do
-      [ -e "${item}" ] || continue
-      base="$("${BB}" basename "${item}")"
-      if [ "${AUZIX_STAGE_E_THEMES:-0}" = "1" ]; then
-        "${BB}" cp -f "${item}" "/Users/auzix/.e/e/themes/${base}" 2>/dev/null || true
-      else
-        "${BB}" cp -f "${item}" "/Users/auzix/.e/e/themes-available/${base}" 2>/dev/null || true
-      fi
-    done
-  fi
-  if [ -d "${asset_dir}/backgrounds" ]; then
-    for item in "${asset_dir}"/backgrounds/*; do
-      [ -f "${item}" ] || continue
-      "${BB}" ln -sfn "${item}" "/Users/auzix/.e/e/backgrounds/$("${BB}" basename "${item}")" 2>/dev/null || true
-    done
-  fi
+  "${BB}" mkdir -p /Users/auzix/.e/e/config 2>/dev/null || true
   if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
     "${BB}" cp -f "${asset_dir}/config/profile.cfg" /Users/auzix/.e/e/config/profile.cfg 2>/dev/null || true
   fi
@@ -875,7 +854,6 @@ USER_NAME="${2:-auzix}"
   "${HOME_DIR}/.config" \
   "${HOME_DIR}/.local/share" \
   "${HOME_DIR}/.e/e/themes" \
-  "${HOME_DIR}/.e/e/themes-available" \
   "${HOME_DIR}/.e/e/backgrounds" \
   "${HOME_DIR}/.e/e/config" \
   "${HOME_DIR}/.elementary/themes" \
@@ -2473,8 +2451,8 @@ Target graphical stage:
 - Enlightenment 0.27.1
 - Wayland compositor path preferred when seat/input/DRM support exists
 - Xorg fallback kept for early VM testing
-- Enlightenment themes are version-bound; keep AUZIX_EXPOSE_E_THEMES=0 unless
-  the packaged Enlightenment/EFL generation matches the theme bundle
+- DesktopAssets exports themes and backgrounds through E's global data paths
+- Theme selection remains per-user because themes are EFL/E-version-bound
 
 Start manually with:
   /System/Tools/start-e

@@ -31,26 +31,11 @@ require_cmd rsync
 
 mkdir -p \
   "${TARGET_HOME}/.e/e" \
-  "${TARGET_HOME}/.elementary" \
-  "${TARGET_HOME}/Pictures/Wallpapers" \
   "${AUZIX_ROOT}/System/Settings/display/defaults"
 
 copy_filtered_tree "${SOURCE_HOME}/.e/e/config" "${TARGET_HOME}/.e/e/config" \
   --include='*/' \
   --include='*.cfg' \
-  --exclude='*'
-
-copy_filtered_tree "${SOURCE_HOME}/.e/e/backgrounds" "${TARGET_HOME}/.e/e/backgrounds" \
-  --include='*/' \
-  --include='*.edj' \
-  --include='*.jpg' \
-  --include='*.jpeg' \
-  --include='*.png' \
-  --exclude='*'
-
-copy_filtered_tree "${SOURCE_HOME}/.e/e/themes" "${TARGET_HOME}/.e/e/themes" \
-  --include='*/' \
-  --include='*.edj' \
   --exclude='*'
 
 copy_filtered_tree "${SOURCE_HOME}/.e/e/applications" "${TARGET_HOME}/.e/e/applications" \
@@ -59,21 +44,9 @@ copy_filtered_tree "${SOURCE_HOME}/.e/e/applications" "${TARGET_HOME}/.e/e/appli
   --include='*.order' \
   --exclude='*'
 
-copy_filtered_tree "${SOURCE_HOME}/.elementary/themes" "${TARGET_HOME}/.elementary/themes" \
-  --include='*/' \
-  --include='*.edj' \
-  --exclude='*'
-
-copy_filtered_tree "${SOURCE_HOME}/Pictures/Wallpapers" "${TARGET_HOME}/Pictures/Wallpapers" \
-  --include='*/' \
-  --include='*.jpg' \
-  --include='*.jpeg' \
-  --include='*.png' \
-  --exclude='*'
-
-find "${TARGET_HOME}/.e" "${TARGET_HOME}/.elementary" "${TARGET_HOME}/Pictures/Wallpapers" \
+find "${TARGET_HOME}/.e" \
   -type d -exec chmod 0755 {} + 2>/dev/null || true
-find "${TARGET_HOME}/.e" "${TARGET_HOME}/.elementary" "${TARGET_HOME}/Pictures/Wallpapers" \
+find "${TARGET_HOME}/.e" \
   -type f -exec chmod 0644 {} + 2>/dev/null || true
 
 cat > "${AUZIX_ROOT}/System/Settings/display/defaults/user-defaults-note.txt" <<TXT
@@ -83,9 +56,9 @@ User desktop defaults staged from:
 Target home:
   /Users/root
 
-Only selected Enlightenment config, themes, backgrounds, application launchers,
-and wallpaper image formats are copied. Caches, thumbnails, screenshots, logs,
-and arbitrary local state are intentionally omitted.
+Only selected Enlightenment config and application launchers are copied.
+Themes and backgrounds belong to the global DesktopAssets package. Caches,
+thumbnails, screenshots, logs, and arbitrary local state are omitted.
 TXT
 
 log "user defaults staged into ${TARGET_HOME}"

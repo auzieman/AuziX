@@ -189,10 +189,18 @@ make auzix-strict-e-assets
 The files land under:
 
 ```text
-/System/Settings/display/assets
+/Programs/DesktopAssets/auzietek/Resources/display/assets
 ```
 
-They are not enabled automatically; the first goal is a stable E27 session.
+The package exports per-file links into E's inherited global catalogs:
+
+```text
+/System/Compatibility/usr/share/enlightenment/themes
+/System/Compatibility/usr/share/enlightenment/data/backgrounds
+```
+
+Theme selection and desktop configuration remain per-user. The ISO builder
+does not duplicate packaged assets under `live/assets`.
 
 ## COSMIC Later
 

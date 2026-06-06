@@ -7,6 +7,8 @@ SOURCE_HOME="${AUZIX_ASSET_HOME:-${HOME}}"
 SOURCE_EXTRA_ROOT="${AUZIX_ASSET_EXTRA_ROOT:-}"
 SOURCE_SSH="${AUZIX_ASSET_SSH:-}"
 SOURCE_RSYNC_SSH="${AUZIX_ASSET_RSYNC_SSH:-ssh}"
+SOURCE_THEME_BUILD="${AUZIX_ASSET_THEME_BUILD:-${SOURCE_HOME}/Enlightenment-Themes/artifacts/bin-e}"
+SOURCE_BACKGROUND_BUILD="${AUZIX_ASSET_BACKGROUND_BUILD:-${ROOT_DIR}/../wallpaper}"
 DISPLAY_ROOT="${AUZIX_ROOT}/System/Settings/display"
 ASSET_ROOT="${DISPLAY_ROOT}/assets"
 
@@ -39,6 +41,30 @@ copy_tree_if_present() {
   fi
 }
 
+copy_flat_local_assets() {
+  local source="$1"
+  local target="$2"
+  [[ -d "${source}" ]] || return 0
+  mkdir -p "${target}"
+  find "${source}" -maxdepth 1 -type f \
+    \( -name '*.edj' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) \
+    -exec cp -f {} "${target}/" \;
+  log "staged flat assets ${source} -> ${target}"
+}
+
+copy_flat_remote_assets() {
+  local source="$1"
+  local target="$2"
+  [[ -n "${SOURCE_SSH}" ]] || return 0
+  mkdir -p "${target}"
+  if ${SOURCE_RSYNC_SSH} "${SOURCE_SSH}" "test -d '${source}'" 2>/dev/null; then
+    ${SOURCE_RSYNC_SSH} "${SOURCE_SSH}" \
+      "cd '${source}' && find . -maxdepth 1 -type f \\( -name '*.edj' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \\) -print0 | tar --null -T - -cf -" \
+      2>/dev/null | tar -C "${target}" -xf -
+    log "staged flat assets ${SOURCE_SSH}:${source} -> ${target}"
+  fi
+}
+
 if ! command -v rsync >/dev/null 2>&1; then
   printf 'Required command not found: rsync\n' >&2
   exit 1
@@ -53,6 +79,13 @@ copy_tree_if_present "${SOURCE_HOME}/Pictures/Wallpapers" "${ASSET_ROOT}/backgro
 if [[ -n "${SOURCE_EXTRA_ROOT}" ]]; then
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/backgrounds" "${ASSET_ROOT}/backgrounds"
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/themes" "${ASSET_ROOT}/themes"
+fi
+copy_flat_local_assets "${SOURCE_BACKGROUND_BUILD}" "${ASSET_ROOT}/backgrounds"
+copy_flat_local_assets "${SOURCE_BACKGROUND_BUILD}/themes" "${ASSET_ROOT}/themes"
+if [[ -n "${SOURCE_SSH}" ]]; then
+  copy_flat_remote_assets "${SOURCE_THEME_BUILD}" "${ASSET_ROOT}/themes"
+else
+  copy_flat_local_assets "${SOURCE_THEME_BUILD}" "${ASSET_ROOT}/themes"
 fi
 
 if [[ -n "${SOURCE_SSH}" ]]; then
@@ -80,8 +113,8 @@ cat > "${DISPLAY_ROOT}/asset-note.txt" <<TXT
 Enlightenment assets staged from:
   ${SOURCE_SSH:+${SOURCE_SSH}:}${SOURCE_HOME}
 
-These are not enabled automatically. Use them after EFL/Enlightenment are
-installed and the first /System/Tools/start-e session is stable.
+Themes and backgrounds are exported through Enlightenment's global data paths
+by the DesktopAssets package. User profiles inherit them without private copies.
 TXT
 
 log "asset staging complete: ${ASSET_ROOT}"

@@ -482,7 +482,10 @@ write_init "${WORK_DIR}/initramfs"
 )
 
 cp "${KERNEL_IMAGE}" "${WORK_DIR}/iso/boot/vmlinuz"
-if [[ "${INCLUDE_ISO_ASSETS}" == "1" && -d "${ROOT_SOURCE}/System/Settings/display/assets" ]]; then
+PACKAGED_ASSET_ROOT="${ROOT_SOURCE}/Programs/DesktopAssets/auzietek/Resources/display/assets"
+if [[ "${INCLUDE_ISO_ASSETS}" == "1" && -d "${PACKAGED_ASSET_ROOT}" ]]; then
+  log "DesktopAssets is already present under /Programs; skipping duplicate live/assets payload"
+elif [[ "${INCLUDE_ISO_ASSETS}" == "1" && -d "${ROOT_SOURCE}/System/Settings/display/assets" ]]; then
   mkdir -p "${WORK_DIR}/iso/live/assets"
   printf 'auzix live media\n' > "${WORK_DIR}/iso/live/AUZIXLIVE"
   cp -a "${ROOT_SOURCE}/System/Settings/display/assets/." "${WORK_DIR}/iso/live/assets/"
