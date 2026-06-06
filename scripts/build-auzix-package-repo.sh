@@ -132,6 +132,9 @@ package_receipt() {
       package: $package,
       size: $size,
       sha256: $sha256,
+      depends: ($receipt_json[0].depends // []),
+      description: ($receipt_json[0].description // $receipt_json[0].notes // ""),
+      migration_stage: ($receipt_json[0].migration_stage // null),
       receipt: $receipt_path,
       prefix: ($receipt_json[0].prefix // $receipt_json[0].paths.prefix // null),
       commands: ($receipt_json[0].commands // []),
@@ -163,7 +166,7 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
   done >"${entries_tmp}"
 
 jq -s \
-  --arg format "auzix-repo-v0" \
+  --arg format "auzix-repo-v1" \
   --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg root_contract "strict-root-prototype" \
   '{
@@ -174,7 +177,7 @@ jq -s \
   }' "${entries_tmp}" >"${INDEX_PATH}"
 
 cp -f "${INDEX_PATH}" "${MANIFEST_DIR}/repo-index.json"
-jq '{format, created, root_contract, installed: [.packages[] | {name, version, kind, prefix, commands, service}]}' \
+jq '{format: "auzix-installed-v1", installed: []}' \
   "${INDEX_PATH}" >"${MANIFEST_DIR}/installed.json"
 
 cat > "${MANIFEST_DIR}/first-apps.txt" <<'TXT'

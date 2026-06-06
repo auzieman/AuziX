@@ -103,6 +103,11 @@ BKC             orchestration and remote execution
 Current working decision:
 
 - keep `/System/PackageDB/*.auzix.json` as the immediate package database
+- keep repository and local transaction caches as JSON while the schema is
+  still changing; move to SQLite only when package volume or query load makes
+  indexed access worthwhile
+- use `/System/Tools/auzix-pkg` for repository refresh, inspection, dependency
+  installation, checksum verification, and installed-state updates
 - treat `.apk` as the first repository/index/install transport to prototype
 - do not adopt Anaconda as the installer base; it is valuable as a reference for
   partitioning and guided install flow, but too large and distro-policy-heavy for

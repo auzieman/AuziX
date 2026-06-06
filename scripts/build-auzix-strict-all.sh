@@ -16,6 +16,7 @@ run_step make auzix-strict-dynprobe
 run_step make auzix-strict-busybox
 run_step make auzix-strict-access
 run_step make auzix-strict-iputils
+run_step make auzix-strict-package-tools
 run_step make auzix-strict-sudo
 run_step make auzix-strict-dbus
 run_step make auzix-strict-udev

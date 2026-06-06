@@ -165,11 +165,8 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Midori-${MIDORI_VERSION}.auzix.json" <<EOF
   "prefix": "/Programs/Midori/${MIDORI_VERSION}",
   "depends": [
     "Curl",
-    "NetSurf",
     "DBus",
-    "Xorg",
-    "CA-Certificates",
-    "GlibcGconv"
+    "Xorg"
   ],
   "paths": {
     "current": "/Programs/Midori/current"

@@ -110,6 +110,9 @@ cat > "${RECEIPT}" <<EOF
   "kind": "assets",
   "migration_stage": "stage-1-optional-personal-spin",
   "prefix": "/Programs/DesktopAssets/auzietek",
+  "depends": [
+    "Enlightenment"
+  ],
   "paths": {
     "assets": "/Programs/DesktopAssets/auzietek/Resources/display/assets"
   },
