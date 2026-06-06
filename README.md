@@ -16,6 +16,7 @@ The current root contract is:
 /Volumes
 /Network
 ```
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/541bc7de-3168-45fb-8abc-0d16c450bee3" />
 
 Compatibility paths live under `/System/Compatibility` and are treated as
 bridges, not as the distro identity.
