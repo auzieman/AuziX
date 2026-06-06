@@ -133,6 +133,10 @@ export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/share:/usr/shar
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME:-/Users/auzix}/.config}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME:-/Users/auzix}/.cache}"
 export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
 export GDK_BACKEND="${GDK_BACKEND:-x11}"
 export LD_LIBRARY_PATH="/Programs/NetSurf/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
@@ -173,6 +177,12 @@ fi
 copy_dir_if_present /etc/ssl/certs "${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs"
 copy_dir_if_present /usr/share/ca-certificates "${RUNTIME_USR}/share/ca-certificates"
 copy_dir_if_present /usr/share/fonts/truetype/dejavu "${RUNTIME_USR}/share/fonts/truetype/dejavu"
+copy_dir_if_present /usr/lib/x86_64-linux-gnu/gconv "${RUNTIME_USR}/lib/x86_64-linux-gnu/gconv"
+copy_dir_if_present /usr/lib/x86_64-linux-gnu/gconv "${RUNTIME_LIB}/gconv"
+if [[ -x /usr/bin/iconv ]]; then
+  install -D -m 0755 /usr/bin/iconv "${RUNTIME_USR}/bin/iconv"
+  copy_runtime_deps /usr/bin/iconv
+fi
 
 find "${NETSURF_PROGRAM}" "${RUNTIME_USR}/share/netsurf" -type f 2>/dev/null |
 while IFS= read -r file_path; do

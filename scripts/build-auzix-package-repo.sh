@@ -180,6 +180,7 @@ jq '{format, created, root_contract, installed: [.packages[] | {name, version, k
 cat > "${MANIFEST_DIR}/first-apps.txt" <<'TXT'
 Terminology
 XTerm
+Curl
 NetSurf
 LightDM
 Enlightenment
@@ -201,6 +202,7 @@ cat > "${STACK_DIR}/stack.auzix.json" <<'JSON'
     "/Programs/LightDM/host",
     "/Programs/Terminology/host",
     "/Programs/XTerm/379-1",
+    "/Programs/Curl/current",
     "/Programs/NetSurf/current",
     "/Programs/OpenSSH/host"
   ],
@@ -209,7 +211,7 @@ cat > "${STACK_DIR}/stack.auzix.json" <<'JSON'
     "state": "/System/State/display",
     "logs": "/System/Logs/display"
   },
-  "notes": "NetSurf is the first small browser proof. Heavier Firefox/Chromium-style browsers remain optional full-web packages."
+  "notes": "curl validates HTTPS/CA/iconv plumbing before browser work. NetSurf is the first small browser proof. Heavier Firefox/Chromium-style browsers remain optional full-web packages."
 }
 JSON
 

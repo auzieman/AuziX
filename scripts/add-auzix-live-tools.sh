@@ -85,6 +85,15 @@ mount_runtime() {
   "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /var/cache /var/lib /var/log /Work/Temp /System/State /System/Logs /Network/DNS
   "${BB}" touch /var/log/lastlog 2>/dev/null || true
   "${BB}" ln -sfn /run/resolv.conf /System/Settings/resolv.conf 2>/dev/null || true
+  if [ -d /System/Compatibility/etc/ssl ]; then
+    "${BB}" ln -sfn /System/Compatibility/etc/ssl /System/Settings/ssl 2>/dev/null || true
+    "${BB}" mkdir -p /System/Compatibility/usr/lib 2>/dev/null || true
+    "${BB}" ln -sfn /System/Compatibility/etc/ssl /System/Compatibility/usr/lib/ssl 2>/dev/null || true
+    if [ -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt ]; then
+      "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt /System/Compatibility/etc/ssl/cert.pem 2>/dev/null || true
+      "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt /System/Compatibility/usr/lib/ssl/cert.pem 2>/dev/null || true
+    fi
+  fi
   if [ "$("${BB}" hostname 2>/dev/null || echo "(none)")" = "(none)" ]; then
     "${BB}" hostname auzix-live 2>/dev/null || true
   fi
@@ -1578,6 +1587,11 @@ export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export ELM_ACCEL="${ELM_ACCEL:-none}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
 export E_START="${E_START:-1}"
 export E_MODULE_TUNING="${E_MODULE_TUNING:-vm-safe}"
 export AUZIX_MASK_GL_EVAS="${AUZIX_MASK_GL_EVAS:-1}"
@@ -1789,6 +1803,11 @@ export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export ELM_ACCEL="${ELM_ACCEL:-none}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
 export LANG="${LANG:-C}"
 export LC_ALL="${LC_ALL:-C}"
 "${BB}" mkdir -p /System/Logs/display /System/State/display /Work/Temp /dev/shm 2>/dev/null || true
