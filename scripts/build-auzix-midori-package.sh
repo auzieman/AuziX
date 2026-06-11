@@ -128,6 +128,12 @@ export LD_LIBRARY_PATH="/Programs/Midori/current/Resources/midori:/Programs/Mido
 
 mkdir -p "${XDG_RUNTIME_DIR}" "${XDG_CACHE_HOME}" "${XDG_CONFIG_HOME}" "${XDG_DATA_HOME}" "${HOME}/.midori" 2>/dev/null || true
 chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
+if [ ! -w "${XDG_CACHE_HOME}" ] || [ ! -w "${XDG_CONFIG_HOME}" ] ||
+   [ ! -w "${XDG_DATA_HOME}" ] || [ ! -w "${HOME}/.midori" ]; then
+  echo "Midori profile directories are not writable by $(id -un 2>/dev/null || echo current-user)." >&2
+  echo "Restart the session or run /System/Tools/repair-e-state as root, then start Midori again." >&2
+  exit 1
+fi
 
 cd /Programs/Midori/current/Resources/midori
 exec ./midori "$@"

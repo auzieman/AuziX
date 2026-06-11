@@ -176,12 +176,15 @@ repair_live_user_home() {
     /Users/auzix/.elementary/config \
     /Users/auzix/.elementary/config/standard 2>/dev/null || true
   "${BB}" chmod 0755 /Users/auzix 2>/dev/null || true
-  "${BB}" chmod u+rwx \
+  "${BB}" chown -R 1000:1000 \
     /Users/auzix/.cache \
-    /Users/auzix/.cache/efreet \
     /Users/auzix/.config \
-    /Users/auzix/.local \
-    /Users/auzix/.local/share \
+    /Users/auzix/.local 2>/dev/null || true
+  "${BB}" chmod -R u+rwX \
+    /Users/auzix/.cache \
+    /Users/auzix/.config \
+    /Users/auzix/.local 2>/dev/null || true
+  "${BB}" chmod u+rwx \
     /Users/auzix/.e \
     /Users/auzix/.e/e \
     /Users/auzix/.elementary \
@@ -386,18 +389,7 @@ fix_session_permissions() {
 	    eet -i /Users/auzix/.e/e/config/profile.cfg config /Users/auzix/.cache/auzix-e-profile 0 2>/dev/null || true
 	    "${BB}" rm -f /Users/auzix/.cache/auzix-e-profile 2>/dev/null || true
 	  fi
-  "${BB}" chown 1000:1000 \
-    /Users/auzix \
-    /Users/auzix/.cache \
-    /Users/auzix/.cache/efreet \
-    /Users/auzix/.config \
-    /Users/auzix/.local \
-    /Users/auzix/.local/share \
-    /Users/auzix/.e \
-    /Users/auzix/.e/e \
-    /Users/auzix/.elementary \
-    /Users/auzix/.elementary/config \
-    /Users/auzix/.elementary/config/standard 2>/dev/null || true
+  repair_live_user_home
   stage_enlightenment_user_assets
   "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
   "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true

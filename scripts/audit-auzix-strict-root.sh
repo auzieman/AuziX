@@ -201,6 +201,61 @@ else
 fi
 
 report ""
+report "Runtime network and browser contract"
+start_sequence="${AUZIX_ROOT}/System/Boot/StartSequence"
+ca_bundle="${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt"
+
+if [[ -x "${start_sequence}" ]]; then
+  pass "/System/Boot/StartSequence is executable"
+else
+  fail "/System/Boot/StartSequence is missing or not executable"
+fi
+
+runtime_contract_patterns=(
+  'ping_group_range'
+  'chmod 0666 /dev/random /dev/urandom'
+  'ln -sfn /run/resolv.conf /System/Settings/resolv.conf'
+  'udhcpc -i "${iface}"'
+  'chown -R 1000:1000'
+  '/Users/auzix/.cache'
+  '/Users/auzix/.config'
+  '/Users/auzix/.local'
+)
+for pattern in "${runtime_contract_patterns[@]}"; do
+  if [[ -f "${start_sequence}" ]] && grep -Fq "${pattern}" "${start_sequence}"; then
+    pass "startup contract contains ${pattern}"
+  else
+    fail "startup contract is missing ${pattern}"
+  fi
+done
+
+if [[ -s "${ca_bundle}" ]]; then
+  pass "browser CA bundle is staged"
+else
+  fail "browser CA bundle is missing or empty"
+fi
+
+midori_wrapper="${AUZIX_ROOT}/Programs/Midori/current/Commands/midori"
+if [[ -e "${AUZIX_ROOT}/Programs/Midori/current" || -L "${AUZIX_ROOT}/Programs/Midori/current" ]]; then
+  midori_wrapper="${AUZIX_ROOT}/Programs/Midori/$(basename "$(readlink "${AUZIX_ROOT}/Programs/Midori/current")")/Commands/midori"
+  midori_contract_patterns=(
+    'SSL_CERT_FILE='
+    'GCONV_PATH='
+    'Resources/midori:/Programs/Midori/current/Libraries'
+    'Midori profile directories are not writable'
+  )
+  for pattern in "${midori_contract_patterns[@]}"; do
+    if [[ -f "${midori_wrapper}" ]] && grep -Fq "${pattern}" "${midori_wrapper}"; then
+      pass "Midori runtime contract contains ${pattern}"
+    else
+      fail "Midori runtime contract is missing ${pattern}"
+    fi
+  done
+else
+  report "INFO: Midori is not staged; Midori-specific checks skipped"
+fi
+
+report ""
 report "Executable dependency scan"
 mapfile -t executables < <(find "${AUZIX_ROOT}/Programs" "${AUZIX_ROOT}/System/Tools" -type f -perm /111 2>/dev/null | sort)
 if [[ ${#executables[@]} -eq 0 ]]; then

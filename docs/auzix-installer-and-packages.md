@@ -104,6 +104,16 @@ Current working decision:
   the live image
 - keep the live ISO installer shell/Lua path small until package install,
   desktop launch, and persistence are stable
+- keep one JSON install-plan contract behind every front end: shell remains the
+  execution layer, Lua validates and sequences the plan, and `dialog` or
+  `zenity` can collect answers without duplicating partition/install logic
+- start with a terminal question flow as the fallback and a GTK question flow
+  when the graphical session is available; an EFL-native installer can replace
+  the GTK presentation later while consuming the same plan
+- BKC follow-up: run the same install-plan validation and image contract checks
+  as pipeline steps, then evaluate a bounded build/test/commit loop. Keep commit
+  creation gated on a clean diff and successful checks; pushing should remain an
+  explicit policy decision rather than an unconditional hook.
 
 The next package milestone should be an Auzix package wrapper, not a full package
 manager. A useful package artifact has:
