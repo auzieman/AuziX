@@ -22,22 +22,45 @@ cargo
 
 # Editors and terminals
 alacritty
+atom-ng
 geany
 kitty
+l3afpad
 micro
 nano
 vim-gtk3
+weechat
 xfce4-terminal
 
 # Desktop applications
+abiword
+audacious
+calligra
+calligraplan
+calligrasheets
+calligrastage
+calligrawords
+claws-mail
+clementine
+dino-im
+ephoto
 firefox-esr
+gajim
+galculator
 gimp
+gnumeric
+hexchat
+imagemagick
 inkscape
 libreoffice
+librewolf
 mpv
 pcmanfm
+strawberry
 thunar
 vlc
+zathura
+zathura-pdf-poppler
 
 # Network and diagnostics
 curl
