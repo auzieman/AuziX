@@ -1,0 +1,84 @@
+{
+  "format": "auzix-package-build-queue-v1",
+  "batches": [
+    {
+      "id": "installer-ui-core",
+      "purpose": "Build the deterministic installer engine, TUI fallback, and existing graphical session substrate.",
+      "packages": [
+        {
+          "id": "AuzixPackageTools",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-package-tools-package.sh",
+          "depends": [],
+          "notes": "Provides jq and the repository client used by every installer frontend."
+        },
+        {
+          "id": "AuzixInstaller",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-installer-package.sh",
+          "depends": ["AuzixPackageTools"],
+          "notes": "Packages Lua, dialog, the JSON plan engine, and graphical frontend dispatch."
+        },
+        {
+          "id": "Xorg",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-host-xorg-package.sh",
+          "depends": [],
+          "notes": "Current VM-safe display path for the installer and Enlightenment session."
+        },
+        {
+          "id": "Enlightenment",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-host-enlightenment-package.sh",
+          "depends": ["Xorg"],
+          "notes": "Carries the existing EFL and Enlightenment runtime proof packages."
+        },
+        {
+          "id": "Terminology",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-host-terminology-package.sh",
+          "depends": ["Enlightenment"],
+          "notes": "Provides an in-session recovery shell while the graphical installer is young."
+        },
+        {
+          "id": "LightDM",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-lightdm-package.sh",
+          "depends": ["Enlightenment", "Xorg"],
+          "notes": "Boots directly into the graphical installer-capable desktop."
+        }
+      ]
+    },
+    {
+      "id": "installer-ui-next",
+      "purpose": "Backlog for native graphical frontends and build-only dependencies.",
+      "packages": [
+        {"id": "GCC", "tier": "build", "state": "planned", "depends": [], "notes": "Native compiler package."},
+        {"id": "Binutils", "tier": "build", "state": "planned", "depends": [], "notes": "ELF and link tools."},
+        {"id": "Make", "tier": "build", "state": "planned", "depends": [], "notes": "Small build orchestrator."},
+        {"id": "PkgConfig", "tier": "build", "state": "planned", "depends": [], "notes": "Discovers EFL and GTK libraries."},
+        {"id": "Gtk3Runtime", "tier": "frontend", "state": "planned", "depends": [], "notes": "GTK fallback runtime."},
+        {
+          "id": "AuzixInstallerGtk",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["AuzixInstaller", "Gtk3Runtime"],
+          "notes": "GTK proof consuming questions.json and emitting the guarded plan."
+        },
+        {
+          "id": "AuzixInstallerEfl",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["AuzixInstaller", "Enlightenment"],
+          "notes": "Preferred native Enlightenment frontend after the GTK protocol proof."
+        }
+      ]
+    }
+  ]
+}

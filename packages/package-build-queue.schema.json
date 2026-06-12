@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/package-build-queue.json",
+  "title": "AuziX package build queue",
+  "type": "object",
+  "required": ["format", "batches"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "auzix-package-build-queue-v1"},
+    "batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "purpose", "packages"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "purpose": {"type": "string", "minLength": 1},
+          "packages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "tier", "state"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"},
+                "tier": {"enum": ["runtime", "build", "frontend"]},
+                "state": {"enum": ["ready", "planned"]},
+                "script": {
+                  "type": "string",
+                  "pattern": "^scripts/build-auzix-[a-z0-9-]+-package\\.sh$"
+                },
+                "depends": {"type": "array", "items": {"type": "string"}},
+                "notes": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -9,6 +9,12 @@ compose-run:
 auzix-installer-builder:
 	docker compose --profile installer build installer-builder
 
+auzix-package-bot-test:
+	./scripts/test-auzix-package-bot.sh
+
+auzix-package-bot-installer-ui:
+	./scripts/run-auzix-package-bot.sh packages/installer-ui.queue.json installer-ui-core
+
 kustomize-base:
 	kubectl apply -k k8s/base
 

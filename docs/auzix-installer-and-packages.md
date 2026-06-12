@@ -145,6 +145,24 @@ and the installer tests. This avoids producing AuziX runtime packages from the
 Fedora controller host while keeping the installer lane substantially lighter
 than the full image builder.
 
+## Package Bot Queue
+
+The first installer package backlog is stored in
+`packages/installer-ui.queue.json`. The `installer-ui-core` batch is runnable
+and contains package scripts that already exist. `installer-ui-next` records
+the compiler, toolkit, and native frontend packages without presenting planned
+work as completed packages.
+
+```sh
+make auzix-package-bot-test
+make auzix-package-bot-installer-ui
+```
+
+The runner accepts only `scripts/build-auzix-*-package.sh` entries, executes
+them sequentially, stops after a failure, and writes
+`out/package-bot/installer-ui-core.report.json`. BKC runs this batch on the
+bounded slow queue.
+
 The next package milestone should be an Auzix package wrapper, not a full package
 manager. A useful package artifact has:
 
