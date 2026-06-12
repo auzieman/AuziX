@@ -153,6 +153,16 @@ and contains package scripts that already exist. `installer-ui-next` records
 the compiler, toolkit, and native frontend packages without presenting planned
 work as completed packages.
 
+Source inputs and receipt rules are stored separately in
+`packages/installer-ui.sources.json`. This keeps the queue focused on ordering
+while the source catalog records Debian packages, local or upstream sources,
+the allowlisted builder, prerequisites, and the expected AuziX receipt.
+
+The larger application intake starts with
+`profiles/packages/auzix-trixie-user-apps.packages`. Entries in that profile
+become runnable after a source-catalog entry and AuziX recipe exist; the profile
+does not install Debian packages directly into the base image.
+
 ```sh
 make auzix-package-bot-test
 make auzix-package-bot-installer-ui
@@ -161,7 +171,8 @@ make auzix-package-bot-installer-ui
 The runner accepts only `scripts/build-auzix-*-package.sh` entries, executes
 them sequentially, stops after a failure, and writes
 `out/package-bot/installer-ui-core.report.json`. BKC runs this batch on the
-bounded slow queue.
+bounded slow queue. A successful BKC run then builds repository archives and
+publishes them to the lab repository with `index.json` replaced last.
 
 The next package milestone should be an Auzix package wrapper, not a full package
 manager. A useful package artifact has:

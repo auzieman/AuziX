@@ -11,6 +11,7 @@ auzix-installer-builder:
 
 auzix-package-bot-test:
 	./scripts/test-auzix-package-bot.sh
+	./scripts/test-auzix-package-publish.sh
 
 auzix-package-bot-installer-ui:
 	./scripts/run-auzix-package-bot.sh packages/installer-ui.queue.json installer-ui-core

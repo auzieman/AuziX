@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUEUE_FILE="${ROOT_DIR}/packages/installer-ui.queue.json"
+SOURCE_CATALOG="${ROOT_DIR}/packages/installer-ui.sources.json"
 
 jq -e '
   .format == "auzix-package-build-queue-v1"
@@ -14,9 +15,29 @@ jq -e '
   )
 ' "${QUEUE_FILE}" >/dev/null
 
+jq -e '
+  .format == "auzix-package-source-catalog-v1"
+  and ([.packages[].id] | length == (unique | length))
+  and all(.packages[];
+    (.build.script | test("^scripts/build-auzix-[a-z0-9-]+-package[.]sh$"))
+    and (.recipe.receipt_glob | endswith(".auzix.json"))
+    and (
+      .source.type != "debian-packages"
+      or ((.source.packages | type == "array") and (.source.packages | length > 0))
+    )
+  )
+' "${SOURCE_CATALOG}" >/dev/null
+
 ready_ids="$(jq -r '.batches[] | select(.id == "installer-ui-core") | .packages[] | select(.state == "ready") | .id' "${QUEUE_FILE}")"
 for required in AuzixPackageTools AuzixInstaller Xorg Enlightenment Terminology LightDM; do
   grep -Fx "${required}" <<<"${ready_ids}" >/dev/null
+  queue_script="$(jq -r --arg id "${required}" '
+    .batches[].packages[] | select(.id == $id) | .script
+  ' "${QUEUE_FILE}")"
+  catalog_script="$(jq -r --arg id "${required}" '
+    .packages[] | select(.id == $id) | .build.script
+  ' "${SOURCE_CATALOG}")"
+  [[ "${queue_script}" == "${catalog_script}" ]]
 done
 
 planned_ids="$(jq -r '.batches[] | select(.id == "installer-ui-next") | .packages[] | select(.state == "planned") | .id' "${QUEUE_FILE}")"

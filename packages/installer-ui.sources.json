@@ -1,0 +1,83 @@
+{
+  "format": "auzix-package-source-catalog-v1",
+  "defaults": {
+    "distribution": "debian",
+    "suite": "bookworm",
+    "architecture": "amd64"
+  },
+  "packages": [
+    {
+      "id": "AuzixPackageTools",
+      "source": {
+        "type": "builder-runtime",
+        "reference": "jq and runtime libraries from the pinned AuziX builder image"
+      },
+      "recipe": {"receipt_glob": "AuzixPackageTools-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-package-tools-package.sh",
+        "prerequisites": ["jq"]
+      }
+    },
+    {
+      "id": "AuzixInstaller",
+      "source": {"type": "debian-packages", "packages": ["lua5.4", "dialog"]},
+      "recipe": {"receipt_glob": "AuzixInstaller-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-installer-package.sh",
+        "prerequisites": ["lua5.4", "dialog"]
+      }
+    },
+    {
+      "id": "Xorg",
+      "source": {
+        "type": "debian-packages",
+        "packages": [
+          "xinit",
+          "xserver-xorg-core",
+          "xserver-xorg-input-evdev",
+          "xserver-xorg-input-libinput",
+          "xserver-xorg-legacy"
+        ]
+      },
+      "recipe": {"receipt_glob": "Xorg-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-host-xorg-package.sh",
+        "prerequisites": ["xinit", "xserver-xorg-legacy"]
+      }
+    },
+    {
+      "id": "Enlightenment",
+      "source": {"type": "debian-packages", "packages": ["enlightenment"]},
+      "recipe": {
+        "path": "recipes/examples/enlightenment-0.27.1.auzix.json",
+        "receipt_glob": "Enlightenment-*.auzix.json"
+      },
+      "build": {
+        "script": "scripts/build-auzix-host-enlightenment-package.sh",
+        "prerequisites": ["enlightenment"]
+      },
+      "notes": "The compatibility build uses Debian Enlightenment; the recipe records the native E27 target."
+    },
+    {
+      "id": "Terminology",
+      "source": {"type": "debian-packages", "packages": ["terminology"]},
+      "recipe": {"receipt_glob": "Terminology-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-host-terminology-package.sh",
+        "prerequisites": ["terminology"]
+      }
+    },
+    {
+      "id": "LightDM",
+      "source": {
+        "type": "debian-packages",
+        "packages": ["lightdm", "lightdm-gtk-greeter"]
+      },
+      "recipe": {"receipt_glob": "LightDM-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-lightdm-package.sh",
+        "prerequisites": ["lightdm", "lightdm-gtk-greeter"]
+      }
+    }
+  ]
+}

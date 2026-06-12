@@ -1,0 +1,63 @@
+# Larger Debian Trixie application intake for the AuziX package bot.
+#
+# Entries become runnable only after they have an AuziX JSON recipe and an
+# allowlisted package builder in a source catalog. This file is the intake
+# list, not an instruction to install Debian packages into the base image.
+
+# Development
+binutils
+build-essential
+clang
+cmake
+gcc
+git
+make
+meson
+ninja-build
+pkg-config
+python3
+python3-pip
+rustc
+cargo
+
+# Editors and terminals
+alacritty
+geany
+kitty
+micro
+nano
+vim-gtk3
+xfce4-terminal
+
+# Desktop applications
+firefox-esr
+gimp
+inkscape
+libreoffice
+mpv
+pcmanfm
+thunar
+vlc
+
+# Network and diagnostics
+curl
+file
+htop
+iproute2
+iputils-ping
+net-tools
+openssh-client
+openssh-server
+ripgrep
+rsync
+strace
+wget
+
+# Graphical substrate
+dbus-x11
+enlightenment
+lightdm
+lightdm-gtk-greeter
+terminology
+xinit
+xorg
