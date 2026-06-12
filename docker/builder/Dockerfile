@@ -51,6 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       terminology \
       udev \
       wget \
+      xinit \
       xorriso \
       xserver-xorg-core \
       xserver-xorg-input-libinput \
