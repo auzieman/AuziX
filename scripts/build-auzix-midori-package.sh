@@ -102,6 +102,25 @@ while IFS= read -r file_path; do
   copy_runtime_deps "${file_path}" || true
 done
 
+nss_trust_module="${AUZIX_NSS_TRUST_MODULE:-}"
+if [[ -z "${nss_trust_module}" ]]; then
+  for candidate in \
+    /usr/lib/x86_64-linux-gnu/libnssckbi.so \
+    /usr/lib64/libnssckbi.so \
+    /usr/lib/libnssckbi.so; do
+    if [[ -f "${candidate}" ]]; then
+      nss_trust_module="${candidate}"
+      break
+    fi
+  done
+fi
+if [[ ! -f "${nss_trust_module}" ]]; then
+  printf 'NSS trust module not found; install libnss3 or set AUZIX_NSS_TRUST_MODULE.\n' >&2
+  exit 1
+fi
+install -m 0755 "${nss_trust_module}" \
+  "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so"
+
 cat > "${MIDORI_PROGRAM}/Commands/midori" <<'EOF'
 #!/System/Compatibility/bin/sh
 set -eu
@@ -119,8 +138,8 @@ export MOZ_USE_XINPUT2="${MOZ_USE_XINPUT2:-1}"
 export MOZ_DBUS_REMOTE="${MOZ_DBUS_REMOTE:-1}"
 export MOZ_LEGACY_PROFILES="${MOZ_LEGACY_PROFILES:-1}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
-export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
-export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"

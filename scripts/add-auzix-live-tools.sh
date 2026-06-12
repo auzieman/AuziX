@@ -1427,6 +1427,7 @@ done
 
 "${BB}" mdev -s 2>/dev/null || true
 "${BB}" chmod 0666 /dev/null 2>/dev/null || true
+"${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
 
 log "drm=$("${BB}" ls /sys/class/drm 2>/dev/null | "${BB}" tr '\n' ' ')"
 log "dri=$("${BB}" ls /dev/dri 2>/dev/null | "${BB}" tr '\n' ' ')"

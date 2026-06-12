@@ -257,6 +257,7 @@ mount_live_iso_root() {
 
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     "${BB}" mdev -s 2>/dev/null || true
+    "${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
     for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE /dev/hdc /dev/sdb /dev/sda; do
       [ -e "${dev}" ] || continue
       if mount -t iso9660 -o ro "${dev}" "${iso_root}" 2>/dev/null; then
@@ -309,6 +310,7 @@ ln -s /System/Drivers /lib/modules 2>/dev/null || true
 exec >/dev/console 2>&1 </dev/console
 load_storage_and_net
 "${BB}" mdev -s 2>/dev/null || true
+"${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
 echo "block-devices=$(ls /sys/block 2>/dev/null | tr '\n' ' ')"
 echo "net-devices=$(ls /sys/class/net 2>/dev/null | tr '\n' ' ')"
 start_dhcp

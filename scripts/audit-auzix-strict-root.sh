@@ -229,6 +229,16 @@ for pattern in "${runtime_contract_patterns[@]}"; do
   fi
 done
 
+if [[ -f "${start_sequence}" ]]; then
+  mdev_scan_count="$(grep -Fc '"${BB}" mdev -s' "${start_sequence}" || true)"
+  entropy_repair_count="$(grep -Fc '"${BB}" chmod 0666 /dev/random /dev/urandom' "${start_sequence}" || true)"
+  if [[ "${mdev_scan_count}" -gt 0 && "${entropy_repair_count}" -ge "${mdev_scan_count}" ]]; then
+    pass "every startup mdev scan is paired with an entropy-device permission repair"
+  else
+    fail "startup mdev scans can reset entropy-device permissions"
+  fi
+fi
+
 if [[ -s "${ca_bundle}" ]]; then
   pass "browser CA bundle is staged"
 else
@@ -251,6 +261,12 @@ if [[ -e "${AUZIX_ROOT}/Programs/Midori/current" || -L "${AUZIX_ROOT}/Programs/M
       fail "Midori runtime contract is missing ${pattern}"
     fi
   done
+  midori_program="$(dirname "$(dirname "${midori_wrapper}")")"
+  if [[ -s "${midori_program}/Resources/midori/libnssckbi.so" ]]; then
+    pass "Midori NSS trust module is staged"
+  else
+    fail "Midori NSS trust module is missing or empty"
+  fi
 else
   report "INFO: Midori is not staged; Midori-specific checks skipped"
 fi
