@@ -17,6 +17,12 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Logs/display" \
   "${AUZIX_ROOT}/Services"
 
+cat > "${AUZIX_ROOT}/System/Settings/mdev.conf" <<'EOF'
+null 0:0 0666
+random 0:0 0666
+urandom 0:0 0666
+EOF
+
 cat > "${AUZIX_ROOT}/System/Boot/StartSequence" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -u
@@ -2209,9 +2215,10 @@ Usage:
   auzix-install-disk --force /dev/vda
   auzix-install-disk --force --bootloader iso /dev/vda
 
-This creates an ext2 Linux root partition, copies the live Auzix root to it,
-and marks it as an installed Auzix root. The default bootloader is BIOS GRUB
-when grub-install is available in the live system.
+This creates a journaled Linux root partition when ext4 or mke2fs is available,
+copies the live Auzix root to it, and marks it as an installed Auzix root. The
+default bootloader is BIOS GRUB when grub-install is available in the live
+system.
 
 With --bootloader iso, boot the installed root through the ISO with:
 
@@ -2320,6 +2327,7 @@ copy_boot_payload() {
 }
 
 write_installed_fstab() {
+  root_fstype="$1"
   cat > /Work/InstallTarget/System/Settings/fstab <<EOF
 proc /proc proc defaults 0 0
 sysfs /sys sysfs defaults 0 0
@@ -2327,7 +2335,7 @@ devtmpfs /dev devtmpfs defaults 0 0
 devpts /dev/pts devpts gid=5,mode=620,ptmxmode=666 0 0
 tmpfs /dev/shm tmpfs mode=1777,nosuid,nodev 0 0
 tmpfs /run tmpfs defaults 0 0
-LABEL=AUZIXROOT / ext2 defaults 0 1
+LABEL=AUZIXROOT / ${root_fstype} defaults 0 1
 EOF
 }
 
@@ -2395,7 +2403,25 @@ if [ ! -b "${partition}" ]; then
 fi
 
 echo "Formatting ${partition}"
-"${BB}" mkfs.ext2 -F -L AUZIXROOT "${partition}"
+root_fstype=ext2
+mkfs_ext4="$(find_cmd \
+  /System/Compatibility/usr/sbin/mkfs.ext4 \
+  /System/Compatibility/sbin/mkfs.ext4 \
+  mkfs.ext4 || true)"
+mke2fs="$(find_cmd \
+  /System/Compatibility/usr/sbin/mke2fs \
+  /System/Compatibility/sbin/mke2fs \
+  mke2fs || true)"
+if [ -n "${mkfs_ext4}" ]; then
+  "${mkfs_ext4}" -F -L AUZIXROOT "${partition}"
+  root_fstype=ext4
+elif [ -n "${mke2fs}" ]; then
+  "${mke2fs}" -F -t ext4 -L AUZIXROOT "${partition}"
+  root_fstype=ext4
+else
+  echo "WARNING: ext4 tooling is unavailable; falling back to non-journaled ext2." >&2
+  "${BB}" mkfs.ext2 -F -L AUZIXROOT "${partition}"
+fi
 
 "${BB}" mkdir -p /Work/InstallTarget
 "${BB}" mount "${partition}" /Work/InstallTarget
@@ -2426,7 +2452,7 @@ echo "Copying live Auzix root to ${partition}"
 "${BB}" cp /Work/InstallTarget/System/Boot/InstalledInit /Work/InstallTarget/init
 "${BB}" chmod 0755 /Work/InstallTarget/init
 "${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install
-write_installed_fstab
+write_installed_fstab "${root_fstype}"
 copy_boot_payload
 "${BB}" mkdir -p /Work/InstallTarget/boot/grub
 write_grub_cfg 2>/dev/null || true

@@ -29,7 +29,8 @@ That command:
 
 - wipes the target disk partition table
 - creates one Linux partition
-- formats it as ext2 with label `AUZIXROOT`
+- formats it as ext4 with label `AUZIXROOT` when e2fsprogs is available
+- emits an explicit warning before falling back to ext2
 - copies the live Auzix root onto it
 - installs GRUB for BIOS boot
 - writes the kernel command line using `root=LABEL=AUZIXROOT`

@@ -17,6 +17,7 @@ nano
 ripgrep
 lua5.4
 dialog
+e2fsprogs
 
 # Network and diagnostics
 curl

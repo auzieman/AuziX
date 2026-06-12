@@ -204,6 +204,7 @@ report ""
 report "Runtime network and browser contract"
 start_sequence="${AUZIX_ROOT}/System/Boot/StartSequence"
 ca_bundle="${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt"
+mdev_config="${AUZIX_ROOT}/System/Settings/mdev.conf"
 
 if [[ -x "${start_sequence}" ]]; then
   pass "/System/Boot/StartSequence is executable"
@@ -238,6 +239,14 @@ if [[ -f "${start_sequence}" ]]; then
     fail "startup mdev scans can reset entropy-device permissions"
   fi
 fi
+
+for device in random urandom; do
+  if [[ -f "${mdev_config}" ]] && grep -Eq "^${device}[[:space:]]+0:0[[:space:]]+0666$" "${mdev_config}"; then
+    pass "mdev policy keeps /dev/${device} world-readable"
+  else
+    fail "mdev policy does not preserve /dev/${device} permissions"
+  fi
+done
 
 if [[ -s "${ca_bundle}" ]]; then
   pass "browser CA bundle is staged"
