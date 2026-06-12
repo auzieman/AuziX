@@ -55,6 +55,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       xorriso \
       xserver-xorg-core \
       xserver-xorg-input-libinput \
+      xserver-xorg-legacy \
       xserver-xorg-video-fbdev \
       xserver-xorg-video-vesa \
       xterm \
