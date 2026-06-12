@@ -7,7 +7,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
       file \
-      jq
+      jq \
+      libncursesw6 \
+      libreadline8
 
 WORKDIR /workspace
 
