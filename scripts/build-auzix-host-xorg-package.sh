@@ -28,16 +28,20 @@ copy_dep_path() {
   [[ -e "${dep}" ]] || return 0
   case "${dep}" in
     /lib64/*)
-      install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
+      [[ -e "${RUNTIME_LIB64}/$(basename "${dep}")" ]] ||
+        install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
       ;;
     /lib/x86_64-linux-gnu/*|/usr/lib/x86_64-linux-gnu/*)
-      install -D -m 0755 "${dep}" "${RUNTIME_LIB}/$(basename "${dep}")"
+      [[ -e "${RUNTIME_LIB}/$(basename "${dep}")" ]] ||
+        install -D -m 0755 "${dep}" "${RUNTIME_LIB}/$(basename "${dep}")"
       ;;
     /usr/lib/*)
-      install -D -m 0755 "${dep}" "${RUNTIME_USR}/lib/${dep#/usr/lib/}"
+      [[ -e "${RUNTIME_USR}/lib/${dep#/usr/lib/}" ]] ||
+        install -D -m 0755 "${dep}" "${RUNTIME_USR}/lib/${dep#/usr/lib/}"
       ;;
     *)
-      install -D -m 0755 "${dep}" "${AUZIX_ROOT}${dep}"
+      [[ -e "${AUZIX_ROOT}${dep}" ]] ||
+        install -D -m 0755 "${dep}" "${AUZIX_ROOT}${dep}"
       ;;
   esac
 }
