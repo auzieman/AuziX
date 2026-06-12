@@ -26,5 +26,20 @@ services:
     command: ["bash"]
     profiles: ["shell"]
 
+  installer-builder:
+    build:
+      context: .
+      dockerfile: docker/installer-builder/Dockerfile
+    image: auzix/installer-builder:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./out:/workspace/out
+    command:
+      - bash
+      - -lc
+      - ./scripts/build-auzix-package-tools-package.sh && ./scripts/build-auzix-installer-package.sh && ./scripts/test-auzix-installer.sh
+    profiles: ["installer"]
+
 volumes:
   auzix-cache:

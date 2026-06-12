@@ -139,6 +139,12 @@ needs to consume `questions.json`, emit `auzix-install-plan-v1`, and invoke the
 same validation and execution commands. It must not implement partitioning or
 disk-copy logic itself.
 
+The BKC installer lane uses `docker/installer-builder/Dockerfile`, a small
+Debian builder containing only the packaging prerequisites for jq, Lua, dialog,
+and the installer tests. This avoids producing AuziX runtime packages from the
+Fedora controller host while keeping the installer lane substantially lighter
+than the full image builder.
+
 The next package milestone should be an Auzix package wrapper, not a full package
 manager. A useful package artifact has:
 
