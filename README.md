@@ -34,6 +34,11 @@ bridges, not as the distro identity.
 - package receipts under `/System/PackageDB`
 - package repo builder producing `.auzix.tar.gz` artifacts and `index.json`
 - GRUB-backed disk installer for standalone BIOS VM boot
+- Now with Midori
+
+![Midori](docs/images/auzix-midori.jpg)
+
+![NetSurf](docs/images/netsurf.jpg)
 
 The live image uses a small boot initramfs and keeps the complete root on the
 ISO. VM130 also boots its installed root directly from GRUB without the ISO.
