@@ -1,0 +1,19 @@
+{
+  "format": "auzix-install-plan-v1",
+  "target": {
+    "disk": "/dev/vda"
+  },
+  "storage": {
+    "filesystem": "ext4"
+  },
+  "bootloader": {
+    "mode": "grub"
+  },
+  "identity": {
+    "hostname": "auzix"
+  },
+  "execution": {
+    "confirmed": false
+  },
+  "frontend": "default"
+}

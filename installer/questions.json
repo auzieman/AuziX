@@ -1,0 +1,59 @@
+{
+  "format": "auzix-installer-questions-v1",
+  "plan_format": "auzix-install-plan-v1",
+  "frontends": {
+    "tui": "dialog",
+    "graphical": ["efl", "gtk"],
+    "automation": "json"
+  },
+  "questions": [
+    {
+      "id": "target_disk",
+      "plan_path": ".target.disk",
+      "type": "block-device",
+      "label": "Installation disk",
+      "required": true
+    },
+    {
+      "id": "filesystem",
+      "plan_path": ".storage.filesystem",
+      "type": "choice",
+      "label": "Root filesystem",
+      "default": "ext4",
+      "choices": [
+        {"value": "ext4", "label": "ext4 (journaled)"}
+      ]
+    },
+    {
+      "id": "bootloader",
+      "plan_path": ".bootloader.mode",
+      "type": "choice",
+      "label": "Boot method",
+      "default": "grub",
+      "choices": [
+        {"value": "grub", "label": "Install BIOS GRUB"},
+        {"value": "iso", "label": "Boot installed root through live ISO"}
+      ]
+    },
+    {
+      "id": "hostname",
+      "plan_path": ".identity.hostname",
+      "type": "text",
+      "label": "Hostname",
+      "default": "auzix"
+    },
+    {
+      "id": "confirmed",
+      "plan_path": ".execution.confirmed",
+      "type": "destructive-confirmation",
+      "label": "Erase the selected disk and install AuziX",
+      "default": false
+    }
+  ],
+  "frontend_protocol": {
+    "input": "Read this question contract and an optional existing install plan.",
+    "output": "Write one auzix-install-plan-v1 JSON document.",
+    "validation": "Invoke auzix-installer validate PLAN before offering execution.",
+    "execution": "Invoke auzix-installer run PLAN only after a separate destructive confirmation."
+  }
+}

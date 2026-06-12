@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.dev/schemas/install-plan-v1.json",
+  "title": "AuziX install plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "target",
+    "storage",
+    "bootloader",
+    "identity",
+    "execution"
+  ],
+  "properties": {
+    "format": {
+      "const": "auzix-install-plan-v1"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disk"],
+      "properties": {
+        "disk": {
+          "type": "string",
+          "pattern": "^/dev/([A-Za-z0-9._:+-]+|disk/by-id/[A-Za-z0-9._:+-]+)$"
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filesystem"],
+      "properties": {
+        "filesystem": {
+          "enum": ["ext4"]
+        }
+      }
+    },
+    "bootloader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "enum": ["grub", "iso"]
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname"],
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmed"],
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "frontend": {
+      "enum": ["default", "tui", "graphical", "automation"]
+    }
+  }
+}

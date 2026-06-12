@@ -88,6 +88,21 @@ resolve_root_path() {
   printf '%s/%s\n' "${AUZIX_ROOT}" "${rel}"
 }
 
+resolve_program_current_path() {
+  local path="$1"
+  local rel program rest current_link version
+  rel="${path#/Programs/}"
+  program="${rel%%/*}"
+  rest="${rel#*/current/}"
+  current_link="${AUZIX_ROOT}/Programs/${program}/current"
+  if [[ -L "${current_link}" ]]; then
+    version="$(basename "$(readlink "${current_link}")")"
+    printf '%s/Programs/%s/%s/%s\n' "${AUZIX_ROOT}" "${program}" "${version}" "${rest}"
+    return
+  fi
+  resolve_root_path "${path}"
+}
+
 if [[ ! -d "${AUZIX_ROOT}" ]]; then
   printf 'Auzix root not found: %s\n' "${AUZIX_ROOT}" >&2
   exit 1
@@ -278,6 +293,58 @@ if [[ -e "${AUZIX_ROOT}/Programs/Midori/current" || -L "${AUZIX_ROOT}/Programs/M
   fi
 else
   report "INFO: Midori is not staged; Midori-specific checks skipped"
+fi
+
+report ""
+report "Installer contract"
+installer_paths=(
+  "/Programs/Lua/current/Commands/lua"
+  "/Programs/Dialog/current/Commands/dialog"
+  "/Programs/AuzixInstaller/current/Commands/auzix-installer"
+  "/Programs/AuzixInstaller/current/Commands/auzix-installer-gui"
+  "/System/Settings/installer/install-plan.schema.json"
+  "/System/Settings/installer/questions.json"
+  "/System/Settings/installer/plans/default.json"
+  "/System/Tools/auzix-install-disk"
+)
+for path in "${installer_paths[@]}"; do
+  case "${path}" in
+    /Programs/*/current/*) full="$(resolve_program_current_path "${path}")" ;;
+    *) full="$(resolve_root_path "${path}")" ;;
+  esac
+  if [[ -e "${full}" || -L "${full}" ]]; then
+    pass "${path}"
+  else
+    fail "installer contract is missing ${path}"
+  fi
+done
+
+installer_jq="$(resolve_program_current_path "/Programs/AuzixPackageTools/current/Commands/jq.real")"
+if [[ -x "${installer_jq}" ]]; then
+  if "${installer_jq}" -e '.format == "auzix-install-plan-v1"' \
+    "${AUZIX_ROOT}/System/Settings/installer/plans/default.json" >/dev/null; then
+    pass "default install plan uses auzix-install-plan-v1"
+  else
+    fail "default install plan format is invalid"
+  fi
+  if "${installer_jq}" -e '
+    .format == "auzix-installer-questions-v1"
+    and .plan_format == "auzix-install-plan-v1"
+    and any(.questions[]; .id == "target_disk")
+    and any(.questions[]; .id == "confirmed")
+  ' "${AUZIX_ROOT}/System/Settings/installer/questions.json" >/dev/null; then
+    pass "installer question contract covers target selection and destructive confirmation"
+  else
+    fail "installer question contract is invalid"
+  fi
+else
+  fail "installer validation requires the packaged jq runtime"
+fi
+
+if "${ROOT_DIR}/scripts/test-auzix-installer.sh" "${AUZIX_ROOT}" >/dev/null 2>&1; then
+  pass "installer validation and guarded execution tests"
+else
+  fail "installer validation or guarded execution tests failed"
 fi
 
 report ""

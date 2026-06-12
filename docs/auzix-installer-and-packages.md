@@ -116,6 +116,29 @@ Current working decision:
   creation gated on a clean diff and successful checks; pushing should remain an
   explicit policy decision rather than an unconditional hook.
 
+## Installer Foundation
+
+The first installer implementation now follows that contract:
+
+```text
+/System/Tools/auzix-installer             Lua plan validation and sequencing
+/System/Tools/auzix-installer-gui         graphical frontend dispatch/fallback
+/System/Tools/auzix-install-disk          destructive shell execution boundary
+/System/Settings/installer/questions.json shared frontend question contract
+/System/Settings/installer/plans          versioned JSON install plans
+```
+
+`auzix-installer validate PLAN` and `summary PLAN` are non-destructive.
+`auzix-installer run PLAN` accepts only the known plan format, ext4, a `/dev`
+target, `grub` or `iso`, and an explicit boolean confirmation. The `dialog`
+frontend performs a separate final confirmation before it emits and runs a plan.
+
+The graphical command currently dispatches to an installed EFL frontend first,
+then GTK, and otherwise falls back to the TUI. A future graphical frontend only
+needs to consume `questions.json`, emit `auzix-install-plan-v1`, and invoke the
+same validation and execution commands. It must not implement partitioning or
+disk-copy logic itself.
+
 The next package milestone should be an Auzix package wrapper, not a full package
 manager. A useful package artifact has:
 
