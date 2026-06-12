@@ -175,8 +175,12 @@ done
 
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment"
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment_start" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment_start"
-cp -f "${E_PROGRAM}/Commands/enlightenment" "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment"
-cp -f "${E_PROGRAM}/Commands/enlightenment_start" "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment_start"
+cp -f --remove-destination \
+  "${E_PROGRAM}/Commands/enlightenment" \
+  "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment"
+cp -f --remove-destination \
+  "${E_PROGRAM}/Commands/enlightenment_start" \
+  "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment_start"
 chmod 0755 \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment" \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment_start"

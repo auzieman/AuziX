@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUEUE_FILE="${ROOT_DIR}/packages/installer-ui.queue.json"
 SOURCE_CATALOG="${ROOT_DIR}/packages/installer-ui.sources.json"
+ENLIGHTENMENT_BUILDER="${ROOT_DIR}/scripts/build-auzix-host-enlightenment-package.sh"
 
 jq -e '
   .format == "auzix-package-build-queue-v1"
@@ -44,5 +45,7 @@ planned_ids="$(jq -r '.batches[] | select(.id == "installer-ui-next") | .package
 for required in GCC Binutils Make PkgConfig Gtk3Runtime AuzixInstallerGtk AuzixInstallerEfl; do
   grep -Fx "${required}" <<<"${planned_ids}" >/dev/null
 done
+
+[[ "$(grep -c 'cp -f --remove-destination' "${ENLIGHTENMENT_BUILDER}")" -ge 2 ]]
 
 echo "AuziX package bot contract: PASS"
