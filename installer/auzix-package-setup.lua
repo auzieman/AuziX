@@ -9,6 +9,10 @@ end
 
 local package_tool = os.getenv("AUZIX_PKG") or rooted("/System/Tools/auzix-pkg")
 local dialog = os.getenv("AUZIX_DIALOG") or rooted("/Programs/Dialog/current/Commands/dialog")
+local package_prefix = os.getenv("AUZIX_PKG_PREFIX")
+if package_prefix == nil then
+  package_prefix = rooted("/System/Compatibility/bin/sudo") .. " -n"
+end
 
 local function shell_quote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
@@ -63,8 +67,19 @@ local function dialog_value(args)
   return value
 end
 
+local function package_command(args)
+  local command = shell_quote(package_tool)
+  if package_prefix ~= "" then
+    command = package_prefix .. " " .. command
+  end
+  if args and args ~= "" then
+    command = command .. " " .. args
+  end
+  return command
+end
+
 local function available_packages()
-  local output = capture(shell_quote(package_tool) .. " list available")
+  local output = capture(package_command("list available"))
   if output == nil then
     return nil
   end
@@ -91,8 +106,8 @@ local function tui()
     return false
   end
 
-  if not command_ok(shell_quote(package_tool) .. " refresh") then
-    command_ok(shell_quote(dialog) .. " --title 'AuziX Package Setup' --msgbox 'Repository refresh failed.' 8 56")
+  if not command_ok(package_command("refresh")) then
+    command_ok(shell_quote(dialog) .. " --title 'AuziX Package Setup' --msgbox 'Repository refresh failed. Package setup requires sudo access.' 9 64")
     return false
   end
 
@@ -127,7 +142,7 @@ local function tui()
   end
 
   print("Installing " .. selected)
-  if not command_ok(shell_quote(package_tool) .. " install " .. shell_quote(selected)) then
+  if not command_ok(package_command("install " .. shell_quote(selected))) then
     command_ok(shell_quote(dialog) .. " --title 'AuziX Package Setup' --msgbox 'Package installation failed.' 8 56")
     return false
   end
@@ -157,9 +172,9 @@ local ok
 if action == "tui" then
   ok = tui()
 elseif action == "refresh" then
-  ok = command_ok(shell_quote(package_tool) .. " refresh")
+  ok = command_ok(package_command("refresh"))
 elseif action == "install" and arg[2] then
-  ok = command_ok(shell_quote(package_tool) .. " install " .. shell_quote(arg[2]))
+  ok = command_ok(package_command("install " .. shell_quote(arg[2])))
 elseif action == "help" or action == "--help" or action == "-h" then
   usage()
   ok = true

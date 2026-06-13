@@ -157,6 +157,9 @@ repository client. The frontend refreshes repository metadata, lists available
 packages, asks for confirmation, and invokes `auzix-pkg install PACKAGE`.
 Dependency resolution, checksums, extraction, and installed-state updates remain
 owned by `auzix-pkg`; the frontend does not duplicate transaction logic.
+Repository and install commands run through `sudo -n` because they update
+root-owned `/System`, `/Programs`, and `/Work` paths, while Dialog remains in
+the graphical user's terminal session.
 
 The BKC installer lane uses `docker/installer-builder/Dockerfile`, a small
 Debian builder containing only the packaging prerequisites for jq, Lua, dialog,

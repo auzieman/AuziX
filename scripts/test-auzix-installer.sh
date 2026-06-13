@@ -35,6 +35,7 @@ run_package_setup() {
     TMPDIR="${WORK_DIR}/missing/package-setup-temp" \
     AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
     AUZIX_PKG="${WORK_DIR}/fake-auzix-pkg" \
+    AUZIX_PKG_PREFIX="" \
     AUZIX_TEST_PACKAGE_LOG="${WORK_DIR}/package.log" \
     "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
 }
@@ -166,6 +167,7 @@ list available
 install Gnumeric
 EOF
 cmp "${WORK_DIR}/expected-package.log" "${WORK_DIR}/package.log"
+grep -F 'sudo") .. " -n"' "${PACKAGE_SETUP_LUA}" >/dev/null
 
 PACKAGE_DESKTOP_ENTRY="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-package-setup.desktop"
 grep -Fx 'Exec=/System/Tools/auzix-package-setup' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
