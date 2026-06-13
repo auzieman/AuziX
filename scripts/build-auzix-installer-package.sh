@@ -61,7 +61,15 @@ for command_name in apt-cache apt-get dpkg-deb install ldd jq; do
   require_cmd "${command_name}"
 done
 
-rm -rf "${WORK_DIR}" "${LUA_PROGRAM}" "${DIALOG_PROGRAM}" "${INSTALLER_PROGRAM}"
+rm -rf \
+  "${WORK_DIR}" \
+  "${AUZIX_ROOT}/Programs/Lua" \
+  "${AUZIX_ROOT}/Programs/Dialog" \
+  "${AUZIX_ROOT}/Programs/AuzixInstaller"
+rm -f \
+  "${AUZIX_ROOT}"/System/PackageDB/Lua-*.auzix.json \
+  "${AUZIX_ROOT}"/System/PackageDB/Dialog-*.auzix.json \
+  "${AUZIX_ROOT}"/System/PackageDB/AuzixInstaller-*.auzix.json
 mkdir -p "${WORK_DIR}/debs" "${WORK_DIR}/extract"
 (
   cd "${WORK_DIR}/debs"

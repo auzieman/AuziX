@@ -138,9 +138,12 @@ require_index() {
 package_query() {
   package_name="$1"
   "${JQ}" -c --arg name "${package_name}" '
-    .packages[]
-    | select((.name | ascii_downcase) == ($name | ascii_downcase))
-  ' "${CACHE_INDEX}" | "${BB}" head -n 1
+    [
+      .packages[]
+      | select((.name | ascii_downcase) == ($name | ascii_downcase))
+    ]
+    | last // empty
+  ' "${CACHE_INDEX}"
 }
 
 is_installed() {
