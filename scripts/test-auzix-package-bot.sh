@@ -47,5 +47,11 @@ for required in GCC Binutils Make PkgConfig Gtk3Runtime AuzixInstallerGtk AuzixI
 done
 
 [[ "$(grep -c 'cp -f --remove-destination' "${ENLIGHTENMENT_BUILDER}")" -ge 2 ]]
+grep -F '"compatibility_exports": ["/System/Compatibility/bin/lua"]' \
+  "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
+grep -F '"compatibility_exports": ["/System/Compatibility/bin/dialog"]' \
+  "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
+grep -F '"/System/Tools/auzix-installer-gui"' \
+  "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
 
 echo "AuziX package bot contract: PASS"

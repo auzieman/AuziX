@@ -163,6 +163,7 @@ cat >"${AUZIX_ROOT}/System/PackageDB/Lua-${LUA_VERSION}.auzix.json" <<EOF
   "prefix": "/Programs/Lua/${LUA_VERSION}",
   "paths": {"current": "/Programs/Lua/current"},
   "commands": ["/Programs/Lua/${LUA_VERSION}/Commands/lua"],
+  "compatibility_exports": ["/System/Compatibility/bin/lua"],
   "notes": "Lua 5.4 runtime used by the AuziX installer orchestration layer."
 }
 EOF
@@ -176,6 +177,7 @@ cat >"${AUZIX_ROOT}/System/PackageDB/Dialog-${DIALOG_VERSION}.auzix.json" <<EOF
   "prefix": "/Programs/Dialog/${DIALOG_VERSION}",
   "paths": {"current": "/Programs/Dialog/current"},
   "commands": ["/Programs/Dialog/${DIALOG_VERSION}/Commands/dialog"],
+  "compatibility_exports": ["/System/Compatibility/bin/dialog"],
   "notes": "Terminal installer frontend. It emits the same JSON plan consumed by automation and future graphical frontends."
 }
 EOF
@@ -195,6 +197,10 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
   "commands": [
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer",
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer-gui"
+  ],
+  "compatibility_exports": [
+    "/System/Tools/auzix-installer",
+    "/System/Tools/auzix-installer-gui"
   ],
   "depends": ["Lua", "Dialog", "AuzixPackageTools"],
   "notes": "JSON-plan installer with Lua sequencing, a dialog TUI, and a shared question protocol for EFL or GTK frontends."
