@@ -8,6 +8,8 @@ test -x "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh"
 test -x "${ROOT_DIR}/scripts/run-auzix-trixie-intake.sh"
 test -x "${ROOT_DIR}/scripts/test-auzix-office-smoke.sh"
 test -s "${ROOT_DIR}/docker/trixie-builder/Dockerfile"
+grep -F "Description | sed -n '1p'" \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
 
 package_count="$(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u | wc -l)"
 (( package_count >= 70 ))
