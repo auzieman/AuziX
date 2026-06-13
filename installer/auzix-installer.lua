@@ -61,6 +61,16 @@ local validation_filter = [[
   and ((($p | has("frontend")) | not) or ($p.frontend | IN("default", "tui", "graphical", "automation")))
 ]]
 
+local questions_validation_filter = [[
+  .format == "auzix-installer-questions-v1"
+  and .plan_format == "auzix-install-plan-v1"
+  and (.questions | type == "array")
+  and ([.questions[].id] | index("target_disk") != null)
+  and ([.questions[].id] | index("bootloader") != null)
+  and ([.questions[].id] | index("hostname") != null)
+  and ([.questions[].id] | index("confirmed") != null)
+]]
+
 local function validate(plan)
   if not plan or plan == "" then
     io.stderr:write("auzix-installer: install plan path is required\n")
@@ -77,9 +87,25 @@ local function validate(plan)
   return true
 end
 
+local function validate_questions()
+  local command = table.concat({
+    shell_quote(jq), "-e", shell_quote(questions_validation_filter),
+    shell_quote(questions), ">/dev/null"
+  }, " ")
+  return command_ok(command)
+end
+
 local function field(plan, expression)
   return capture(table.concat({
-    shell_quote(jq), "-er", shell_quote(expression), shell_quote(plan)
+    shell_quote(jq), "-r", shell_quote(expression), shell_quote(plan)
+  }, " "))
+end
+
+local function question(id, expression)
+  return capture(table.concat({
+    shell_quote(jq), "-er",
+    shell_quote('.questions[] | select(.id == $id) | ' .. expression),
+    "--arg id", shell_quote(id), shell_quote(questions)
   }, " "))
 end
 
@@ -137,6 +163,15 @@ local function dialog_value(args)
 end
 
 local function discover_disks()
+  local configured = os.getenv("AUZIX_INSTALLER_DISKS")
+  if configured and configured ~= "" then
+    local disks = {}
+    for disk in configured:gmatch("[^,]+") do
+      table.insert(disks, disk)
+    end
+    return disks
+  end
+
   local sys_block = rooted("/sys/block")
   local pipe = io.popen("find " .. shell_quote(sys_block) .. " -mindepth 1 -maxdepth 1 -type l 2>/dev/null")
   local disks = {}
@@ -155,56 +190,109 @@ local function discover_disks()
   return disks
 end
 
-local function tui(output_plan)
-  if not command_ok("test -x " .. shell_quote(dialog)) then
-    io.stderr:write("auzix-installer: dialog frontend is not available\n")
-    return false
-  end
-
-  local menu = {}
-  for _, disk in ipairs(discover_disks()) do
-    table.insert(menu, shell_quote(disk))
-    table.insert(menu, shell_quote("Erase and install to " .. disk))
-  end
-  local disk = dialog_value("--title 'AuziX Installer' --menu 'Select the installation disk' 18 72 8 " .. table.concat(menu, " "))
-  if not disk then return false end
-
-  local bootloader = dialog_value("--title 'AuziX Installer' --menu 'Select the boot method' 14 72 4 'grub' 'Install BIOS GRUB' 'iso' 'Boot through the live ISO'")
-  if not bootloader then return false end
-
-  local hostname = dialog_value("--title 'AuziX Installer' --inputbox 'Hostname' 10 60 'auzix'")
-  if not hostname then return false end
-
-  local warning = "This will erase " .. disk .. ". Continue?"
-  local confirmed = command_ok(shell_quote(dialog) .. " --title 'AuziX Installer' --yesno " .. shell_quote(warning) .. " 10 68")
-  if not confirmed then
-    io.stderr:write("auzix-installer: installation cancelled\n")
-    return false
-  end
-
-  output_plan = output_plan or rooted("/System/State/installer/confirmed-plan.json")
+local function write_plan(output_plan, disk, bootloader, hostname, confirmed)
   command_ok("mkdir -p " .. shell_quote(output_plan:match("(.+)/[^/]+$") or "."))
+  local temporary = output_plan .. ".tmp"
   local create = table.concat({
     shell_quote(jq), "-n",
     "--arg disk", shell_quote(disk),
     "--arg bootloader", shell_quote(bootloader),
     "--arg hostname", shell_quote(hostname),
+    "--argjson confirmed", confirmed and "true" or "false",
     shell_quote([[{
       format: "auzix-install-plan-v1",
       target: {disk: $disk},
       storage: {filesystem: "ext4"},
       bootloader: {mode: $bootloader},
       identity: {hostname: $hostname},
-      execution: {confirmed: true},
+      execution: {confirmed: $confirmed},
       frontend: "tui"
     }]]),
-    ">", shell_quote(output_plan)
+    ">", shell_quote(temporary),
+    "&& mv", shell_quote(temporary), shell_quote(output_plan)
   }, " ")
-  if not command_ok(create) or not validate(output_plan) then
+  return command_ok(create) and validate(output_plan)
+end
+
+local function plan_summary_text(plan)
+  return table.concat({
+    "Installation disk: " .. field(plan, ".target.disk"),
+    "Filesystem: " .. field(plan, ".storage.filesystem"),
+    "Boot method: " .. field(plan, ".bootloader.mode"),
+    "Hostname: " .. field(plan, ".identity.hostname")
+  }, "\n")
+end
+
+local function tui(output_plan, execute)
+  if not command_ok("test -x " .. shell_quote(dialog)) then
+    io.stderr:write("auzix-installer: dialog frontend is not available\n")
+    return false
+  end
+
+  if not validate_questions() then
+    io.stderr:write("auzix-installer: question contract is not available\n")
+    return false
+  end
+
+  local title = "AuziX Installer"
+  local menu = {}
+  for _, disk in ipairs(discover_disks()) do
+    table.insert(menu, shell_quote(disk))
+    table.insert(menu, shell_quote("Erase and install to " .. disk))
+  end
+  local disk = dialog_value(
+    "--title " .. shell_quote(title) ..
+    " --menu " .. shell_quote(question("target_disk", ".label")) ..
+    " 18 72 8 " .. table.concat(menu, " ")
+  )
+  if not disk then return false end
+
+  local bootloader_menu = capture(table.concat({
+    shell_quote(jq), "-r",
+    shell_quote([[.questions[] | select(.id == "bootloader") | .choices[] | @sh "\(.value) \(.label)"]]),
+    shell_quote(questions)
+  }, " "))
+  if bootloader_menu then
+    bootloader_menu = bootloader_menu:gsub("\n", " ")
+  end
+  local bootloader = dialog_value(
+    "--title " .. shell_quote(title) ..
+    " --default-item " .. shell_quote(question("bootloader", ".default")) ..
+    " --menu " .. shell_quote(question("bootloader", ".label")) ..
+    " 14 72 4 " .. (bootloader_menu or "")
+  )
+  if not bootloader then return false end
+
+  local hostname = dialog_value(
+    "--title " .. shell_quote(title) ..
+    " --inputbox " .. shell_quote(question("hostname", ".label")) ..
+    " 10 60 " .. shell_quote(question("hostname", ".default"))
+  )
+  if not hostname then return false end
+
+  output_plan = output_plan or rooted("/System/State/installer/pending-plan.json")
+  if not write_plan(output_plan, disk, bootloader, hostname, false) then
     return false
   end
 
   summary(output_plan)
+  if not execute then
+    print("Plan written without destructive confirmation: " .. output_plan)
+    return true
+  end
+
+  local warning = plan_summary_text(output_plan) .. "\n\nThis will erase " .. disk .. ". Continue?"
+  if not command_ok(
+    shell_quote(dialog) .. " --title " .. shell_quote(title) ..
+    " --yesno " .. shell_quote(warning) .. " 16 72"
+  ) then
+    io.stderr:write("auzix-installer: installation cancelled; unconfirmed plan retained at " .. output_plan .. "\n")
+    return false
+  end
+
+  if not write_plan(output_plan, disk, bootloader, hostname, true) then
+    return false
+  end
   return run(output_plan)
 end
 
@@ -215,10 +303,12 @@ Usage:
   auzix-installer summary [PLAN]
   auzix-installer run PLAN
   auzix-installer tui [OUTPUT_PLAN]
+  auzix-installer tui-plan [OUTPUT_PLAN]
   auzix-installer questions
 
-The run command only accepts a validated, explicitly confirmed plan. The TUI
-performs a separate destructive confirmation before creating and running one.
+The run command only accepts a validated, explicitly confirmed plan. tui-plan
+writes an unconfirmed plan. tui reviews that plan, performs a separate
+destructive confirmation, updates it atomically, and then invokes the executor.
 ]])
 end
 
@@ -235,7 +325,9 @@ elseif action == "summary" then
 elseif action == "run" then
   ok = run(arg[2])
 elseif action == "tui" then
-  ok = tui(arg[2])
+  ok = tui(arg[2], true)
+elseif action == "tui-plan" then
+  ok = tui(arg[2], false)
 elseif action == "questions" then
   ok = command_ok(shell_quote(jq) .. " . " .. shell_quote(questions))
 elseif action == "--help" or action == "-h" or action == "help" then

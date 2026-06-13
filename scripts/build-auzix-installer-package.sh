@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 WORK_DIR="${ROOT_DIR}/out/auzix-packages/installer"
-INSTALLER_VERSION="${AUZIX_INSTALLER_VERSION:-0.1}"
+INSTALLER_VERSION="${AUZIX_INSTALLER_VERSION:-0.2}"
 LUA_VERSION="${AUZIX_LUA_VERSION:-$(apt-cache show lua5.4 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}')}"
 DIALOG_VERSION="${AUZIX_DIALOG_VERSION:-$(apt-cache show dialog 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}')}"
 LUA_VERSION="${LUA_VERSION:-5.4}"
@@ -88,6 +88,7 @@ mkdir -p \
   "${INSTALLER_PROGRAM}/Commands" "${INSTALLER_PROGRAM}/Frontends" "${INSTALLER_PROGRAM}/Resources/plans" \
   "${RUNTIME_LIB}" "${RUNTIME_LIB64}" \
   "${AUZIX_ROOT}/System/Compatibility/bin" "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
+  "${AUZIX_ROOT}/System/Compatibility/usr/share/applications" \
   "${AUZIX_ROOT}/System/Settings/installer/plans" "${AUZIX_ROOT}/System/State/installer" \
   "${AUZIX_ROOT}/System/PackageDB" "${AUZIX_ROOT}/System/Tools"
 
@@ -146,6 +147,18 @@ exec /Programs/AuzixInstaller/current/Commands/auzix-installer tui "$@"
 SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-installer-gui"
 
+cat >"${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-installer.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Install AuziX
+Comment=Install AuziX using the guided installer
+Exec=/System/Tools/auzix-installer-gui
+Icon=drive-harddisk
+Terminal=true
+Categories=System;Settings;
+Keywords=install;disk;system;
+EOF
+
 ln -sfn "/Programs/Lua/${LUA_VERSION}" "${AUZIX_ROOT}/Programs/Lua/current"
 ln -sfn "/Programs/Dialog/${DIALOG_VERSION}" "${AUZIX_ROOT}/Programs/Dialog/current"
 ln -sfn "/Programs/AuzixInstaller/${INSTALLER_VERSION}" "${AUZIX_ROOT}/Programs/AuzixInstaller/current"
@@ -200,7 +213,8 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
   ],
   "compatibility_exports": [
     "/System/Tools/auzix-installer",
-    "/System/Tools/auzix-installer-gui"
+    "/System/Tools/auzix-installer-gui",
+    "/System/Compatibility/usr/share/applications/auzix-installer.desktop"
   ],
   "depends": ["Lua", "Dialog", "AuzixPackageTools"],
   "notes": "JSON-plan installer with Lua sequencing, a dialog TUI, and a shared question protocol for EFL or GTK frontends."

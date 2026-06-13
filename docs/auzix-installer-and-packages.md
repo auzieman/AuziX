@@ -128,10 +128,13 @@ The first installer implementation now follows that contract:
 /System/Settings/installer/plans          versioned JSON install plans
 ```
 
-`auzix-installer validate PLAN` and `summary PLAN` are non-destructive.
+`auzix-installer validate PLAN`, `summary PLAN`, and `tui-plan PLAN` are
+non-destructive. `tui-plan` collects answers and writes an explicitly
+unconfirmed plan suitable for inspection or automation handoff.
 `auzix-installer run PLAN` accepts only the known plan format, ext4, a `/dev`
 target, `grub` or `iso`, and an explicit boolean confirmation. The `dialog`
-frontend performs a separate final confirmation before it emits and runs a plan.
+frontend writes the pending plan first, presents a review screen, then performs
+a separate final confirmation before atomically confirming and running it.
 
 ![AuziX repository installer progress](images/installer_repository.jpg)
 
@@ -144,6 +147,10 @@ then GTK, and otherwise falls back to the TUI. A future graphical frontend only
 needs to consume `questions.json`, emit `auzix-install-plan-v1`, and invoke the
 same validation and execution commands. It must not implement partitioning or
 disk-copy logic itself.
+
+The `AuzixInstaller` package also exports an `Install AuziX` desktop entry.
+It requests a terminal so the Dialog fallback remains usable when launched from
+Enlightenment before a native EFL or GTK frontend is installed.
 
 The BKC installer lane uses `docker/installer-builder/Dockerfile`, a small
 Debian builder containing only the packaging prerequisites for jq, Lua, dialog,
