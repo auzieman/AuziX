@@ -13,6 +13,7 @@ auzix-package-bot-test:
 	./scripts/test-auzix-package-bot.sh
 	./scripts/test-auzix-package-publish.sh
 	./scripts/test-auzix-trixie-intake.sh
+	./scripts/test-auzix-package-runtime-audit.sh
 
 auzix-package-bot-trixie:
 	./scripts/run-auzix-trixie-intake.sh

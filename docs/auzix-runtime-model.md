@@ -175,6 +175,37 @@ For containerized graphical experiments:
 /Work/Containers/snapshots
 ```
 
+## Shared Graphical Runtimes
+
+Graphical package promotion needs an explicit boundary between shared toolkit
+runtime and application-owned code:
+
+```text
+/System/Libraries/Runtime/glibc
+/System/Libraries/Runtime/GTK3/<abi>
+/System/Libraries/Runtime/GLib/<abi>
+/System/Resources/GTK3
+/Programs/Gnumeric/<version>/Libraries
+/Programs/Gnumeric/<version>/Resources
+```
+
+Libraries that define a stable toolkit ABI and are used by several applications
+are candidates for `/System/Libraries/Runtime`. Application plugins, private
+libraries, data files, schemas, icons, and version-coupled modules remain under
+the owning `/Programs/<Name>/<Version>` tree.
+
+Promotion should happen in two phases:
+
+1. Build a self-contained program package and prove it starts with its declared
+   loader, libraries, plugins, and resources.
+2. Use package audits to identify duplicated SONAMEs, then move only verified
+   shared ABI sets into a separately versioned system runtime package.
+
+`scripts/audit-auzix-package-runtime.sh` validates declared commands, exports,
+runtime paths, and bundled-loader dependency resolution. A package should not
+be promoted from the Debian intake tree merely because its main executable
+starts; plugin loading and data-path behavior are part of the runtime contract.
+
 ## Build Requirements
 
 The first build stack should be boring and visible. It needs enough tools to
@@ -232,4 +263,3 @@ Running service identity lives in /Services.
 Composed deployment intent lives in /Stacks.
 Mutable build/runtime substrate lives in /Work.
 ```
-

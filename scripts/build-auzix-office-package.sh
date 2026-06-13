@@ -9,7 +9,7 @@ case "${PACKAGE_ID}" in
   abiword)
     NAME="AbiWord"
     COMMANDS=(abiword)
-    RESOURCE_DIRS=(abiword)
+    RESOURCE_DIRS=(abiword-3.0)
     LIBRARY_DIRS=(abiword-3.0)
     CATEGORIES="Office;WordProcessor;"
     ;;
