@@ -133,6 +133,12 @@ The first installer implementation now follows that contract:
 target, `grub` or `iso`, and an explicit boolean confirmation. The `dialog`
 frontend performs a separate final confirmation before it emits and runs a plan.
 
+![AuziX repository installer progress](images/installer_repository.jpg)
+
+The repository-installed Lua, Dialog, and AuzixInstaller packages provide the
+first end-to-end proof of the package metadata, versioned program layout, and
+dialog frontend fallback.
+
 The graphical command currently dispatches to an installed EFL frontend first,
 then GTK, and otherwise falls back to the TUI. A future graphical frontend only
 needs to consume `questions.json`, emit `auzix-install-plan-v1`, and invoke the
