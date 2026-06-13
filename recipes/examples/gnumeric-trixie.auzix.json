@@ -1,0 +1,33 @@
+{
+  "name": "Gnumeric",
+  "version": "1.12.57-1.1+b1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-1-compat-install",
+  "source": {
+    "type": "distro-source",
+    "origin": "debian:trixie",
+    "reference": "gnumeric"
+  },
+  "paths": {
+    "prefix": "/Programs/Gnumeric/1.12.57-1.1+b1",
+    "libraries": "/Programs/Gnumeric/1.12.57-1.1+b1/Libraries"
+  },
+  "build": {
+    "system": "custom",
+    "arguments": [
+      "scripts/build-auzix-office-package.sh",
+      "gnumeric"
+    ]
+  },
+  "validation": {
+    "commands": [
+      "gnumeric --version",
+      "ssconvert --version"
+    ],
+    "forbidden_paths": [
+      "/Programs/DebianPackages/gnumeric"
+    ]
+  },
+  "notes": "First-class spreadsheet package with a bundled dynamic loader, discovered ELF dependencies, plugin resources, command-line converters, and desktop integration."
+}

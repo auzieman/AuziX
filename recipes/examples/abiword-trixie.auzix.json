@@ -1,0 +1,32 @@
+{
+  "name": "AbiWord",
+  "version": "3.0.6~dfsg-1",
+  "kind": "program",
+  "target_arch": "x86_64",
+  "migration_stage": "stage-1-compat-install",
+  "source": {
+    "type": "distro-source",
+    "origin": "debian:trixie",
+    "reference": "abiword"
+  },
+  "paths": {
+    "prefix": "/Programs/AbiWord/3.0.6~dfsg-1",
+    "libraries": "/Programs/AbiWord/3.0.6~dfsg-1/Libraries"
+  },
+  "build": {
+    "system": "custom",
+    "arguments": [
+      "scripts/build-auzix-office-package.sh",
+      "abiword"
+    ]
+  },
+  "validation": {
+    "commands": [
+      "abiword --version"
+    ],
+    "forbidden_paths": [
+      "/Programs/DebianPackages/abiword"
+    ]
+  },
+  "notes": "First-class office package with a bundled dynamic loader, discovered ELF dependencies, application resources, and desktop integration."
+}

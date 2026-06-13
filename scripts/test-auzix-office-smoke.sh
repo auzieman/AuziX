@@ -11,22 +11,33 @@ grep -F 'AUZIX_TRIXIE_REPORT' "${ROOT_DIR}/scripts/run-auzix-trixie-intake.sh" >
 
 if [[ -n "${AUZIX_ROOT}" ]]; then
   for package_name in "${packages[@]}"; do
+    case "${package_name}" in
+      abiword) native_name="AbiWord" ;;
+      gnumeric) native_name="Gnumeric" ;;
+    esac
     receipt="$(
       find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
-        -name "Debian.${package_name}-*.auzix.json" -print -quit
+        -name "${native_name}-*.auzix.json" -print -quit
     )"
     [[ -n "${receipt}" ]]
-    jq -e --arg package "${package_name}" '
-      .name == ("Debian." + $package)
-      and .migration_stage == "stage-0-fhs-build"
+    jq -e --arg package "${package_name}" --arg name "${native_name}" '
+      .name == $name
+      and .migration_stage == "stage-1-compat-install"
       and .source.package == $package
-      and (.paths.current | startswith("/Programs/DebianPackages/" + $package + "/"))
+      and (.paths.current == ("/Programs/" + $name + "/current"))
+      and (.runtime_libraries | length == 1)
+      and (.compatibility_exports | length >= 4)
     ' "${receipt}" >/dev/null
 
     prefix="$(jq -r '.prefix' "${receipt}")"
-    [[ -d "${AUZIX_ROOT}${prefix}/RootFS" ]]
-    find "${AUZIX_ROOT}${prefix}/RootFS/usr/bin" -maxdepth 1 -type f \
-      -name "${package_name}*" -print -quit | grep -q .
+    loader="$(jq -r '.validation.loader' "${receipt}")"
+    [[ -x "${AUZIX_ROOT}${prefix}/Commands/${package_name}" ]]
+    [[ -x "${AUZIX_ROOT}${loader}" ]]
+    LD_LIBRARY_PATH="${AUZIX_ROOT}${prefix}/Libraries" \
+      "${AUZIX_ROOT}${loader}" \
+      --library-path "${AUZIX_ROOT}${prefix}/Libraries" \
+      "${AUZIX_ROOT}${prefix}/Commands/${package_name}.real" \
+      --version >/dev/null 2>&1
   done
 fi
 
