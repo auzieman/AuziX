@@ -142,11 +142,17 @@ end
 
 local function temp_path(name)
   local base = os.getenv("TMPDIR") or rooted("/Work/Temp")
+  if not command_ok("mkdir -p " .. shell_quote(base)) then
+    return nil
+  end
   return base .. "/auzix-installer-" .. name .. "-" .. tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
 end
 
 local function dialog_value(args)
   local output = temp_path("dialog")
+  if not output then
+    return nil
+  end
   local command = shell_quote(dialog) .. " " .. args .. " 2>" .. shell_quote(output)
   if not command_ok(command) then
     os.remove(output)

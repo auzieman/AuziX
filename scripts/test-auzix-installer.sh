@@ -29,8 +29,10 @@ run_installer() {
 }
 
 run_tui_installer() {
+  local temp_dir="${WORK_DIR}/missing/dialog-temp"
   LD_LIBRARY_PATH="${LUA_LIBS}:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64" \
     AUZIX_ROOT="${AUZIX_ROOT}" \
+    TMPDIR="${temp_dir}" \
     AUZIX_JQ="$(command -v jq)" \
     AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
     AUZIX_INSTALLER_DISKS="/dev/vdz,/dev/vdy" \
