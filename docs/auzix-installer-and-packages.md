@@ -152,6 +152,12 @@ The `AuzixInstaller` package also exports an `Install AuziX` desktop entry.
 It requests a terminal so the Dialog fallback remains usable when launched from
 Enlightenment before a native EFL or GTK frontend is installed.
 
+It also exports `AuziX Package Setup`, a small Lua/Dialog frontend for the
+repository client. The frontend refreshes repository metadata, lists available
+packages, asks for confirmation, and invokes `auzix-pkg install PACKAGE`.
+Dependency resolution, checksums, extraction, and installed-state updates remain
+owned by `auzix-pkg`; the frontend does not duplicate transaction logic.
+
 The BKC installer lane uses `docker/installer-builder/Dockerfile`, a small
 Debian builder containing only the packaging prerequisites for jq, Lua, dialog,
 and the installer tests. This avoids producing AuziX runtime packages from the

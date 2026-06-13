@@ -53,6 +53,8 @@ grep -F '"compatibility_exports": ["/System/Compatibility/bin/dialog"]' \
   "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
 grep -F '"/System/Tools/auzix-installer-gui"' \
   "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
+grep -F '"/System/Tools/auzix-package-setup"' \
+  "${ROOT_DIR}/scripts/build-auzix-installer-package.sh" >/dev/null
 grep -F '| last // empty' \
   "${ROOT_DIR}/scripts/build-auzix-package-tools-package.sh" >/dev/null
 

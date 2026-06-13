@@ -8,12 +8,13 @@ INSTALLER_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/AuzixInstaller
 LUA_REAL="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Commands/lua.real"
 LUA_LIBS="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Libraries"
 INSTALLER_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-installer.lua"
+PACKAGE_SETUP_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-package-setup.lua"
 DEFAULT_PLAN="${AUZIX_ROOT}/System/Settings/installer/plans/default.json"
 QUESTIONS="${AUZIX_ROOT}/System/Settings/installer/questions.json"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 
-for path in "${LUA_REAL}" "${INSTALLER_LUA}" "${DEFAULT_PLAN}"; do
+for path in "${LUA_REAL}" "${INSTALLER_LUA}" "${PACKAGE_SETUP_LUA}" "${DEFAULT_PLAN}"; do
   [[ -e "${path}" ]] || {
     printf 'Installer test prerequisite is missing: %s\n' "${path}" >&2
     exit 1
@@ -26,6 +27,16 @@ run_installer() {
     AUZIX_JQ="$(command -v jq)" \
     AUZIX_INSTALL_EXECUTOR="${WORK_DIR}/fake-install-disk" \
     "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
+}
+
+run_package_setup() {
+  LD_LIBRARY_PATH="${LUA_LIBS}:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64" \
+    AUZIX_ROOT="${AUZIX_ROOT}" \
+    TMPDIR="${WORK_DIR}/missing/package-setup-temp" \
+    AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
+    AUZIX_PKG="${WORK_DIR}/fake-auzix-pkg" \
+    AUZIX_TEST_PACKAGE_LOG="${WORK_DIR}/package.log" \
+    "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
 }
 
 run_tui_installer() {
@@ -54,11 +65,30 @@ case " $* " in
   *" Installation disk "*) printf '%s' /dev/vdz >&2 ;;
   *" Boot method "*) printf '%s' iso >&2 ;;
   *" Hostname "*) printf '%s' installer-test >&2 ;;
+  *" Available packages "*) printf '%s' Gnumeric >&2 ;;
+  *" --msgbox "*) exit 0 ;;
   *" --yesno "*) exit "${AUZIX_TEST_DIALOG_CONFIRM:-0}" ;;
   *) printf 'Unexpected dialog invocation: %s\n' "$*" >&2; exit 2 ;;
 esac
 SCRIPT
 chmod 0755 "${WORK_DIR}/fake-dialog"
+
+cat >"${WORK_DIR}/fake-auzix-pkg" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${AUZIX_TEST_PACKAGE_LOG}"
+case "${1:-}" in
+  refresh) ;;
+  list)
+    [[ "${2:-}" == "available" ]]
+    printf 'Gnumeric\t1.12.57\tprogram\t28.0 MiB\n'
+    printf 'AbiWord\t3.0.6\tprogram\t56.0 MiB\n'
+    ;;
+  install) [[ "${2:-}" == "Gnumeric" ]] ;;
+  *) exit 2 ;;
+esac
+SCRIPT
+chmod 0755 "${WORK_DIR}/fake-auzix-pkg"
 
 run_installer validate "${DEFAULT_PLAN}" >/dev/null
 
@@ -128,5 +158,17 @@ jq -e '
 DESKTOP_ENTRY="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-installer.desktop"
 grep -Fx 'Exec=/System/Tools/auzix-installer-gui' "${DESKTOP_ENTRY}" >/dev/null
 grep -Fx 'Terminal=true' "${DESKTOP_ENTRY}" >/dev/null
+
+run_package_setup tui >/dev/null
+cat >"${WORK_DIR}/expected-package.log" <<'EOF'
+refresh
+list available
+install Gnumeric
+EOF
+cmp "${WORK_DIR}/expected-package.log" "${WORK_DIR}/package.log"
+
+PACKAGE_DESKTOP_ENTRY="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-package-setup.desktop"
+grep -Fx 'Exec=/System/Tools/auzix-package-setup' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
+grep -Fx 'Terminal=true' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
 
 echo "AuziX installer tests: PASS"

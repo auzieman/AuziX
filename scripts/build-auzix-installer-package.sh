@@ -120,6 +120,7 @@ SCRIPT
 chmod 0755 "${DIALOG_PROGRAM}/Commands/dialog"
 
 install -m 0644 "${ROOT_DIR}/installer/auzix-installer.lua" "${INSTALLER_PROGRAM}/Resources/auzix-installer.lua"
+install -m 0644 "${ROOT_DIR}/installer/auzix-package-setup.lua" "${INSTALLER_PROGRAM}/Resources/auzix-package-setup.lua"
 install -m 0644 "${ROOT_DIR}/installer/install-plan.schema.json" "${INSTALLER_PROGRAM}/Resources/install-plan.schema.json"
 install -m 0644 "${ROOT_DIR}/installer/questions.json" "${INSTALLER_PROGRAM}/Resources/questions.json"
 install -m 0644 "${ROOT_DIR}/installer/plans/default.json" "${INSTALLER_PROGRAM}/Resources/plans/default.json"
@@ -135,6 +136,15 @@ export PATH
 exec /Programs/Lua/current/Commands/lua /Programs/AuzixInstaller/current/Resources/auzix-installer.lua "$@"
 SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-installer"
+
+cat >"${INSTALLER_PROGRAM}/Commands/auzix-package-setup" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -eu
+PATH=/Programs/AuzixPackageTools/current/Commands:/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
+export PATH
+exec /Programs/Lua/current/Commands/lua /Programs/AuzixInstaller/current/Resources/auzix-package-setup.lua "$@"
+SCRIPT
+chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-package-setup"
 
 cat >"${INSTALLER_PROGRAM}/Commands/auzix-installer-gui" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
@@ -167,6 +177,18 @@ Categories=System;Settings;
 Keywords=install;disk;system;
 EOF
 
+cat >"${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-package-setup.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=AuziX Package Setup
+Comment=Install software from the AuziX repository
+Exec=/System/Tools/auzix-package-setup
+Icon=system-software-install
+Terminal=true
+Categories=System;Settings;
+Keywords=packages;software;install;
+EOF
+
 ln -sfn "/Programs/Lua/${LUA_VERSION}" "${AUZIX_ROOT}/Programs/Lua/current"
 ln -sfn "/Programs/Dialog/${DIALOG_VERSION}" "${AUZIX_ROOT}/Programs/Dialog/current"
 ln -sfn "/Programs/AuzixInstaller/${INSTALLER_VERSION}" "${AUZIX_ROOT}/Programs/AuzixInstaller/current"
@@ -174,6 +196,7 @@ ln -sfn /Programs/Lua/current/Commands/lua "${AUZIX_ROOT}/System/Compatibility/b
 ln -sfn /Programs/Dialog/current/Commands/dialog "${AUZIX_ROOT}/System/Compatibility/bin/dialog"
 ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-installer "${AUZIX_ROOT}/System/Tools/auzix-installer"
 ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-installer-gui "${AUZIX_ROOT}/System/Tools/auzix-installer-gui"
+ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-package-setup "${AUZIX_ROOT}/System/Tools/auzix-package-setup"
 
 cat >"${AUZIX_ROOT}/System/PackageDB/Lua-${LUA_VERSION}.auzix.json" <<EOF
 {
@@ -217,15 +240,18 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
   },
   "commands": [
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer",
-    "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer-gui"
+    "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer-gui",
+    "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-package-setup"
   ],
   "compatibility_exports": [
     "/System/Tools/auzix-installer",
     "/System/Tools/auzix-installer-gui",
-    "/System/Compatibility/usr/share/applications/auzix-installer.desktop"
+    "/System/Tools/auzix-package-setup",
+    "/System/Compatibility/usr/share/applications/auzix-installer.desktop",
+    "/System/Compatibility/usr/share/applications/auzix-package-setup.desktop"
   ],
   "depends": ["Lua", "Dialog", "AuzixPackageTools"],
-  "notes": "JSON-plan installer with Lua sequencing, a dialog TUI, and a shared question protocol for EFL or GTK frontends."
+  "notes": "JSON-plan installer plus a Lua/Dialog package setup frontend that delegates transactions to auzix-pkg."
 }
 EOF
 
