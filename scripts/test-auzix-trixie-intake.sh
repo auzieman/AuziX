@@ -6,6 +6,7 @@ PROFILE="${ROOT_DIR}/profiles/packages/auzix-trixie-user-apps.packages"
 
 test -x "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh"
 test -x "${ROOT_DIR}/scripts/run-auzix-trixie-intake.sh"
+test -x "${ROOT_DIR}/scripts/test-auzix-office-smoke.sh"
 test -s "${ROOT_DIR}/docker/trixie-builder/Dockerfile"
 
 package_count="$(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u | wc -l)"

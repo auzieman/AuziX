@@ -6,7 +6,8 @@ PROFILE="${1:-${ROOT_DIR}/profiles/packages/auzix-trixie-user-apps.packages}"
 AUZIX_ROOT="${2:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LIMIT="${AUZIX_TRIXIE_LIMIT:-0}"
 REPORT_DIR="${ROOT_DIR}/out/package-bot"
-REPORT_FILE="${REPORT_DIR}/trixie-user-apps.report.json"
+REPORT_NAME="${AUZIX_TRIXIE_REPORT:-trixie-user-apps.report.json}"
+REPORT_FILE="${REPORT_DIR}/${REPORT_NAME}"
 
 log() {
   printf '[auzix-trixie-intake] %s\n' "$*" >&2
@@ -18,6 +19,10 @@ log() {
 }
 [[ "${LIMIT}" =~ ^[0-9]+$ ]] || {
   log "AUZIX_TRIXIE_LIMIT must be a non-negative integer"
+  exit 1
+}
+[[ "${REPORT_NAME}" =~ ^[A-Za-z0-9._-]+[.]json$ ]] || {
+  log "AUZIX_TRIXIE_REPORT must be a JSON filename"
   exit 1
 }
 

@@ -17,6 +17,11 @@ auzix-package-bot-test:
 auzix-package-bot-trixie:
 	./scripts/run-auzix-trixie-intake.sh
 
+auzix-package-bot-office-smoke:
+	AUZIX_TRIXIE_REPORT=office-smoke.report.json \
+		./scripts/run-auzix-trixie-intake.sh profiles/packages/auzix-office-smoke.packages
+	./scripts/test-auzix-office-smoke.sh out/auzix-strict/AuzixRoot
+
 auzix-package-bot-installer-ui:
 	./scripts/run-auzix-package-bot.sh packages/installer-ui.queue.json installer-ui-core
 
