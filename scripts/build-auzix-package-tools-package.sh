@@ -253,6 +253,9 @@ install_one() {
 
   validate_archive "${archive}"
   "${BB}" tar -xzf "${archive}" -C /
+  if [ -x /System/Tools/finalize-installed-root ]; then
+    /System/Tools/finalize-installed-root /
+  fi
   run_post_install "${package_json}"
   record_install "${package_json}" "${base_url}"
   echo "Installed ${name} $(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')"

@@ -161,6 +161,14 @@ Repository and install commands run through `sudo -n` because they update
 root-owned `/System`, `/Programs`, and `/Work` paths, while Dialog remains in
 the graphical user's terminal session.
 
+Package extraction now also runs `/System/Tools/finalize-installed-root` when
+that tool is present. The finalizer is intentionally idempotent and handles the
+installed-root invariants that should not depend on live-ISO startup repair:
+`/Users/auzix` browser and desktop state directories, `/Work/Temp` and
+`/dev/shm` permissions, `/run/user/1000`, sudo mode, Xorg wrapper mode, and
+Enlightenment helper mode. This keeps `auzix-pkg install` from silently
+regressing browser or GUI permissions on an installed system.
+
 The BKC installer lane uses `docker/installer-builder/Dockerfile`, a small
 Debian builder containing only the packaging prerequisites for jq, Lua, dialog,
 and the installer tests. This avoids producing AuziX runtime packages from the

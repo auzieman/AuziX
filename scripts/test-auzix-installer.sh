@@ -173,4 +173,14 @@ PACKAGE_DESKTOP_ENTRY="${AUZIX_ROOT}/System/Compatibility/usr/share/applications
 grep -Fx 'Exec=/System/Tools/auzix-package-setup' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
 grep -Fx 'Terminal=true' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
 
+FINALIZER="${AUZIX_ROOT}/System/Tools/finalize-installed-root"
+grep -F 'finalized-installed-root=' "${FINALIZER}" >/dev/null
+grep -F '/Users/auzix/.midori' "${FINALIZER}" >/dev/null
+grep -F '/Programs/Sudo/host/Commands/sudo' "${FINALIZER}" >/dev/null
+grep -F '/System/Compatibility/usr/lib/xorg/Xorg.wrap' "${FINALIZER}" >/dev/null
+grep -F '${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"' \
+  "${AUZIX_ROOT}/System/Tools/auzix-install-package" >/dev/null
+grep -F '/Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget' \
+  "${AUZIX_ROOT}/System/Tools/auzix-install-disk" >/dev/null
+
 echo "AuziX installer tests: PASS"

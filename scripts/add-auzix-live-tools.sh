@@ -2074,6 +2074,124 @@ SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-e"
 
+cat > "${AUZIX_ROOT}/System/Tools/finalize-installed-root" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -u
+
+PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
+export PATH
+BB=/Programs/BusyBox/1.36.1/Commands/busybox
+TARGET="${1:-/}"
+
+case "${TARGET}" in
+  "") TARGET="/" ;;
+esac
+
+target_path() {
+  case "${TARGET}" in
+    /) printf '%s\n' "$1" ;;
+    */) printf '%s%s\n' "${TARGET%/}" "$1" ;;
+    *) printf '%s%s\n' "${TARGET}" "$1" ;;
+  esac
+}
+
+mkdir_p() {
+  for path in "$@"; do
+    "${BB}" mkdir -p "$(target_path "${path}")" 2>/dev/null || true
+  done
+}
+
+chmod_path() {
+  mode="$1"
+  shift
+  for path in "$@"; do
+    [ -e "$(target_path "${path}")" ] || continue
+    "${BB}" chmod "${mode}" "$(target_path "${path}")" 2>/dev/null || true
+  done
+}
+
+chown_path() {
+  owner="$1"
+  shift
+  for path in "$@"; do
+    [ -e "$(target_path "${path}")" ] || continue
+    "${BB}" chown -R "${owner}" "$(target_path "${path}")" 2>/dev/null || true
+  done
+}
+
+mkdir_p \
+  /Users \
+  /Users/root \
+  /Users/auzix/.cache/efreet \
+  /Users/auzix/.config \
+  /Users/auzix/.e/e/config \
+  /Users/auzix/.elementary/config/standard \
+  /Users/auzix/.local/share \
+  /Users/auzix/.midori \
+  /System/Logs/display \
+  /System/State/dbus \
+  /System/State/display \
+  /System/State/packages \
+  /System/State/tmp \
+  /Work/Temp \
+  /dev/shm \
+  /run/user/1000 \
+  /run/dbus \
+  /run/lock
+
+chown_path 0:0 /Users /Users/root
+chmod_path 0755 /Users /Users/root /System/Logs /System/Logs/display /System/State /System/State/dbus /System/State/display
+chown_path 1000:1000 /Users/auzix /run/user/1000
+chmod_path 0755 /Users/auzix
+chmod_path 0700 /run/user/1000
+"${BB}" chmod -R u+rwX \
+  "$(target_path /Users/auzix/.cache)" \
+  "$(target_path /Users/auzix/.config)" \
+  "$(target_path /Users/auzix/.e)" \
+  "$(target_path /Users/auzix/.elementary)" \
+  "$(target_path /Users/auzix/.local)" \
+  "$(target_path /Users/auzix/.midori)" 2>/dev/null || true
+chown_path 1000:1000 \
+  /Users/auzix/.cache \
+  /Users/auzix/.config \
+  /Users/auzix/.e \
+  /Users/auzix/.elementary \
+  /Users/auzix/.local \
+  /Users/auzix/.midori
+chmod_path 1777 /Work/Temp /dev/shm
+
+if [ -e "$(target_path /Programs/Sudo/host/Commands/sudo)" ]; then
+  chown_path 0:0 /Programs/Sudo/host/Commands/sudo
+  chmod_path 4755 /Programs/Sudo/host/Commands/sudo
+fi
+if [ -e "$(target_path /System/Compatibility/usr/lib/xorg/Xorg.wrap)" ]; then
+  chown_path 0:0 /System/Compatibility/usr/lib/xorg/Xorg.wrap
+  chmod_path 4755 /System/Compatibility/usr/lib/xorg/Xorg.wrap
+fi
+for helper in \
+  /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system \
+  /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_sys \
+  /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_ckpasswd
+do
+  [ -e "$(target_path "${helper}")" ] || continue
+  chown_path 0:0 "${helper}"
+  chmod_path 4755 "${helper}"
+done
+if [ -e "$(target_path /System/Settings/sudoers)" ]; then
+  chown_path 0:0 /System/Settings/sudoers /System/Settings/sudo.conf
+  chmod_path 0440 /System/Settings/sudoers
+fi
+if [ -d "$(target_path /System/Settings/sudoers.d)" ]; then
+  chown_path 0:0 /System/Settings/sudoers.d
+fi
+if [ -d "$(target_path /System/Compatibility/usr/libexec/sudo)" ]; then
+  chown_path 0:0 /System/Compatibility/usr/libexec/sudo
+fi
+
+printf 'finalized-installed-root=%s\n' "${TARGET}"
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/finalize-installed-root"
+
 cat > "${AUZIX_ROOT}/System/Tools/auzix-packages" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -eu
@@ -2195,6 +2313,9 @@ fi
 
 "${BB}" mkdir -p "${target_root}"
 "${BB}" tar -xzf "${package}" -C "${target_root}"
+if [ -x "${target_root%/}/System/Tools/finalize-installed-root" ]; then
+  "${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"
+fi
 echo "Installed package ${package} into ${target_root}"
 SCRIPT
 
@@ -2452,6 +2573,9 @@ echo "Copying live Auzix root to ${partition}"
 "${BB}" cp /Work/InstallTarget/System/Boot/InstalledInit /Work/InstallTarget/init
 "${BB}" chmod 0755 /Work/InstallTarget/init
 "${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install
+if [ -x /Work/InstallTarget/System/Tools/finalize-installed-root ]; then
+  /Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget
+fi
 write_installed_fstab "${root_fstype}"
 copy_boot_payload
 "${BB}" mkdir -p /Work/InstallTarget/boot/grub

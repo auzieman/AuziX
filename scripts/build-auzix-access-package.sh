@@ -89,7 +89,12 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Logs/ssh" \
   "${AUZIX_ROOT}/Services/ssh" \
   "${AUZIX_ROOT}/Users/root/.ssh" \
-  "${AUZIX_ROOT}/Users/auzix" \
+  "${AUZIX_ROOT}/Users/auzix/.cache/efreet" \
+  "${AUZIX_ROOT}/Users/auzix/.config" \
+  "${AUZIX_ROOT}/Users/auzix/.e/e/config" \
+  "${AUZIX_ROOT}/Users/auzix/.elementary/config/standard" \
+  "${AUZIX_ROOT}/Users/auzix/.local/share" \
+  "${AUZIX_ROOT}/Users/auzix/.midori" \
   "${AUZIX_ROOT}/run/sshd"
 
 if [[ -e /lib64/ld-linux-x86-64.so.2 ]]; then
@@ -193,6 +198,14 @@ export LC_ALL=C
 alias ll='ls -l'
 EOF
 chown -R 1000:1000 "${AUZIX_ROOT}/Users/auzix"
+chmod 0755 "${AUZIX_ROOT}/Users/auzix"
+chmod -R u+rwX \
+  "${AUZIX_ROOT}/Users/auzix/.cache" \
+  "${AUZIX_ROOT}/Users/auzix/.config" \
+  "${AUZIX_ROOT}/Users/auzix/.e" \
+  "${AUZIX_ROOT}/Users/auzix/.elementary" \
+  "${AUZIX_ROOT}/Users/auzix/.local" \
+  "${AUZIX_ROOT}/Users/auzix/.midori" 2>/dev/null || true
 
 cat > "${AUZIX_ROOT}/System/Settings/passwd" <<'EOF'
 root:x:0:0:root:/Users/root:/System/Compatibility/bin/bash

@@ -177,6 +177,15 @@ BusyBox DHCP, and runs executable `/Services/*/run` hooks. It keeps Auzix
 single-user friendly while giving us a place to attach `seatd`, SSH, and later
 a display-manager service.
 
+Installed roots should not rely on this boot sequence to repair every persistent
+permission problem. `auzix-install-disk` now runs
+`/System/Tools/finalize-installed-root /Work/InstallTarget` after copying the
+live root, and package extraction runs the same finalizer against `/` when it is
+available. The finalizer owns persistent user-state and helper-mode invariants:
+`/Users/auzix/.cache`, `.config`, `.local`, `.midori`, Enlightenment state,
+`/Work/Temp`, `/dev/shm`, `/run/user/1000`, sudo, Xorg.wrap, and Enlightenment
+privileged helpers.
+
 ## Asset Staging
 
 Local Enlightenment backgrounds, themes, and selected config can be staged into
