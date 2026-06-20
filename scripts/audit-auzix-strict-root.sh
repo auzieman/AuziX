@@ -216,6 +216,37 @@ else
 fi
 
 report ""
+report "Identity baseline"
+passwd_file="${AUZIX_ROOT}/System/Settings/passwd"
+group_file="${AUZIX_ROOT}/System/Settings/group"
+shadow_file="${AUZIX_ROOT}/System/Settings/shadow"
+if [[ -f "${passwd_file}" ]] && grep -Fq 'auzix:x:1000:1000:' "${passwd_file}"; then
+  pass "/System/Settings/passwd contains auzix uid 1000"
+else
+  fail "/System/Settings/passwd is missing auzix uid 1000"
+fi
+if [[ -f "${group_file}" ]] && grep -Fq 'auzix:x:1000:' "${group_file}"; then
+  pass "/System/Settings/group contains auzix gid 1000"
+else
+  fail "/System/Settings/group is missing auzix gid 1000"
+fi
+if [[ -d "${AUZIX_ROOT}/Users/auzix" ]]; then
+  pass "/Users/auzix exists"
+else
+  fail "/Users/auzix is missing"
+fi
+if [[ -f "${shadow_file}" ]]; then
+  mode="$(stat -c '%a' "${shadow_file}" 2>/dev/null || true)"
+  if [[ "${mode}" == "600" ]]; then
+    pass "/System/Settings/shadow mode is 0600"
+  else
+    fail "/System/Settings/shadow mode must be 0600, got ${mode:-unknown}"
+  fi
+else
+  fail "/System/Settings/shadow is missing"
+fi
+
+report ""
 report "Runtime network and browser contract"
 start_sequence="${AUZIX_ROOT}/System/Boot/StartSequence"
 ca_bundle="${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt"

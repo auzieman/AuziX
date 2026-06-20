@@ -157,6 +157,68 @@ FSTAB
 }
 
 repair_live_user_home() {
+  "${BB}" mkdir -p /System/Settings /Users/root 2>/dev/null || true
+  if ! "${BB}" grep -q '^auzix:' /System/Settings/passwd 2>/dev/null; then
+    cat > /System/Settings/passwd <<'EOF'
+root:x:0:0:root:/Users/root:/System/Compatibility/bin/sh
+auzix:x:1000:1000:Auzix User:/Users/auzix:/System/Compatibility/bin/sh
+sshd:x:74:74:sshd privilege separation:/run/sshd:/System/Compatibility/bin/false
+messagebus:x:101:101:DBus message bus:/run/dbus:/System/Compatibility/bin/false
+lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatibility/bin/false
+EOF
+  fi
+  if ! "${BB}" grep -q '^auzix:' /System/Settings/group 2>/dev/null; then
+    cat > /System/Settings/group <<'EOF'
+root:x:0:
+tty:x:5:
+auzix:x:1000:
+sshd:x:74:
+messagebus:x:101:
+lightdm:x:102:
+sudo:x:27:auzix
+wheel:x:10:root,auzix
+input:x:104:root,auzix
+video:x:44:root,auzix
+render:x:105:root,auzix
+audio:x:29:root,auzix
+EOF
+  fi
+  if [ ! -s /System/Settings/shadow ]; then
+    cat > /System/Settings/shadow <<'EOF'
+root:*:19700:0:99999:7:::
+auzix:*:19700:0:99999:7:::
+sshd:*:19700:0:99999:7:::
+messagebus:*:19700:0:99999:7:::
+lightdm:*:19700:0:99999:7:::
+EOF
+  fi
+  if [ ! -s /System/Settings/shells ]; then
+    cat > /System/Settings/shells <<'EOF'
+/System/Compatibility/bin/sh
+/System/Compatibility/bin/bash
+EOF
+  fi
+  if [ ! -s /System/Settings/nsswitch.conf ]; then
+    cat > /System/Settings/nsswitch.conf <<'EOF'
+passwd: files
+group: files
+shadow: files
+hosts: files dns
+networks: files
+protocols: files
+services: files
+ethers: files
+rpc: files
+EOF
+  fi
+  if [ ! -s /System/Settings/hosts ]; then
+    cat > /System/Settings/hosts <<'EOF'
+127.0.0.1 localhost auzix auzix-live
+::1 localhost ip6-localhost ip6-loopback
+EOF
+  fi
+  "${BB}" chmod 0600 /System/Settings/shadow 2>/dev/null || true
+
   "${BB}" mkdir -p \
     /Users \
     /Users/auzix \
