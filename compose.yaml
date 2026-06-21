@@ -41,5 +41,16 @@ services:
       - ./scripts/build-auzix-package-tools-package.sh && ./scripts/build-auzix-installer-package.sh && ./scripts/test-auzix-installer.sh
     profiles: ["installer"]
 
+  source-workbench:
+    build:
+      context: .
+      dockerfile: docker/source-workbench/Dockerfile
+    image: auzix/source-workbench:local
+    working_dir: /workspace
+    volumes:
+      - ./out:/workspace/out
+    command: []
+    profiles: ["source-workbench"]
+
 volumes:
   auzix-cache:

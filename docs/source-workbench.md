@@ -13,6 +13,8 @@ the result, then package it.
 packages/source-workbench.schema.json  manifest schema
 packages/source-workbench.seed.json    first EFL/E/Terminology/NetSurf seed
 packages/source-build.sources.json     earlier NetSurf-focused source catalog
+docker/source-workbench/Dockerfile     minimal bootable workbench container
+scripts/source-workbench-boot.sh       manifest boot/plan entry point
 ```
 
 Generated paths should follow this shape:
@@ -100,3 +102,23 @@ EFL -> Enlightenment -> Terminology -> NetSurf
 NetSurf is marked `ready` in the seed manifest because the manual proof already
 showed that source-tree build plus `LD_LIBRARY_PATH`/prefix handling works. The
 others remain `seed` until their source build contracts are proven.
+
+## Bootable Workbench
+
+The first runnable form is intentionally small. It does not compile the desktop
+stack yet. It boots the workbench control plane, validates the manifest format,
+creates the expected generated roots, and emits a build plan.
+
+```sh
+make auzix-source-workbench
+```
+
+Generated outputs:
+
+```text
+out/source-workbench/boot-summary.json
+out/source-workbench/build-plan.txt
+```
+
+This gives BKC and the slow worker a stable entry point before the expensive
+source builds are enabled.
