@@ -92,6 +92,7 @@ For the source-build/staging flow and current handoff notes, see:
 
 ```
 docs/build-flow-notes.md
+docs/source-workbench.md
 docs/issues-and-build-notes.md
 docs/core-validation-loop.md
 ```

@@ -1,0 +1,102 @@
+# Source Workbench
+
+The source workbench combines the useful parts of `Auzix.rethink` with the
+current AuZiX package/receipt model.
+
+The goal is to stop rebuilding working behavior in broad shell scripts. Build
+from source normally, override paths deliberately, stage the result, validate
+the result, then package it.
+
+## Files
+
+```text
+packages/source-workbench.schema.json  manifest schema
+packages/source-workbench.seed.json    first EFL/E/Terminology/NetSurf seed
+packages/source-build.sources.json     earlier NetSurf-focused source catalog
+```
+
+Generated paths should follow this shape:
+
+```text
+sources/workbench/<component>/          checked-in patches or local source notes
+out/build/source-workbench/<component>/ unpacked upstream source and build tree
+out/stage/source-workbench/<component>/ DESTDIR-style install root
+out/packages/source-workbench/          package archives, receipts, ldd evidence
+```
+
+## Build Rules
+
+Use the package's own build system first:
+
+- `make`
+- `meson` and `ninja`
+- `cmake`
+- `autotools`
+
+Prefer build/install flags before source patches:
+
+```text
+PREFIX
+DESTDIR
+LIBDIR
+SYSCONFDIR
+LOCALSTATEDIR
+PKG_CONFIG_PATH
+LD_LIBRARY_PATH
+```
+
+Debian source metadata is useful for locating source packages, dependencies,
+versions, and patches. Debian `debian/rules` is reference material unless a
+component genuinely needs it.
+
+## Validation
+
+Every component should produce evidence before it is allowed into the ISO:
+
+```text
+build log
+install manifest
+receipt JSON
+readelf/ldd output
+declared compatibility exports
+small CLI smoke check
+```
+
+For graphical packages, validate command presence and library closure before
+trying a full desktop boot. Enlightenment's first-run, network-manager,
+Bluetooth, PackageKit, and Wayland modules should stay disabled until their
+backing services are package-owned.
+
+## Ollama Worker
+
+Ollama should receive only bounded failure packets:
+
+```text
+component manifest
+build command
+tail of build log
+ldd/readelf failure evidence
+current receipt, if any
+```
+
+The requested answer should be limited to:
+
+```text
+finding:
+smallest build argument or patch:
+validation command:
+```
+
+Do not ask the worker to redesign the distribution or rewrite the boot process.
+
+## First Lane
+
+The first practical lane should prove this order:
+
+```text
+EFL -> Enlightenment -> Terminology -> NetSurf
+```
+
+NetSurf is marked `ready` in the seed manifest because the manual proof already
+showed that source-tree build plus `LD_LIBRARY_PATH`/prefix handling works. The
+others remain `seed` until their source build contracts are proven.

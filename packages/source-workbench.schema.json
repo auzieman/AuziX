@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/source-workbench.json",
+  "title": "AuZiX source workbench manifest",
+  "type": "object",
+  "required": ["format", "defaults", "components"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"const": "auzix-source-workbench-v1"},
+    "defaults": {
+      "type": "object",
+      "required": ["origin", "suite", "architecture", "roots"],
+      "additionalProperties": false,
+      "properties": {
+        "origin": {"type": "string", "minLength": 1},
+        "suite": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1},
+        "roots": {
+          "type": "object",
+          "required": ["sources", "build", "stage", "packages"],
+          "additionalProperties": false,
+          "properties": {
+            "sources": {"type": "string", "minLength": 1},
+            "build": {"type": "string", "minLength": 1},
+            "stage": {"type": "string", "minLength": 1},
+            "packages": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "state", "source", "build", "install", "runtime"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"},
+          "state": {"enum": ["seed", "ready", "failing", "blocked"]},
+          "source": {
+            "type": "object",
+            "required": ["kind", "package", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {"enum": ["debian-source", "upstream-tarball", "local"]},
+              "package": {"type": "string", "minLength": 1},
+              "version": {"type": "string", "minLength": 1},
+              "binary_packages": {"type": "array", "items": {"type": "string"}},
+              "patches": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "build": {
+            "type": "object",
+            "required": ["system", "skip_debian_rules", "commands"],
+            "additionalProperties": false,
+            "properties": {
+              "system": {"enum": ["make", "meson", "cmake", "autotools", "custom"]},
+              "skip_debian_rules": {"type": "boolean"},
+              "environment": {"type": "object", "additionalProperties": {"type": "string"}},
+              "commands": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+            }
+          },
+          "install": {
+            "type": "object",
+            "required": ["prefix", "destdir", "exports"],
+            "additionalProperties": false,
+            "properties": {
+              "prefix": {"type": "string", "pattern": "^/Programs/"},
+              "destdir": {"type": "string", "minLength": 1},
+              "exports": {"type": "array", "items": {"type": "string"}},
+              "shared_candidates": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "required": ["ldd_policy", "checks"],
+            "additionalProperties": false,
+            "properties": {
+              "ldd_policy": {"enum": ["record", "record-and-resolve", "strict"]},
+              "library_paths": {"type": "array", "items": {"type": "string"}},
+              "checks": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "notes": {"type": "string"}
+        }
+      }
+    }
+  }
+}

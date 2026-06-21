@@ -51,6 +51,15 @@ override paths deliberately, record `ldd` evidence, and decide whether shared
 libraries are package-owned, promoted to `/System/Libraries`, or declared as
 dependencies.
 
+The broader source workbench seed is:
+
+```text
+packages/source-workbench.seed.json
+```
+
+It starts the cleaner EFL, Enlightenment, Terminology, and NetSurf lane using
+the same `sources -> out/build -> out/stage -> out/packages` model.
+
 ## What Not To Do
 
 Avoid adding more broad startup repair shell unless the package contract cannot

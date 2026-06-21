@@ -1,0 +1,187 @@
+{
+  "format": "auzix-source-workbench-v1",
+  "defaults": {
+    "origin": "debian",
+    "suite": "trixie",
+    "architecture": "amd64",
+    "roots": {
+      "sources": "sources/workbench",
+      "build": "out/build/source-workbench",
+      "stage": "out/stage/source-workbench",
+      "packages": "out/packages/source-workbench"
+    }
+  },
+  "components": [
+    {
+      "id": "EFL",
+      "state": "seed",
+      "source": {
+        "kind": "debian-source",
+        "package": "efl",
+        "version": "1.27.x",
+        "binary_packages": ["efl-doc", "libefl-all-dev"],
+        "patches": []
+      },
+      "build": {
+        "system": "meson",
+        "skip_debian_rules": true,
+        "environment": {
+          "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
+          "LD_LIBRARY_PATH": "/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+        },
+        "commands": [
+          "meson setup build --prefix=/Programs/EFL/current --libdir=Libraries --buildtype=release",
+          "ninja -C build",
+          "DESTDIR=${AUZIX_STAGE_ROOT} ninja -C build install"
+        ]
+      },
+      "install": {
+        "prefix": "/Programs/EFL/current",
+        "destdir": "out/stage/source-workbench/EFL",
+        "exports": ["/System/Compatibility/usr/share/elementary"],
+        "shared_candidates": ["/System/Libraries"]
+      },
+      "runtime": {
+        "ldd_policy": "record-and-resolve",
+        "library_paths": [
+          "/Programs/EFL/current/Libraries",
+          "/System/Libraries",
+          "/System/Compatibility/lib/x86_64-linux-gnu",
+          "/System/Compatibility/lib64"
+        ],
+        "checks": ["pkg-config", "ldd", "command-version"]
+      },
+      "notes": "Seed contract from rethink/Trixie manifest. Prefer meson path flags over runtime repair."
+    },
+    {
+      "id": "Enlightenment",
+      "state": "seed",
+      "source": {
+        "kind": "debian-source",
+        "package": "enlightenment",
+        "version": "0.26.x",
+        "binary_packages": ["enlightenment", "enlightenment-data", "enlightenment-dev"],
+        "patches": []
+      },
+      "build": {
+        "system": "meson",
+        "skip_debian_rules": true,
+        "environment": {
+          "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
+          "LD_LIBRARY_PATH": "/Programs/Enlightenment/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+        },
+        "commands": [
+          "meson setup build --prefix=/Programs/Enlightenment/current --libdir=Libraries --buildtype=release",
+          "ninja -C build",
+          "DESTDIR=${AUZIX_STAGE_ROOT} ninja -C build install"
+        ]
+      },
+      "install": {
+        "prefix": "/Programs/Enlightenment/current",
+        "destdir": "out/stage/source-workbench/Enlightenment",
+        "exports": [
+          "/System/Tools/start-enlightenment-session",
+          "/System/Compatibility/usr/share/xsessions/auzix-enlightenment.desktop"
+        ],
+        "shared_candidates": []
+      },
+      "runtime": {
+        "ldd_policy": "record-and-resolve",
+        "library_paths": [
+          "/Programs/Enlightenment/current/Libraries",
+          "/Programs/EFL/current/Libraries",
+          "/System/Libraries",
+          "/System/Compatibility/lib/x86_64-linux-gnu",
+          "/System/Compatibility/lib64"
+        ],
+        "checks": ["ldd", "desktop-file", "x11-session-smoke"]
+      },
+      "notes": "The current live image should disable first-run, BlueZ, ConnMan, PackageKit, and Wayland modules until those services are package-owned."
+    },
+    {
+      "id": "Terminology",
+      "state": "seed",
+      "source": {
+        "kind": "debian-source",
+        "package": "terminology",
+        "version": "1.x",
+        "binary_packages": ["terminology", "terminology-data"],
+        "patches": []
+      },
+      "build": {
+        "system": "meson",
+        "skip_debian_rules": true,
+        "environment": {
+          "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
+          "LD_LIBRARY_PATH": "/Programs/Terminology/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+        },
+        "commands": [
+          "meson setup build --prefix=/Programs/Terminology/current --libdir=Libraries --buildtype=release",
+          "ninja -C build",
+          "DESTDIR=${AUZIX_STAGE_ROOT} ninja -C build install"
+        ]
+      },
+      "install": {
+        "prefix": "/Programs/Terminology/current",
+        "destdir": "out/stage/source-workbench/Terminology",
+        "exports": ["/System/Tools/terminology"],
+        "shared_candidates": []
+      },
+      "runtime": {
+        "ldd_policy": "record-and-resolve",
+        "library_paths": [
+          "/Programs/Terminology/current/Libraries",
+          "/Programs/EFL/current/Libraries",
+          "/System/Libraries",
+          "/System/Compatibility/lib/x86_64-linux-gnu",
+          "/System/Compatibility/lib64"
+        ],
+        "checks": ["ldd", "command-version"]
+      },
+      "notes": "Terminal validation for graphical installer fallback."
+    },
+    {
+      "id": "NetSurf",
+      "state": "ready",
+      "source": {
+        "kind": "debian-source",
+        "package": "netsurf",
+        "version": "3.11",
+        "binary_packages": ["netsurf-gtk"],
+        "patches": []
+      },
+      "build": {
+        "system": "make",
+        "skip_debian_rules": true,
+        "environment": {
+          "PKG_CONFIG_PATH": "/Programs/NetSurf/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
+          "LD_LIBRARY_PATH": "/Programs/NetSurf/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+        },
+        "commands": [
+          "make TARGET=gtk3 PREFIX=/Programs/NetSurf/current LIBDIR=Libraries",
+          "DESTDIR=${AUZIX_STAGE_ROOT} make TARGET=gtk3 PREFIX=/Programs/NetSurf/current LIBDIR=Libraries install"
+        ]
+      },
+      "install": {
+        "prefix": "/Programs/NetSurf/current",
+        "destdir": "out/stage/source-workbench/NetSurf",
+        "exports": [
+          "/System/Tools/netsurf",
+          "/System/Compatibility/usr/share/applications/netsurf.desktop"
+        ],
+        "shared_candidates": ["/System/Libraries"]
+      },
+      "runtime": {
+        "ldd_policy": "record-and-resolve",
+        "library_paths": [
+          "/Programs/NetSurf/current/Libraries",
+          "/System/Libraries",
+          "/System/Compatibility/lib/x86_64-linux-gnu",
+          "/System/Compatibility/lib64"
+        ],
+        "checks": ["ldd", "https-smoke", "desktop-file"]
+      },
+      "notes": "This is the proven pattern from the VM132/rethink NetSurf work: source tree build plus explicit path overrides."
+    }
+  ]
+}
