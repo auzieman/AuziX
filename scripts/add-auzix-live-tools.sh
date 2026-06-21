@@ -1672,6 +1672,7 @@ export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compati
 export E_START="${E_START:-1}"
 export E_MODULE_TUNING="${E_MODULE_TUNING:-vm-safe}"
 export AUZIX_MASK_GL_EVAS="${AUZIX_MASK_GL_EVAS:-1}"
+export AUZIX_MASK_UNSTABLE_E_MODULES="${AUZIX_MASK_UNSTABLE_E_MODULES:-1}"
 
 mask_evas_gl_engines() {
   [ "${AUZIX_MASK_GL_EVAS}" = "1" ] || return 0
@@ -1683,6 +1684,36 @@ mask_evas_gl_engines() {
     if [ -d "${engine_root}/${engine}" ]; then
       "${BB}" mv "${engine_root}/${engine}" "${disabled_dir}/${engine}" 2>/dev/null || true
     fi
+  done
+}
+
+mask_unstable_enlightenment_modules() {
+  [ "${AUZIX_MASK_UNSTABLE_E_MODULES}" = "1" ] || return 0
+  disabled_dir=/System/State/desktop/enlightenment/disabled-modules
+  module_root=/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules
+  "${BB}" mkdir -p "${disabled_dir}" 2>/dev/null || true
+  for module in \
+    wizard \
+    connman \
+    bluez5 \
+    packagekit \
+    geolocation \
+    battery \
+    cpufreq \
+    temperature \
+    backlight \
+    wl_buffer \
+    wl_desktop_shell \
+    wl_drm \
+    wl_text_input \
+    wl_weekeyboard \
+    wl_wl \
+    wl_x11 \
+    xwayland; do
+    if [ -d "${module_root}/${module}" ]; then
+      "${BB}" mv "${module_root}/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+    fi
+    "${BB}" rm -f "${HOME}/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
 }
 
@@ -1727,7 +1758,7 @@ normalize_enlightenment_profile() {
     e_txt="${XDG_CACHE_HOME:-${HOME}/.cache}/e.cfg.txt"
     e_new="${XDG_CACHE_HOME:-${HOME}/.cache}/e.cfg.new"
     if eet -d "${profile_dir}/e.cfg" config "${e_txt}" 2>/dev/null; then
-      "${BB}" awk -v drop=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation " '
+      "${BB}" awk -v drop=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation wizard wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland " '
         /^        group "E_Config_Module" struct \{/ ||
         /^                group "E_Config_Gadcon_Client" struct \{/ {
           in_drop_block = 1
@@ -1788,6 +1819,7 @@ normalize_enlightenment_profile() {
 	  /System/Settings/desktop /System/State/desktop 2>/dev/null || true
 
 mask_evas_gl_engines
+mask_unstable_enlightenment_modules
 normalize_enlightenment_profile
 
 start_efreet_session() {
@@ -1828,7 +1860,7 @@ if [ "${E_MODULE_TUNING}" = "vm-safe" ] && command -v enlightenment_remote >/dev
       "${BB}" sleep 2
       DISPLAY="${DISPLAY:-:0}" enlightenment_remote -module-list >/dev/null 2>&1 && break
     done
-    for module in mixer music-control bluez5 connman packagekit geolocation battery cpufreq temperature backlight; do
+    for module in mixer music-control bluez5 connman packagekit geolocation battery cpufreq temperature backlight wizard wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland; do
       DISPLAY="${DISPLAY:-:0}" enlightenment_remote -module-disable "${module}" >/dev/null 2>&1 || true
       DISPLAY="${DISPLAY:-:0}" enlightenment_remote -module-unload "${module}" >/dev/null 2>&1 || true
     done
