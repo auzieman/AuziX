@@ -9,7 +9,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
       bash \
       ca-certificates \
-      jq && \
+      jq \
+      lua5.4 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

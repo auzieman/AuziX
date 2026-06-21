@@ -107,7 +107,8 @@ others remain `seed` until their source build contracts are proven.
 
 The first runnable form is intentionally small. It does not compile the desktop
 stack yet. It boots the workbench control plane, validates the manifest format,
-creates the expected generated roots, and emits a build plan.
+creates the expected generated roots, emits a build plan, and stages the first
+config-driven target root.
 
 ```sh
 make auzix-source-workbench
@@ -118,7 +119,25 @@ Generated outputs:
 ```text
 out/source-workbench/boot-summary.json
 out/source-workbench/build-plan.txt
+out/source-workbench/target-layout.txt
+out/source-workbench/AuZiXTarget/System/S/system-startup.json
+out/source-workbench/AuZiXTarget/System/S/package-startup.json
+out/source-workbench/AuZiXTarget/System/S/system-startup.lua
 ```
 
 This gives BKC and the slow worker a stable entry point before the expensive
 source builds are enabled.
+
+The Stage 2 target root is intentionally data-first:
+
+```text
+System/S/system-startup.json      ordered system phases
+System/S/package-startup.json     package-owned startup entries
+System/S/system-startup.lua       small Lua sequencer entry point
+System/PackageDB/*.json           receipts for staged core components
+```
+
+Bash remains the container entry point only long enough to prepare and validate
+the workbench. The target itself is shaped around JSON manifests and Lua
+sequencing so future build, package, and boot stages can share the same control
+model.
