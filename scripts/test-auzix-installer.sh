@@ -159,6 +159,10 @@ jq -e '
 DESKTOP_ENTRY="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-installer.desktop"
 grep -Fx 'Exec=/System/Tools/auzix-installer-gui' "${DESKTOP_ENTRY}" >/dev/null
 grep -Fx 'Terminal=true' "${DESKTOP_ENTRY}" >/dev/null
+test -L "${AUZIX_ROOT}/System/Tools/launch-auzix-installer"
+installer_current="$(readlink "${AUZIX_ROOT}/Programs/AuzixInstaller/current")"
+grep -F '/System/Tools/auzix-installer-gui "$@"' \
+  "${AUZIX_ROOT}${installer_current}/Commands/launch-auzix-installer" >/dev/null
 
 run_package_setup tui >/dev/null
 cat >"${WORK_DIR}/expected-package.log" <<'EOF'

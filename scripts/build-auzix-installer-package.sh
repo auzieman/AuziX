@@ -165,6 +165,35 @@ exec /Programs/AuzixInstaller/current/Commands/auzix-installer tui "$@"
 SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-installer-gui"
 
+cat >"${INSTALLER_PROGRAM}/Commands/launch-auzix-installer" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -eu
+
+PATH=/System/Compatibility/bin:/Programs/BusyBox/current/Commands:/Programs/Terminology/current/Commands:/Programs/XTerm/current/Commands:/Programs/AuzixInstaller/current/Commands:/System/Compatibility/usr/bin:/usr/bin:/bin
+export PATH
+
+if [ "${1:-}" = "--autostart" ]; then
+  shift
+  sleep "${AUZIX_INSTALLER_AUTOSTART_DELAY:-3}"
+fi
+
+log_dir=/System/Logs/installer
+mkdir -p "${log_dir}" 2>/dev/null || true
+log_file="${log_dir}/installer-launch.log"
+
+if [ -n "${DISPLAY:-}" ]; then
+  if command -v terminology >/dev/null 2>&1; then
+    exec terminology -e /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
+  fi
+  if command -v xterm >/dev/null 2>&1; then
+    exec xterm -T "Install AuziX" -e /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
+  fi
+fi
+
+exec /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
+SCRIPT
+chmod 0755 "${INSTALLER_PROGRAM}/Commands/launch-auzix-installer"
+
 cat >"${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-installer.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -196,6 +225,7 @@ ln -sfn /Programs/Lua/current/Commands/lua "${AUZIX_ROOT}/System/Compatibility/b
 ln -sfn /Programs/Dialog/current/Commands/dialog "${AUZIX_ROOT}/System/Compatibility/bin/dialog"
 ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-installer "${AUZIX_ROOT}/System/Tools/auzix-installer"
 ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-installer-gui "${AUZIX_ROOT}/System/Tools/auzix-installer-gui"
+ln -sfn /Programs/AuzixInstaller/current/Commands/launch-auzix-installer "${AUZIX_ROOT}/System/Tools/launch-auzix-installer"
 ln -sfn /Programs/AuzixInstaller/current/Commands/auzix-package-setup "${AUZIX_ROOT}/System/Tools/auzix-package-setup"
 
 cat >"${AUZIX_ROOT}/System/PackageDB/Lua-${LUA_VERSION}.auzix.json" <<EOF
@@ -241,11 +271,13 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
   "commands": [
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer",
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-installer-gui",
+    "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/launch-auzix-installer",
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-package-setup"
   ],
   "compatibility_exports": [
     "/System/Tools/auzix-installer",
     "/System/Tools/auzix-installer-gui",
+    "/System/Tools/launch-auzix-installer",
     "/System/Tools/auzix-package-setup",
     "/System/Compatibility/usr/share/applications/auzix-installer.desktop",
     "/System/Compatibility/usr/share/applications/auzix-package-setup.desktop"
