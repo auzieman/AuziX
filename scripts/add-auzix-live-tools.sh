@@ -756,10 +756,13 @@ start_display() {
     return 0
   }
   log "starting display on tty7"
-  [ -n "${display_mode}" ] || display_mode=wayland
+  [ -n "${display_mode}" ] || display_mode=x11
   case "${display_mode}" in
     wayland)
       display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=wayland AUZIX_X_VT=7 E_WL_FORCE=drm"
+      ;;
+    auto)
+      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=x11 AUZIX_X_VT=7"
       ;;
     *)
       display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${display_mode} AUZIX_X_VT=7"
@@ -1850,7 +1853,7 @@ cat > "${AUZIX_ROOT}/System/Tools/start-e" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -u
 
-PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/0.27.1/Commands:/System/Compatibility/usr/bin:/System/Compatibility/bin
+PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/Programs/Xorg/current/Commands:/Programs/Xorg/host/Commands:/Programs/EFL/current/Commands:/Programs/EFL/host/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/current/Commands:/Programs/Enlightenment/host/Commands:/Programs/Enlightenment/0.27.1/Commands:/System/Compatibility/usr/bin:/System/Compatibility/bin
 export PATH
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
@@ -1869,7 +1872,7 @@ export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
 export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/usr/local/share:/usr/share}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg:/etc/xdg}"
 export XORG_RUN_AS_USER_OK="${XORG_RUN_AS_USER_OK:-1}"
-export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/host/Commands}"
+export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/current/Commands}"
 export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/System/Settings/X11/xkb}"
 export XLOCALEDIR="${XLOCALEDIR:-/System/Compatibility/usr/share/X11/locale}"
 export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
@@ -2058,7 +2061,15 @@ trace_exec() {
 }
 
 run_wayland() {
-  enlightenment="$(find_cmd /System/Tools/start-enlightenment-session enlightenment_start enlightenment)"
+  enlightenment="$(find_cmd \
+    /System/Tools/start-enlightenment-session \
+    /Programs/Enlightenment/current/Commands/enlightenment_start \
+    /Programs/Enlightenment/current/Commands/enlightenment \
+    /Programs/Enlightenment/host/Commands/enlightenment_start \
+    /Programs/Enlightenment/host/Commands/enlightenment \
+    /System/Compatibility/bin/enlightenment_start \
+    /System/Compatibility/bin/enlightenment \
+    enlightenment_start enlightenment)"
   if [ -z "${enlightenment}" ]; then
     return 1
   fi
@@ -2075,11 +2086,34 @@ run_wayland() {
 }
 
 run_x11() {
-  xinit="$(find_cmd xinit)"
-  xorg="$(find_cmd Xorg X)"
-  enlightenment="$(find_cmd /System/Tools/start-enlightenment-session enlightenment_start enlightenment)"
+  xinit="$(find_cmd \
+    /Programs/Xorg/current/Commands/xinit \
+    /Programs/Xorg/host/Commands/xinit \
+    /System/Compatibility/bin/xinit \
+    /System/Compatibility/usr/bin/xinit \
+    xinit)"
+  xorg="$(find_cmd \
+    /Programs/Xorg/current/Commands/Xorg \
+    /Programs/Xorg/host/Commands/Xorg \
+    /System/Compatibility/bin/Xorg \
+    /System/Compatibility/bin/X \
+    /System/Compatibility/usr/bin/Xorg \
+    /System/Compatibility/usr/bin/X \
+    Xorg X)"
+  enlightenment="$(find_cmd \
+    /System/Tools/start-enlightenment-session \
+    /Programs/Enlightenment/current/Commands/enlightenment_start \
+    /Programs/Enlightenment/current/Commands/enlightenment \
+    /Programs/Enlightenment/host/Commands/enlightenment_start \
+    /Programs/Enlightenment/host/Commands/enlightenment \
+    /System/Compatibility/bin/enlightenment_start \
+    /System/Compatibility/bin/enlightenment \
+    /System/Compatibility/usr/bin/enlightenment_start \
+    /System/Compatibility/usr/bin/enlightenment \
+    enlightenment_start enlightenment)"
   vt="${AUZIX_X_VT:-7}"
   if [ -z "${xinit}" ] || [ -z "${xorg}" ] || [ -z "${enlightenment}" ]; then
+    echo "mode=x11 blocked=xinit:${xinit:-missing} xorg:${xorg:-missing} enlightenment:${enlightenment:-missing}" >>"${LOG}"
     return 1
   fi
   unset E_WL_FORCE E_ENGINE WAYLAND_DISPLAY
@@ -2101,7 +2135,7 @@ case "${MODE}" in
   wayland) run_wayland ;;
   x11) run_x11 ;;
   auto)
-    run_x11 || run_wayland
+    run_x11
     ;;
   *)
     echo "Unknown AUZIX_E_MODE=${MODE}. Use auto, wayland, or x11." >&2
@@ -2121,14 +2155,20 @@ Hardware snapshot:
 Expected one of:
   /System/Compatibility/bin/enlightenment_start
   /System/Compatibility/bin/enlightenment
+  /Programs/Enlightenment/current/Commands/enlightenment_start
+  /Programs/Enlightenment/current/Commands/enlightenment
   /Programs/Enlightenment/host/Commands/enlightenment_start
   /Programs/Enlightenment/host/Commands/enlightenment
   /Programs/Enlightenment/0.27.1/Commands/enlightenment_start
   /Programs/Enlightenment/0.27.1/Commands/enlightenment
-  startx or xinit for X11 fallback
+  /Programs/Xorg/current/Commands/xinit
+  /Programs/Xorg/current/Commands/Xorg
+  /Programs/Xorg/host/Commands/xinit
+  /Programs/Xorg/host/Commands/Xorg
 
-The next build stage must provide EFL 1.28.1, Enlightenment 0.27.1, Mesa/DRM,
-input, fonts, and either Wayland seat support or Xorg.
+The build stage must provide package-owned Xorg and Enlightenment commands,
+their compatibility links, input support, fonts, and writable runtime state.
+Wayland is intentionally manual-only until the seat/DRM path is stable.
 EOF
 cat "${LOG}" >&2
 exit 1

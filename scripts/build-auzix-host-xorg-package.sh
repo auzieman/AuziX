@@ -27,6 +27,9 @@ copy_dep_path() {
   local dep="$1"
   [[ -e "${dep}" ]] || return 0
   case "${dep}" in
+    /home/*|/tmp/*|/var/tmp/*)
+      return 0
+      ;;
     /lib64/*)
       [[ -e "${RUNTIME_LIB64}/$(basename "${dep}")" ]] ||
         install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
@@ -213,6 +216,8 @@ done
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/xinit" "${AUZIX_ROOT}/System/Compatibility/bin/xinit"
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/Xorg" "${AUZIX_ROOT}/System/Compatibility/bin/Xorg"
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/Xorg" "${AUZIX_ROOT}/System/Compatibility/bin/X"
+ln -sfn "/Programs/Xorg/${XORG_VERSION}" "${AUZIX_ROOT}/Programs/Xorg/current"
+ln -sfn "/Programs/Xorg/${XORG_VERSION}" "${AUZIX_ROOT}/Programs/Xorg/host"
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/xinit" "${RUNTIME_USR}/bin/xinit"
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/Xorg" "${RUNTIME_USR}/bin/Xorg"
 ln -sfn "/Programs/Xorg/${XORG_VERSION}/Commands/Xorg" "${RUNTIME_USR}/bin/X"

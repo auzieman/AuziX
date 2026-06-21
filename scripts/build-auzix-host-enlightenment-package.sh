@@ -36,6 +36,9 @@ copy_dep_path() {
   local dep="$1"
   [[ -e "${dep}" ]] || return 0
   case "${dep}" in
+    /home/*|/tmp/*|/var/tmp/*)
+      return 0
+      ;;
     /lib64/*)
       [[ -e "${RUNTIME_LIB64}/$(basename "${dep}")" ]] ||
         install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
@@ -175,6 +178,12 @@ done
 
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment"
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment_start" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment_start"
+rm -rf "${AUZIX_ROOT}/Programs/Enlightenment/current" "${AUZIX_ROOT}/Programs/Enlightenment/host"
+rm -rf "${AUZIX_ROOT}/Programs/EFL/current" "${AUZIX_ROOT}/Programs/EFL/host"
+ln -sfn "/Programs/Enlightenment/${E_VERSION}" "${AUZIX_ROOT}/Programs/Enlightenment/current"
+ln -sfn "/Programs/Enlightenment/${E_VERSION}" "${AUZIX_ROOT}/Programs/Enlightenment/host"
+ln -sfn "/Programs/EFL/${E_VERSION}" "${AUZIX_ROOT}/Programs/EFL/current"
+ln -sfn "/Programs/EFL/${E_VERSION}" "${AUZIX_ROOT}/Programs/EFL/host"
 cp -f --remove-destination \
   "${E_PROGRAM}/Commands/enlightenment" \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment"

@@ -150,16 +150,16 @@ DRM/seat contract is still incomplete.
 `start-e` supports an explicit mode selector:
 
 ```sh
-AUZIX_E_MODE=wayland /System/Tools/start-e
 AUZIX_E_MODE=x11 /System/Tools/start-e
+AUZIX_E_MODE=wayland /System/Tools/start-e
 ```
 
-Wayland is the preferred native direction once DRM, input, and seat support are
-available. X11 remains the early VM fallback because it is easier to diagnose
-when the compositor path is incomplete.
+X11 is the default for the current VM and installer path. Debian's packaged
+Enlightenment Wayland session is still useful as a later experiment, but it is
+not stable enough to be the live or installed default.
 
-The current live helper defaults to X11. `AUZIX_E_MODE=auto` also tries X11
-before Wayland. Use explicit `AUZIX_E_MODE=wayland` only when testing the
+The current live helper defaults to X11. `AUZIX_E_MODE=auto` is also treated as
+X11-only for now. Use explicit `AUZIX_E_MODE=wayland` only when testing the
 DRM/Wayland path.
 
 ## Start Sequence

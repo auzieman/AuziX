@@ -174,10 +174,20 @@ grep -Fx 'Exec=/System/Tools/auzix-package-setup' "${PACKAGE_DESKTOP_ENTRY}" >/d
 grep -Fx 'Terminal=true' "${PACKAGE_DESKTOP_ENTRY}" >/dev/null
 
 FINALIZER="${AUZIX_ROOT}/System/Tools/finalize-installed-root"
+START_E="${AUZIX_ROOT}/System/Tools/start-e"
 grep -F 'finalized-installed-root=' "${FINALIZER}" >/dev/null
 grep -F '/Users/auzix/.midori' "${FINALIZER}" >/dev/null
 grep -F '/Programs/Sudo/host/Commands/sudo' "${FINALIZER}" >/dev/null
 grep -F '/System/Compatibility/usr/lib/xorg/Xorg.wrap' "${FINALIZER}" >/dev/null
+grep -F 'MODE="${AUZIX_E_MODE:-x11}"' "${START_E}" >/dev/null
+grep -F '/Programs/Xorg/current/Commands/xinit' "${START_E}" >/dev/null
+grep -F '/Programs/Xorg/current/Commands/Xorg' "${START_E}" >/dev/null
+grep -F '/Programs/Enlightenment/current/Commands/enlightenment_start' "${START_E}" >/dev/null
+grep -F 'run_x11' "${START_E}" >/dev/null
+grep -F 'run_x11 || run_wayland' "${START_E}" >/dev/null && {
+  echo "start-e must not fall through to Wayland in auto mode." >&2
+  exit 1
+}
 grep -F '${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"' \
   "${AUZIX_ROOT}/System/Tools/auzix-install-package" >/dev/null
 grep -F '/Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget' \
