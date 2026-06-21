@@ -1,0 +1,58 @@
+{
+  "format": "auzix-source-build-catalog-v1",
+  "defaults": {
+    "distribution": "debian",
+    "suite": "trixie",
+    "architecture": "amd64",
+    "work_root": "/Work/Builds/source-intake"
+  },
+  "packages": [
+    {
+      "id": "NetSurf",
+      "state": "example",
+      "source": {
+        "type": "distro-source",
+        "origin": "debian:trixie",
+        "reference": "netsurf"
+      },
+      "paths": {
+        "prefix": "/Programs/NetSurf/3.11",
+        "commands": "/Programs/NetSurf/3.11/Commands",
+        "libraries": "/Programs/NetSurf/3.11/Libraries",
+        "resources": "/Programs/NetSurf/3.11/Resources"
+      },
+      "build": {
+        "mode": "upstream-source-tree",
+        "skip_debian_rules": true,
+        "commands": [
+          "make TARGET=gtk3 PREFIX=/Programs/NetSurf/3.11 LIBDIR=Libraries",
+          "make TARGET=gtk3 PREFIX=/Programs/NetSurf/3.11 LIBDIR=Libraries install"
+        ],
+        "environment": {
+          "PKG_CONFIG_PATH": "/Programs/NetSurf/3.11/Libraries/pkgconfig:/System/Libraries/pkgconfig",
+          "LD_LIBRARY_PATH": "/Programs/NetSurf/3.11/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+        }
+      },
+      "runtime": {
+        "ldd_policy": "record-and-resolve",
+        "library_resolution": [
+          "/Programs/NetSurf/3.11/Libraries",
+          "/System/Libraries",
+          "/System/Compatibility/lib/x86_64-linux-gnu",
+          "/System/Compatibility/lib64"
+        ],
+        "allowed_host_resolution_during_probe": [
+          "/lib/x86_64-linux-gnu",
+          "/usr/lib/x86_64-linux-gnu",
+          "/lib64"
+        ],
+        "promote_shared_candidates_to": "/System/Libraries"
+      },
+      "failure_handling": {
+        "worker": "slow",
+        "ollama_prompt": "Given the source package, build log, recipe JSON, and ldd output, propose the smallest package-contract adjustment. Prefer native build flags such as PREFIX, LIBDIR, DESTDIR, PKG_CONFIG_PATH, and LD_LIBRARY_PATH before patching source. Do not change unrelated packages."
+      },
+      "notes": "This mirrors the VM132 NetSurf proof: use the nested upstream source Makefiles directly, keep Debian metadata as a source locator, and let the AuziX recipe own prefix, library path, and ldd closure policy."
+    }
+  ]
+}

@@ -193,6 +193,37 @@ The larger application intake starts with
 become runnable after a source-catalog entry and AuziX recipe exist; the profile
 does not install Debian packages directly into the base image.
 
+The next intake lane should stay batch-oriented. Use Debian source metadata to
+find and unpack sources, but prefer the package's own nested build system when
+it already exposes normal overrides such as `PREFIX`, `LIBDIR`, `DESTDIR`,
+`PKG_CONFIG_PATH`, and `LD_LIBRARY_PATH`. Debian `debian/rules` is useful as a
+reference, not a mandatory execution layer.
+
+The VM132 NetSurf proof is the model:
+
+```text
+package list
+source catalog entry
+upstream source tree build
+AuziX prefix/library/resource contract
+ldd/library-path evidence
+package receipt and repository publish
+```
+
+`packages/source-build.sources.json` captures the first example contract. It
+allows a package to skip `debian/rules`, build from the nested source tree, and
+record how `ldd` was resolved. On a host that does not yet have
+`/System/Libraries`, `LD_LIBRARY_PATH` may still resolve through the normal
+builder paths. The package contract should record that as probe evidence and
+then decide whether shared libraries become `/System/Libraries` payload,
+package-owned libraries, or declared dependencies.
+
+The slow worker/Ollama loop should operate only on failed package items. Its
+input should be the recipe JSON, source catalog entry, build log, and `ldd`
+output. Its output should be a proposed contract adjustment, usually native
+build flags or environment changes first. Source patching should be treated as a
+last resort and scoped to the failing package.
+
 ```sh
 make auzix-package-bot-test
 make auzix-package-bot-installer-ui
