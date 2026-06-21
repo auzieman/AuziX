@@ -178,12 +178,10 @@ done
 
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment"
 ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment_start" "${AUZIX_ROOT}/System/Compatibility/bin/enlightenment_start"
-rm -rf "${AUZIX_ROOT}/Programs/Enlightenment/current" "${AUZIX_ROOT}/Programs/Enlightenment/host"
-rm -rf "${AUZIX_ROOT}/Programs/EFL/current" "${AUZIX_ROOT}/Programs/EFL/host"
+rm -rf "${AUZIX_ROOT}/Programs/Enlightenment/current"
+rm -rf "${AUZIX_ROOT}/Programs/EFL/current"
 ln -sfn "/Programs/Enlightenment/${E_VERSION}" "${AUZIX_ROOT}/Programs/Enlightenment/current"
-ln -sfn "/Programs/Enlightenment/${E_VERSION}" "${AUZIX_ROOT}/Programs/Enlightenment/host"
 ln -sfn "/Programs/EFL/${E_VERSION}" "${AUZIX_ROOT}/Programs/EFL/current"
-ln -sfn "/Programs/EFL/${E_VERSION}" "${AUZIX_ROOT}/Programs/EFL/host"
 cp -f --remove-destination \
   "${E_PROGRAM}/Commands/enlightenment" \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment"
