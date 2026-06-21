@@ -88,6 +88,14 @@ For k3s/Kubernetes builds, see:
 docs/build-infrastructure.md
 ```
 
+For the source-build/staging flow and current handoff notes, see:
+
+```
+docs/build-flow-notes.md
+docs/issues-and-build-notes.md
+docs/core-validation-loop.md
+```
+
 **Direct host build flow:**
 
 ```sh
