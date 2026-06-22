@@ -27,7 +27,7 @@
         "skip_debian_rules": true,
         "environment": {
           "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
-          "LD_LIBRARY_PATH": "/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+          "LD_LIBRARY_PATH": "/Programs/EFL/current/Libraries:/System/Libraries"
         },
         "commands": [
           "meson setup build --prefix=/Programs/EFL/current --libdir=Libraries --buildtype=release",
@@ -45,9 +45,7 @@
         "ldd_policy": "record-and-resolve",
         "library_paths": [
           "/Programs/EFL/current/Libraries",
-          "/System/Libraries",
-          "/System/Compatibility/lib/x86_64-linux-gnu",
-          "/System/Compatibility/lib64"
+          "/System/Libraries"
         ],
         "checks": ["pkg-config", "ldd", "command-version"]
       },
@@ -68,7 +66,7 @@
         "skip_debian_rules": true,
         "environment": {
           "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
-          "LD_LIBRARY_PATH": "/Programs/Enlightenment/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+          "LD_LIBRARY_PATH": "/Programs/Enlightenment/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries"
         },
         "commands": [
           "meson setup build --prefix=/Programs/Enlightenment/current --libdir=Libraries --buildtype=release",
@@ -90,9 +88,7 @@
         "library_paths": [
           "/Programs/Enlightenment/current/Libraries",
           "/Programs/EFL/current/Libraries",
-          "/System/Libraries",
-          "/System/Compatibility/lib/x86_64-linux-gnu",
-          "/System/Compatibility/lib64"
+          "/System/Libraries"
         ],
         "checks": ["ldd", "desktop-file", "x11-session-smoke"]
       },
@@ -113,7 +109,7 @@
         "skip_debian_rules": true,
         "environment": {
           "PKG_CONFIG_PATH": "/Programs/EFL/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
-          "LD_LIBRARY_PATH": "/Programs/Terminology/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+          "LD_LIBRARY_PATH": "/Programs/Terminology/current/Libraries:/Programs/EFL/current/Libraries:/System/Libraries"
         },
         "commands": [
           "meson setup build --prefix=/Programs/Terminology/current --libdir=Libraries --buildtype=release",
@@ -132,9 +128,7 @@
         "library_paths": [
           "/Programs/Terminology/current/Libraries",
           "/Programs/EFL/current/Libraries",
-          "/System/Libraries",
-          "/System/Compatibility/lib/x86_64-linux-gnu",
-          "/System/Compatibility/lib64"
+          "/System/Libraries"
         ],
         "checks": ["ldd", "command-version"]
       },
@@ -155,7 +149,7 @@
         "skip_debian_rules": true,
         "environment": {
           "PKG_CONFIG_PATH": "/Programs/NetSurf/current/Libraries/pkgconfig:/System/Libraries/pkgconfig",
-          "LD_LIBRARY_PATH": "/Programs/NetSurf/current/Libraries:/System/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64"
+          "LD_LIBRARY_PATH": "/Programs/NetSurf/current/Libraries:/System/Libraries"
         },
         "commands": [
           "make TARGET=gtk3 PREFIX=/Programs/NetSurf/current LIBDIR=Libraries",
@@ -175,9 +169,7 @@
         "ldd_policy": "record-and-resolve",
         "library_paths": [
           "/Programs/NetSurf/current/Libraries",
-          "/System/Libraries",
-          "/System/Compatibility/lib/x86_64-linux-gnu",
-          "/System/Compatibility/lib64"
+          "/System/Libraries"
         ],
         "checks": ["ldd", "https-smoke", "desktop-file"]
       },

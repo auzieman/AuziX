@@ -30,6 +30,7 @@ mkdir -p "${REPORT_DIR}"
 summary_path="${REPORT_DIR}/boot-summary.json"
 plan_path="${REPORT_DIR}/build-plan.txt"
 target_report_path="${REPORT_DIR}/target-layout.txt"
+validation_path="${REPORT_DIR}/validation-report.json"
 
 format="$(jq -r '.format' "${MANIFEST}")"
 if [[ "${format}" != "auzix-source-workbench-v1" ]]; then
@@ -89,6 +90,23 @@ cat > "${TARGET_ROOT}/System/S/package-startup.json" <<'JSON'
   "format": "auzix-package-startup-v1",
   "profile": "source-workbench-stage2",
   "packages": []
+}
+JSON
+
+cat > "${TARGET_ROOT}/System/Settings/runtime-paths.json" <<'JSON'
+{
+  "format": "auzix-runtime-paths-v1",
+  "profile": "source-workbench-stage2",
+  "library_policy": {
+    "shared_root": "/System/Libraries",
+    "private_root_pattern": "/Programs/<Name>/<Version>/Libraries",
+    "compatibility_split_roots": [],
+    "notes": "Shared libraries promoted for system-wide use belong in /System/Libraries. Program-private libraries stay under the owning program prefix."
+  },
+  "ld_library_path_order": [
+    "/Programs/<Name>/current/Libraries",
+    "/System/Libraries"
+  ]
 }
 JSON
 
@@ -153,6 +171,7 @@ for required in \
   System/S/system-startup.json \
   System/S/package-startup.json \
   System/S/system-startup.lua \
+  System/Settings/runtime-paths.json \
   System/PackageDB/SourceWorkbench-stage2.auzix.json \
   Programs \
   Work \
@@ -164,6 +183,15 @@ for required in \
   fi
 done
 
+manifest_split_lib_paths="$(
+  jq '[.. | strings | select(test("/System/Compatibility/lib|/lib64"))] | unique' "${MANIFEST}"
+)"
+manifest_split_lib_count="$(jq 'length' <<<"${manifest_split_lib_paths}")"
+if [[ "${manifest_split_lib_count}" -ne 0 ]]; then
+  printf 'Manifest still contains split compatibility library paths: %s\n' "${manifest_split_lib_paths}" >&2
+  exit 1
+fi
+
 if command -v luac5.4 >/dev/null 2>&1; then
   luac5.4 -p "${TARGET_ROOT}/System/S/system-startup.lua"
 elif command -v luac >/dev/null 2>&1; then
@@ -171,6 +199,35 @@ elif command -v luac >/dev/null 2>&1; then
 else
   log "lua compiler not found; skipped startup Lua syntax check"
 fi
+
+runtime_shared_root="$(jq -r '.library_policy.shared_root' "${TARGET_ROOT}/System/Settings/runtime-paths.json")"
+if [[ "${runtime_shared_root}" != "/System/Libraries" ]]; then
+  printf 'Unexpected shared library root: %s\n' "${runtime_shared_root}" >&2
+  exit 1
+fi
+
+jq -n \
+  --arg format "auzix-source-workbench-validation-v1" \
+  --arg status "passed" \
+  --arg target_root "${TARGET_ROOT}" \
+  --arg shared_library_root "${runtime_shared_root}" \
+  --argjson components "${component_count}" \
+  --argjson split_library_path_count "${manifest_split_lib_count}" \
+  '{
+    format: $format,
+    status: $status,
+    target_root: $target_root,
+    checks: {
+      manifest_format: "passed",
+      target_layout: "passed",
+      startup_json_present: "passed",
+      package_startup_json_present: "passed",
+      startup_lua_syntax: "passed-or-skipped-with-log",
+      shared_library_root: $shared_library_root,
+      split_library_path_count: $split_library_path_count,
+      component_count: $components
+    }
+  }' > "${validation_path}"
 
 jq -n \
   --arg format "auzix-source-workbench-boot-v1" \
@@ -206,4 +263,5 @@ log "summary: ${summary_path}"
 log "plan: ${plan_path}"
 log "target: ${TARGET_ROOT}"
 log "target report: ${target_report_path}"
+log "validation: ${validation_path}"
 log "boot complete"

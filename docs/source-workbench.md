@@ -120,9 +120,11 @@ Generated outputs:
 out/source-workbench/boot-summary.json
 out/source-workbench/build-plan.txt
 out/source-workbench/target-layout.txt
+out/source-workbench/validation-report.json
 out/source-workbench/AuZiXTarget/System/S/system-startup.json
 out/source-workbench/AuZiXTarget/System/S/package-startup.json
 out/source-workbench/AuZiXTarget/System/S/system-startup.lua
+out/source-workbench/AuZiXTarget/System/Settings/runtime-paths.json
 ```
 
 This gives BKC and the slow worker a stable entry point before the expensive
@@ -134,6 +136,7 @@ The Stage 2 target root is intentionally data-first:
 System/S/system-startup.json      ordered system phases
 System/S/package-startup.json     package-owned startup entries
 System/S/system-startup.lua       small Lua sequencer entry point
+System/Settings/runtime-paths.json shared library search/promotion policy
 System/PackageDB/*.json           receipts for staged core components
 ```
 
@@ -141,3 +144,23 @@ Bash remains the container entry point only long enough to prepare and validate
 the workbench. The target itself is shaped around JSON manifests and Lua
 sequencing so future build, package, and boot stages can share the same control
 model.
+
+To keep the generated root open for inspection:
+
+```sh
+make auzix-source-workbench-review
+docker exec -it auzix-source-workbench-review-1 bash
+```
+
+Inside the review container, inspect `/workspace/out/source-workbench` and the
+generated target root at `/workspace/out/source-workbench/AuZiXTarget`.
+
+The review container is the pre-ISO gate. It should validate manifest shape,
+target layout, startup JSON presence, startup Lua syntax when `luac` is
+available, and the runtime library policy before any ISO pipeline consumes the
+root.
+
+The Stage 2 library policy is deliberately simple: shared libraries are promoted
+to `/System/Libraries`; package-private libraries stay under
+`/Programs/<Name>/<Version>/Libraries`. Architecture split directories should
+not be part of the normal runtime path for this workbench lane.

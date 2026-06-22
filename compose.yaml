@@ -52,5 +52,20 @@ services:
     command: []
     profiles: ["source-workbench"]
 
+  source-workbench-review:
+    build:
+      context: .
+      dockerfile: docker/source-workbench/Dockerfile
+    image: auzix/source-workbench:local
+    working_dir: /workspace
+    volumes:
+      - ./out:/workspace/out
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - /workspace/scripts/source-workbench-boot.sh && echo "source-workbench-review ready; inspect /workspace/out/source-workbench" && sleep infinity
+    profiles: ["source-workbench"]
+
 volumes:
   auzix-cache:
