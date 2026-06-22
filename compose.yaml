@@ -67,5 +67,16 @@ services:
       - /workspace/scripts/source-workbench-boot.sh && echo "source-workbench-review ready; inspect /workspace/out/source-workbench" && sleep infinity
     profiles: ["source-workbench"]
 
+  native-workbench-review:
+    image: auzix/native-workbench:phase3
+    working_dir: /Work
+    volumes:
+      - ./out:/Host/out
+    command:
+      - /bin/bash
+      - -lc
+      - /Programs/Lua/current/Commands/lua /System/S/system-startup.lua && echo "native-workbench-review ready; inspect /System /Programs /Work or /Host/out/source-workbench" && sleep infinity
+    profiles: ["source-workbench"]
+
 volumes:
   auzix-cache:

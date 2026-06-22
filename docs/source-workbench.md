@@ -15,6 +15,7 @@ packages/source-workbench.seed.json    first EFL/E/Terminology/NetSurf seed
 packages/source-build.sources.json     earlier NetSurf-focused source catalog
 docker/source-workbench/Dockerfile     minimal bootable workbench container
 scripts/source-workbench-boot.sh       manifest boot/plan entry point
+scripts/build-source-workbench-native-container.sh phase 3 native container
 ```
 
 Generated paths should follow this shape:
@@ -164,3 +165,52 @@ The Stage 2 library policy is deliberately simple: shared libraries are promoted
 to `/System/Libraries`; package-private libraries stay under
 `/Programs/<Name>/<Version>/Libraries`. Architecture split directories should
 not be part of the normal runtime path for this workbench lane.
+
+## Phase 3 Native Workbench
+
+The next gate builds a runnable container from the validated `AuZiXTarget` root:
+
+```sh
+make auzix-native-workbench
+```
+
+Generated outputs:
+
+```text
+out/source-workbench/native-container/context/Dockerfile
+out/source-workbench/native-container/context/rootfs/
+out/source-workbench/native-container/native-container-report.json
+out/source-workbench/native-container/native-workbench-image.tar
+out/source-workbench/native-container/native-workbench-rootfs.tar
+```
+
+Review it as a persistent container:
+
+```sh
+make auzix-native-workbench-review
+docker exec -it auzix-native-workbench-review-1 bash
+```
+
+This is the first "AuZiX workbench builds the AuZiX workbench" shape. It is not
+yet a pure `FROM scratch` system because the staged root does not own shell,
+Lua, `jq`, certificates, or process tools yet. The Phase 3 image uses a tiny
+Debian compatibility base to provide those review tools, then overlays the
+validated AuZiX root at `/`.
+
+The output is import-friendly:
+
+```sh
+docker load -i out/source-workbench/native-container/native-workbench-image.tar
+docker import out/source-workbench/native-container/native-workbench-rootfs.tar auzix/native-workbench:imported
+```
+
+Those tarballs are suitable for NFS publication or BKC handoff.
+
+The promotion path is:
+
+```text
+Stage 2: validate AuZiXTarget layout and runtime policy
+Stage 3: build/run a native-layout AuZiX container from that root
+Stage 4: package Lua, shell, certificates, and build tools under /Programs
+Stage 5: remove the Debian compatibility base and move toward scratch/chroot/ISO
+```
