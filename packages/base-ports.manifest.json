@@ -1,0 +1,153 @@
+{
+  "format": "auzix-base-ports-v1",
+  "profile": "phase3-debian-eater",
+  "description": "Ordered non-GUI through X11/EFL source targets for turning the bridge container into an AuZiX-owned build workbench.",
+  "roots": {
+    "sources": "sources/ports",
+    "build": "out/build/base-ports",
+    "stage": "out/stage/base-ports",
+    "packages": "out/packages/base-ports",
+    "target": "out/source-workbench/AuZiXTarget"
+  },
+  "policy": {
+    "shared_library_root": "/System/Libraries",
+    "program_prefix_pattern": "/Programs/<Name>/<Version>",
+    "compatibility_roots_allowed": false,
+    "source_metadata": "debian-source-is-reference-not-runtime"
+  },
+  "phases": [
+    {
+      "id": "00-bootstrap-runtime",
+      "purpose": "Replace Debian-provided runtime tools with AuZiX-owned packages.",
+      "targets": [
+        {
+          "name": "BusyBox",
+          "source": {"kind": "upstream-tarball", "package": "busybox", "version": "1.36.x"},
+          "prefix": "/Programs/BusyBox/current",
+          "commands": ["/Programs/BusyBox/current/Commands/busybox", "/Programs/BusyBox/current/Commands/sh"],
+          "promotes": []
+        },
+        {
+          "name": "Lua",
+          "source": {"kind": "upstream-tarball", "package": "lua", "version": "5.4.x"},
+          "prefix": "/Programs/Lua/current",
+          "commands": ["/Programs/Lua/current/Commands/lua", "/Programs/Lua/current/Commands/luac"],
+          "promotes": ["/System/Libraries"]
+        },
+        {
+          "name": "CACerts",
+          "source": {"kind": "debian-source", "package": "ca-certificates", "version": "trixie"},
+          "prefix": "/Programs/CACerts/current",
+          "commands": [],
+          "promotes": ["/System/Settings/ssl/certs"]
+        }
+      ]
+    },
+    {
+      "id": "01-source-fetch",
+      "purpose": "Make the workbench able to fetch and verify source without host curl.",
+      "targets": [
+        {
+          "name": "Zlib",
+          "source": {"kind": "upstream-tarball", "package": "zlib", "version": "1.3.x"},
+          "prefix": "/Programs/Zlib/current",
+          "commands": [],
+          "promotes": ["/System/Libraries"]
+        },
+        {
+          "name": "OpenSSL",
+          "source": {"kind": "upstream-tarball", "package": "openssl", "version": "3.x"},
+          "prefix": "/Programs/OpenSSL/current",
+          "commands": ["/Programs/OpenSSL/current/Commands/openssl"],
+          "promotes": ["/System/Libraries"]
+        },
+        {
+          "name": "Curl",
+          "source": {"kind": "debian-source", "package": "curl", "version": "trixie"},
+          "prefix": "/Programs/Curl/current",
+          "commands": ["/Programs/Curl/current/Commands/curl"],
+          "promotes": ["/System/Libraries"]
+        }
+      ]
+    },
+    {
+      "id": "02-build-toolchain",
+      "purpose": "Own the minimum native source-build toolchain before GUI libraries.",
+      "targets": [
+        {
+          "name": "PkgConfig",
+          "source": {"kind": "debian-source", "package": "pkgconf", "version": "trixie"},
+          "prefix": "/Programs/PkgConfig/current",
+          "commands": ["/Programs/PkgConfig/current/Commands/pkg-config"],
+          "promotes": []
+        },
+        {
+          "name": "Make",
+          "source": {"kind": "debian-source", "package": "make-dfsg", "version": "trixie"},
+          "prefix": "/Programs/Make/current",
+          "commands": ["/Programs/Make/current/Commands/make"],
+          "promotes": []
+        },
+        {
+          "name": "CMake",
+          "source": {"kind": "debian-source", "package": "cmake", "version": "trixie"},
+          "prefix": "/Programs/CMake/current",
+          "commands": ["/Programs/CMake/current/Commands/cmake"],
+          "promotes": []
+        },
+        {
+          "name": "Meson",
+          "source": {"kind": "debian-source", "package": "meson", "version": "trixie"},
+          "prefix": "/Programs/Meson/current",
+          "commands": ["/Programs/Meson/current/Commands/meson"],
+          "promotes": []
+        },
+        {
+          "name": "Ninja",
+          "source": {"kind": "debian-source", "package": "ninja-build", "version": "trixie"},
+          "prefix": "/Programs/Ninja/current",
+          "commands": ["/Programs/Ninja/current/Commands/ninja"],
+          "promotes": []
+        }
+      ]
+    },
+    {
+      "id": "03-core-libraries",
+      "purpose": "Build common libraries needed by X11, GTK, NetSurf, and EFL.",
+      "targets": [
+        {"name": "LibFFI", "source": {"kind": "debian-source", "package": "libffi", "version": "trixie"}, "prefix": "/Programs/LibFFI/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "PCRE2", "source": {"kind": "debian-source", "package": "pcre2", "version": "trixie"}, "prefix": "/Programs/PCRE2/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "LibXML2", "source": {"kind": "debian-source", "package": "libxml2", "version": "trixie"}, "prefix": "/Programs/LibXML2/current", "commands": ["/Programs/LibXML2/current/Commands/xmllint"], "promotes": ["/System/Libraries"]},
+        {"name": "LibPNG", "source": {"kind": "debian-source", "package": "libpng1.6", "version": "trixie"}, "prefix": "/Programs/LibPNG/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "JPEG", "source": {"kind": "debian-source", "package": "libjpeg-turbo", "version": "trixie"}, "prefix": "/Programs/JPEG/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "Freetype", "source": {"kind": "debian-source", "package": "freetype", "version": "trixie"}, "prefix": "/Programs/Freetype/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "Fontconfig", "source": {"kind": "debian-source", "package": "fontconfig", "version": "trixie"}, "prefix": "/Programs/Fontconfig/current", "commands": ["/Programs/Fontconfig/current/Commands/fc-cache"], "promotes": ["/System/Libraries"]}
+      ]
+    },
+    {
+      "id": "04-x11-base",
+      "purpose": "Own the X11 client/server substrate before EFL.",
+      "targets": [
+        {"name": "XorgProto", "source": {"kind": "debian-source", "package": "xorgproto", "version": "trixie"}, "prefix": "/Programs/XorgProto/current", "commands": [], "promotes": []},
+        {"name": "XCBProto", "source": {"kind": "debian-source", "package": "xcb-proto", "version": "trixie"}, "prefix": "/Programs/XCBProto/current", "commands": [], "promotes": []},
+        {"name": "LibXau", "source": {"kind": "debian-source", "package": "libxau", "version": "trixie"}, "prefix": "/Programs/LibXau/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "LibXdmcp", "source": {"kind": "debian-source", "package": "libxdmcp", "version": "trixie"}, "prefix": "/Programs/LibXdmcp/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "LibXCB", "source": {"kind": "debian-source", "package": "libxcb", "version": "trixie"}, "prefix": "/Programs/LibXCB/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "Xtrans", "source": {"kind": "debian-source", "package": "xtrans", "version": "trixie"}, "prefix": "/Programs/Xtrans/current", "commands": [], "promotes": []},
+        {"name": "LibX11", "source": {"kind": "debian-source", "package": "libx11", "version": "trixie"}, "prefix": "/Programs/LibX11/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "XorgServer", "source": {"kind": "debian-source", "package": "xorg-server", "version": "trixie"}, "prefix": "/Programs/XorgServer/current", "commands": ["/Programs/XorgServer/current/Commands/Xorg"], "promotes": ["/System/Libraries"]}
+      ]
+    },
+    {
+      "id": "05-efl-edge",
+      "purpose": "Stop before full desktop; prove the immediate EFL edge is reachable from owned libraries.",
+      "targets": [
+        {"name": "GLib", "source": {"kind": "debian-source", "package": "glib2.0", "version": "trixie"}, "prefix": "/Programs/GLib/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "DBus", "source": {"kind": "debian-source", "package": "dbus", "version": "trixie"}, "prefix": "/Programs/DBus/current", "commands": ["/Programs/DBus/current/Commands/dbus-daemon"], "promotes": ["/System/Libraries"]},
+        {"name": "Pixman", "source": {"kind": "debian-source", "package": "pixman", "version": "trixie"}, "prefix": "/Programs/Pixman/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "Cairo", "source": {"kind": "debian-source", "package": "cairo", "version": "trixie"}, "prefix": "/Programs/Cairo/current", "commands": [], "promotes": ["/System/Libraries"]},
+        {"name": "EFL", "source": {"kind": "debian-source", "package": "efl", "version": "trixie"}, "prefix": "/Programs/EFL/current", "commands": [], "promotes": ["/System/Libraries"]}
+      ]
+    }
+  ]
+}

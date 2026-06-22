@@ -38,6 +38,62 @@ jq -e '
 rm -rf "${CONTEXT_DIR}"
 mkdir -p "${ROOTFS_DIR}" "${NATIVE_DIR}"
 cp -a "${TARGET_ROOT}/." "${ROOTFS_DIR}/"
+mkdir -p "${ROOTFS_DIR}/System/Build/Commands" "${ROOTFS_DIR}/System/Build/Manifests"
+cp "${ROOT_DIR}/packages/base-ports.manifest.json" "${ROOTFS_DIR}/System/Build/Manifests/base-ports.manifest.json"
+
+cat > "${ROOTFS_DIR}/System/Build/Commands/auzix-base-ports-worker" <<'WORKER'
+#!/bin/sh
+set -eu
+
+MANIFEST="${AUZIX_BASE_PORTS_MANIFEST:-/System/Build/Manifests/base-ports.manifest.json}"
+OUT_DIR="${AUZIX_BASE_PORTS_OUT:-/Work/base-ports-worker}"
+MODE="${AUZIX_BASE_PORTS_MODE:-plan-only}"
+SLEEP_SECONDS="${AUZIX_BASE_PORTS_SLEEP_SECONDS:-3600}"
+
+mkdir -p "${OUT_DIR}"
+
+write_plan() {
+  jq -r '
+    "AuZiX base ports worker\nmanifest=" + "'"${MANIFEST}"'" + "\nprofile=" + .profile + "\n",
+    (.phases[] |
+      "## " + .id + "\n" + .purpose + "\n" +
+      ((.targets // []) | map("  - " + .name + " source=" + .source.package + " prefix=" + .prefix + " promotes=" + ((.promotes // []) | join(","))) | join("\n")) +
+      "\n")
+  ' "${MANIFEST}" > "${OUT_DIR}/base-ports-plan.txt"
+
+  jq -n \
+    --arg format "auzix-base-ports-worker-v1" \
+    --arg status "planned" \
+    --arg mode "${MODE}" \
+    --arg manifest "${MANIFEST}" \
+    --arg out_dir "${OUT_DIR}" \
+    --argjson phases "$(jq '.phases | length' "${MANIFEST}")" \
+    --argjson targets "$(jq '[.phases[].targets[]] | length' "${MANIFEST}")" \
+    '{
+      format: $format,
+      status: $status,
+      mode: $mode,
+      manifest: $manifest,
+      out_dir: $out_dir,
+      phase_count: $phases,
+      target_count: $targets,
+      note: "Plan-only background worker. Build execution remains disabled until phase runners are explicit."
+    }' > "${OUT_DIR}/base-ports-worker-report.json"
+}
+
+write_plan
+
+if [ "${MODE}" = "once" ] || [ "${MODE}" = "plan-only-once" ]; then
+  exit 0
+fi
+
+echo "auzix-base-ports-worker ready mode=${MODE} out=${OUT_DIR}"
+while :; do
+  sleep "${SLEEP_SECONDS}"
+  write_plan
+done
+WORKER
+chmod 0755 "${ROOTFS_DIR}/System/Build/Commands/auzix-base-ports-worker"
 
 cat > "${CONTEXT_DIR}/Dockerfile" <<'DOCKERFILE'
 # syntax=docker/dockerfile:1.6
@@ -107,6 +163,8 @@ jq -n \
   --arg rootfs "${ROOTFS_DIR}" \
   --arg image_tar "${IMAGE_TAR}" \
   --arg rootfs_tar "${ROOTFS_TAR}" \
+  --arg base_ports_manifest "/System/Build/Manifests/base-ports.manifest.json" \
+  --arg base_ports_worker "/System/Build/Commands/auzix-base-ports-worker" \
   --arg validation "${REPORT_DIR}/validation-report.json" \
   '{
     format: $format,
@@ -117,6 +175,11 @@ jq -n \
     artifacts: {
       docker_image_tar: $image_tar,
       exported_rootfs_tar: $rootfs_tar
+    },
+    base_ports: {
+      manifest: $base_ports_manifest,
+      worker: $base_ports_worker,
+      default_mode: "plan-only"
     },
     source_validation: $validation,
     notes: "Phase 3 native-layout container. Debian currently supplies temporary bash/jq/lua review tools until those are package-owned under /Programs."

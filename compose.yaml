@@ -78,5 +78,20 @@ services:
       - /Programs/Lua/current/Commands/lua /System/S/system-startup.lua && echo "native-workbench-review ready; inspect /System /Programs /Work or /Host/out/source-workbench" && sleep infinity
     profiles: ["source-workbench"]
 
+  native-workbench-worker:
+    image: auzix/native-workbench:phase3
+    working_dir: /Work
+    environment:
+      AUZIX_BASE_PORTS_MODE: plan-only
+      AUZIX_BASE_PORTS_OUT: /Host/out/source-workbench/base-ports-worker
+      AUZIX_BASE_PORTS_SLEEP_SECONDS: "3600"
+    volumes:
+      - ./out:/Host/out
+    command:
+      - /bin/bash
+      - -lc
+      - /System/Build/Commands/auzix-base-ports-worker
+    profiles: ["source-workbench"]
+
 volumes:
   auzix-cache:

@@ -13,9 +13,11 @@ the result, then package it.
 packages/source-workbench.schema.json  manifest schema
 packages/source-workbench.seed.json    first EFL/E/Terminology/NetSurf seed
 packages/source-build.sources.json     earlier NetSurf-focused source catalog
+packages/base-ports.manifest.json      non-GUI through X11/EFL ports sequence
 docker/source-workbench/Dockerfile     minimal bootable workbench container
 scripts/source-workbench-boot.sh       manifest boot/plan entry point
 scripts/build-source-workbench-native-container.sh phase 3 native container
+scripts/generate-base-ports-plan.sh    base ports plan/report generator
 ```
 
 Generated paths should follow this shape:
@@ -191,6 +193,13 @@ make auzix-native-workbench-review
 docker exec -it auzix-native-workbench-review-1 bash
 ```
 
+Run the background worker in plan-only mode:
+
+```sh
+make auzix-native-workbench-worker
+docker logs -f auzix-native-workbench-worker-1
+```
+
 This is the first "AuZiX workbench builds the AuZiX workbench" shape. It is not
 yet a pure `FROM scratch` system because the staged root does not own shell,
 Lua, `jq`, certificates, or process tools yet. The Phase 3 image uses a tiny
@@ -206,11 +215,63 @@ docker import out/source-workbench/native-container/native-workbench-rootfs.tar 
 
 Those tarballs are suitable for NFS publication or BKC handoff.
 
+The Phase 3 image also carries:
+
+```text
+/System/Build/Manifests/base-ports.manifest.json
+/System/Build/Commands/auzix-base-ports-worker
+```
+
+The worker currently runs in `plan-only` mode and writes:
+
+```text
+out/source-workbench/base-ports-worker/base-ports-plan.txt
+out/source-workbench/base-ports-worker/base-ports-worker-report.json
+```
+
+## Eating Debian
+
+The bridge container is useful only if each Debian-provided tool becomes an
+AuZiX-owned port. The source of truth for that sequence is:
+
+```text
+packages/base-ports.manifest.json
+```
+
+Generate the current plan without compiling:
+
+```sh
+make auzix-base-ports-plan
+```
+
+Generated outputs:
+
+```text
+out/source-workbench/base-ports/base-ports-plan.txt
+out/source-workbench/base-ports/base-ports-report.json
+```
+
+The manifest intentionally runs from bootstrap runtime tools through X11/EFL
+prerequisites:
+
+```text
+00-bootstrap-runtime  BusyBox, Lua, CA certs
+01-source-fetch       Zlib, OpenSSL, Curl
+02-build-toolchain    pkg-config, make, cmake, meson, ninja
+03-core-libraries     ffi, pcre2, xml, image, font libraries
+04-x11-base           xorgproto, xcb, libX11, Xorg server
+05-efl-edge           GLib, D-Bus, Pixman, Cairo, EFL
+```
+
+Every target must install under `/Programs/<Name>/current` and promote shared
+runtime libraries only into `/System/Libraries`. The report lists the tools
+still inherited from Debian so each phase can shrink that list.
+
 The promotion path is:
 
 ```text
 Stage 2: validate AuZiXTarget layout and runtime policy
 Stage 3: build/run a native-layout AuZiX container from that root
-Stage 4: package Lua, shell, certificates, and build tools under /Programs
-Stage 5: remove the Debian compatibility base and move toward scratch/chroot/ISO
+Stage 4: build base ports from the manifest into /Programs and /System/Libraries
+Stage 5: remove inherited Debian tools and move toward scratch/chroot/ISO
 ```
