@@ -2767,7 +2767,9 @@ install_grub_bootloader() {
 
 echo "Creating Auzix partition on ${target}"
 "${BB}" dd if=/dev/zero of="${target}" bs=1M count=8
-printf 'o\nn\np\n1\n\n\nw\n' | "${BB}" fdisk "${target}"
+# BusyBox fdisk may inherit legacy CHS geometry and otherwise choose sector 32.
+# Reserve the conventional 1 MiB embedding area required by BIOS GRUB.
+printf 'o\nn\np\n1\n2048\n\nw\n' | "${BB}" fdisk "${target}"
 "${BB}" partprobe "${target}" 2>/dev/null || true
 "${BB}" sleep 2
 
@@ -2812,6 +2814,8 @@ echo "Copying live Auzix root to ${partition}"
     --exclude='./proc/*' \
     --exclude='./sys/*' \
     --exclude='./run/*' \
+    --exclude='./Work/Temp/*' \
+    --exclude='./Users/*/.config/mozilla/*/storage/*' \
     --exclude='./System/Settings/display/assets/*' \
     --exclude='./Work/InstallTarget/*' \
     -cf - .
