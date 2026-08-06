@@ -82,8 +82,12 @@ static void list_populate(Package_Manager *ui) {
   ui->selected[0] = '\0';
   elm_object_disabled_set(ui->install_button, EINA_TRUE);
   unsigned int count = 0;
+  if (!ui->output || !ui->output[0]) {
+    status_set(ui, "<color=#ffb86c>No packages were returned by auzix-pkg.</color>");
+    return;
+  }
   char *save = NULL;
-  for (char *line = strtok_r(ui->output ? ui->output : "", "\n", &save);
+  for (char *line = strtok_r(ui->output, "\n", &save);
        line; line = strtok_r(NULL, "\n", &save)) {
     char *tab = strchr(line, '\t');
     if (!tab) continue;
