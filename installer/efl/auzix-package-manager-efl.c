@@ -93,6 +93,13 @@ static void checked_cb(void *data, Evas_Object *obj, void *event_info) {
   status_set(ui, message);
 }
 
+static void row_toggle_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj; (void)event_info;
+  Package_Row *row = data;
+  elm_check_state_set(row->check, !elm_check_state_get(row->check));
+  checked_cb(row, row->check, NULL);
+}
+
 static void rows_clear(Package_Manager *ui) {
   Package_Row *row;
   EINA_LIST_FREE(ui->rows, row) {
@@ -127,7 +134,7 @@ static void list_populate(Package_Manager *ui) {
     row->check = elm_check_add(ui->list);
     evas_object_smart_callback_add(row->check, "changed", checked_cb, row);
     evas_object_show(row->check);
-    elm_list_item_append(ui->list, display, row->check, NULL, NULL, NULL);
+    elm_list_item_append(ui->list, display, row->check, NULL, row_toggle_cb, row);
     ui->rows = eina_list_append(ui->rows, row);
     count++;
   }
