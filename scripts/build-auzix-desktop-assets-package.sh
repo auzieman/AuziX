@@ -12,6 +12,7 @@ GLOBAL_E_ROOT="${AUZIX_ROOT}/System/Compatibility/usr/share/enlightenment"
 # the Elementary catalog, while wallpapers remain in Enlightenment's catalog.
 GLOBAL_THEMES="${AUZIX_ROOT}/System/Compatibility/usr/share/elementary/themes"
 GLOBAL_BACKGROUNDS="${GLOBAL_E_ROOT}/data/backgrounds"
+GLOBAL_TERMINOLOGY_THEMES="${AUZIX_ROOT}/System/Compatibility/usr/share/terminology/themes"
 STAGED_COPY="$(mktemp -d)"
 
 trap 'rm -rf "${STAGED_COPY}"' EXIT
@@ -62,6 +63,7 @@ mkdir -p \
   "${ASSET_PROGRAM}/Resources/display/assets" \
   "${GLOBAL_THEMES}" \
   "${GLOBAL_BACKGROUNDS}" \
+  "${GLOBAL_TERMINOLOGY_THEMES}" \
   "${AUZIX_ROOT}/System/Settings/display" \
   "${AUZIX_ROOT}/System/PackageDB"
 
@@ -73,7 +75,14 @@ ln -sfn /Programs/DesktopAssets/auzietek/Resources/display/assets \
 
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/themes/*.edj; do
   [[ -f "${asset}" ]] || continue
-  ln -f "${asset}" "${GLOBAL_THEMES}/$(basename "${asset}")"
+  case "$(basename "${asset}" | tr '[:upper:]' '[:lower:]')" in
+    *terminology*)
+      ln -f "${asset}" "${GLOBAL_TERMINOLOGY_THEMES}/$(basename "${asset}")"
+      ;;
+    *)
+      ln -f "${asset}" "${GLOBAL_THEMES}/$(basename "${asset}")"
+      ;;
+  esac
 done
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
   [[ -f "${asset}" ]] || continue
@@ -92,6 +101,8 @@ exports_json="$(
       sed "s#^/#/System/Compatibility/usr/share/elementary/themes/#"
     find "${GLOBAL_BACKGROUNDS}" -maxdepth 1 -type f -printf '/%P\n' |
       sed "s#^/#/System/Compatibility/usr/share/enlightenment/data/backgrounds/#"
+    find "${GLOBAL_TERMINOLOGY_THEMES}" -maxdepth 1 -type f -printf '/%P\n' |
+      sed "s#^/#/System/Compatibility/usr/share/terminology/themes/#"
   } | sort -u | jq -R . | jq -s .
 )"
 
@@ -118,6 +129,7 @@ cat > "${RECEIPT}" <<EOF
   },
   "global_exports": {
     "themes": "/System/Compatibility/usr/share/elementary/themes",
+    "terminology_themes": "/System/Compatibility/usr/share/terminology/themes",
     "backgrounds": "/System/Compatibility/usr/share/enlightenment/data/backgrounds"
   },
   "settings": [],

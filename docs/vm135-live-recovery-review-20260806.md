@@ -337,6 +337,15 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - Follow-up: this media still exposes Elive's limited native
   `enlightenment_remote`; stage the committed AuziX compatibility wrapper as a
   bounded file delta and point its theme queries at the Elementary catalog.
+- Operator screenshots at 14:04 and 14:08 prove the public HTTPS site loads,
+  AbiWord and Gnumeric launch after Package Manager transactions, and the
+  higher 1920x1080 mode works. The theme selector's reported failure is
+  specific: `Scifi-terminology-theme.edj` is a Terminology theme and was
+  incorrectly exported into Elementary's theme catalog. Route it to
+  `/System/Compatibility/usr/share/terminology/themes` and keep it out of the
+  desktop theme selector.
+- Installer password entries render vertically compressed inside their frames;
+  enforce minimum entry and frame dimensions in the next EFL preflight.
 
 ## Next-ISO display evidence
 
