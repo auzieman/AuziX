@@ -57,6 +57,27 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   complete the intended private-CA check. Do not mark CA integration complete
   until a targeted HTTPS request and Midori trust result are recorded.
 
+## Package manager runtime test
+
+- Running `auzix-pkg` as `auzix` fails while creating
+  `/System/State/packages` and `/System/Logs/packages` because their parent
+  runtime trees are root-owned and not user-writable.
+- Running `sudo auzix-pkg refresh` creates those directories as root with mode
+  `0755`, leaving subsequent unprivileged refreshes unable to update the cache.
+- The configured repository is
+  `http://192.168.1.10/auzix/repo` and the client correctly requests
+  `/auzix/repo/index.json`.
+- The repository data is intact at `/srv/http/auzix/repo/index.json`, with its
+  package archives below `/srv/http/auzix/repo/packages`.
+- ns1's active nginx configuration has no `/auzix/` location or alias, so all
+  tested AuziX repository URLs return HTTP 404. This is a publication/config
+  regression, not missing package data.
+- Repair repository publication independently from ISO payload work, and add
+  an HTTP `index.json` plus package-archive check to the visible BKC pipeline.
+- Define the privilege contract explicitly: refresh/list may use user-owned
+  cache state, while archive extraction into `/Programs`, `/System`, and
+  `/Services` requires the existing privileged installation gate.
+
 ## Bounded next steps
 
 1. Make the desktop installer launcher execute InstallerEFL directly in the
