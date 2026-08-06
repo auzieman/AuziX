@@ -108,7 +108,8 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   grep -qx "PermitRootLogin yes" /work/verify-root/System/Settings/ssh/sshd_config
   grep -qx "PasswordAuthentication yes" /work/verify-root/System/Settings/ssh/sshd_config
   test -s /work/verify-root/Users/root/.ssh/authorized_keys
-  test -x /work/verify-root/Programs/AuzixInstallerEfl/current/Commands/efl.real
+  test -L /work/verify-root/Programs/AuzixInstallerEfl/current
+  test -x /work/verify-root/Programs/AuzixInstallerEfl/0.1/Commands/efl.real
   test -L /work/verify-root/Programs/AuzixInstaller/0.2/Frontends/efl
   test -s /work/verify-root/System/Compatibility/etc/ssl/certs/ca-certificates.crt
   test -s /work/verify-root/Users/auzix/.e/e/config/standard/e.cfg
