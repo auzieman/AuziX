@@ -306,8 +306,12 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   elm_table_pack(table, password_label, 0, 3, 1, 1);
   Evas_Object *password_frame = elm_frame_add(table); elm_object_text_set(password_frame, "At least 8 characters");
   ui.password = elm_entry_add(password_frame); elm_entry_single_line_set(ui.password, EINA_TRUE); elm_entry_password_set(ui.password, EINA_TRUE);
+  evas_object_size_hint_weight_set(ui.password, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.password, EVAS_HINT_FILL, 0.5);
   evas_object_size_hint_min_set(ui.password, 420, 48);
   elm_object_content_set(password_frame, ui.password); evas_object_show(ui.password);
+  evas_object_size_hint_weight_set(password_frame, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(password_frame, EVAS_HINT_FILL, 0.5);
   evas_object_size_hint_min_set(password_frame, 420, 72);
   elm_table_pack(table, password_frame, 1, 3, 1, 1); evas_object_show(password_frame);
 
@@ -315,8 +319,12 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   elm_table_pack(table, confirm_label, 0, 4, 1, 1);
   Evas_Object *confirm_frame = elm_frame_add(table); elm_object_text_set(confirm_frame, "Repeat account password");
   ui.password_confirm = elm_entry_add(confirm_frame); elm_entry_single_line_set(ui.password_confirm, EINA_TRUE); elm_entry_password_set(ui.password_confirm, EINA_TRUE);
+  evas_object_size_hint_weight_set(ui.password_confirm, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.password_confirm, EVAS_HINT_FILL, 0.5);
   evas_object_size_hint_min_set(ui.password_confirm, 420, 48);
   elm_object_content_set(confirm_frame, ui.password_confirm); evas_object_show(ui.password_confirm);
+  evas_object_size_hint_weight_set(confirm_frame, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(confirm_frame, EVAS_HINT_FILL, 0.5);
   evas_object_size_hint_min_set(confirm_frame, 420, 72);
   elm_table_pack(table, confirm_frame, 1, 4, 1, 1); evas_object_show(confirm_frame);
 

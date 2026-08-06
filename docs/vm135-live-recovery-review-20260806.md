@@ -365,3 +365,29 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 
 No kernel, initramfs, package-set, base root, or boot-layout rebuild belongs in
 this cleanup.
+
+## Launch-candidate install evidence
+
+- Clean source commit `9138e3dc32d236c6b9c43ab084e01e652669fe46`
+  produced `auzix-live-launch-launch-20260806-9138e3d.iso` with SHA-256
+  `bc5ab250780d7ed7619a45db073f3ce1e4c355574d6f1d8dd637b20ad2121776`.
+  The ISO passed the static BIOS/UEFI and bounded-payload contract.
+- VM135 booted that checksum from CD, proved the corrected Elementary and
+  Terminology catalogs, then executed an unconfirmed whole-disk plan through
+  the separately guarded `execute PLAN /dev/sda` handoff.
+- The first install exposed a BIOS GRUB embedding bug because legacy BusyBox
+  geometry selected sector 32. Commit `fb52e3b` fixes the executor to start at
+  sector 2048 and excludes transient browser storage and `/Work/Temp` sockets
+  from the installed-root copy.
+- The corrected executor completed, GRUB installed without error, and VM135
+  rebooted disk-first with `/dev/sda1` mounted at `/` and
+  `root=LABEL=AUZIXROOT auzix.root=LABEL=AUZIXROOT` on its kernel command line.
+- This is an installed-root MVP, not a clean launch candidate yet. Confirmed
+  bugs are: missing ext4 tooling causes an ext2 fallback; the selected hostname
+  is not applied; Midori is not consistently consuming system CA trust; the
+  selected sci-fi theme and 1920x1080 mode are not automatic; and password
+  fields begin content-sized instead of occupying their intended width.
+- The service intake probe passed for OpenSSH server, Nginx, Samba, NFS client,
+  Podman, and debootstrap only as stage-0 payload receipts. Its supposedly
+  Trixie builder resolved Bookworm versions after refreshing APT metadata, so
+  suite/snapshot pinning is required before any of those packages are published.
