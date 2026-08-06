@@ -25,9 +25,13 @@ log() { printf '[auzix-live-recovery] %s\n' "$*"; }
 [[ -s "${KEY_FILE}" ]] || fail 'authorized-keys input missing'
 [[ -s "${ROOT_PASSWORD_HASH_FILE}" ]] || fail 'root password hash input missing'
 [[ "${SOURCE_COMMIT}" != unknown ]] || fail 'AUZIX_SOURCE_COMMIT must name the committed source under test'
-[[ -d "${SOURCE_ROOT}/.git" ]] || fail "source checkout metadata missing: ${SOURCE_ROOT}/.git"
-[[ -z "$(git -C "${SOURCE_ROOT}" status --porcelain)" ]] || fail 'source checkout is dirty; commit the intended delta first'
-[[ "$(git -C "${SOURCE_ROOT}" rev-parse HEAD)" == "${SOURCE_COMMIT}" ]] || fail 'AUZIX_SOURCE_COMMIT does not match source checkout HEAD'
+if [[ -d "${SOURCE_ROOT}/.git" ]]; then
+  [[ -z "$(git -C "${SOURCE_ROOT}" status --porcelain)" ]] || fail 'source checkout is dirty; commit the intended delta first'
+  [[ "$(git -C "${SOURCE_ROOT}" rev-parse HEAD)" == "${SOURCE_COMMIT}" ]] || fail 'AUZIX_SOURCE_COMMIT does not match source checkout HEAD'
+else
+  [[ -s "${SOURCE_ROOT}/.auzix-source-commit" ]] || fail 'exported source is missing .auzix-source-commit'
+  [[ "$(tr -d '[:space:]' <"${SOURCE_ROOT}/.auzix-source-commit")" == "${SOURCE_COMMIT}" ]] || fail 'exported source marker does not match AUZIX_SOURCE_COMMIT'
+fi
 command -v docker >/dev/null 2>&1 || fail 'docker is required on the R730 worker'
 
 actual_base_sha="$(sha256sum "${BASE_ISO}" | awk '{print $1}')"

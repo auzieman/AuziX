@@ -76,6 +76,9 @@ rsync
 strace
 wget
 
+# Server and container-image substrate
+nginx
+
 # Graphical substrate
 dbus-x11
 enlightenment

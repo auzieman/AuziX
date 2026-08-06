@@ -1,0 +1,15 @@
+# Repository-only cleanup batch. These packages are not ISO payloads.
+# Publish an item only after its receipt declares runnable commands, desktop
+# or service integration, dependencies, and a runtime smoke result.
+
+# Office and creative desktop
+libreoffice
+gimp
+inkscape
+
+# Browser and media
+librewolf
+audacious
+
+# Container/server substrate
+nginx
