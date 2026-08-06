@@ -119,5 +119,16 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 5. Generate and review an allowlisted SquashFS changed-path manifest before
    triggering another BKC build.
 
+## Next-ISO display evidence
+
+- VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
+  driver; no alternate VNC/display driver is required.
+- The current live session selected `1280x800`.
+- Xorg accepted advertised modes including `1920x1080`, `1920x1200`, and
+  `2048x1152`. Use `1920x1080` as the next candidate's screenshot-friendly
+  preferred mode, retaining automatic fallback for smaller viewers.
+- The next candidate must include commits `fa1e1df` (validated wallpaper
+  exports) and `7fe24cf` (validated Enlightenment directory queries).
+
 No kernel, initramfs, package-set, base root, or boot-layout rebuild belongs in
 this cleanup.
