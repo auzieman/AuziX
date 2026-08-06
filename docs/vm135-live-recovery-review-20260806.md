@@ -96,8 +96,15 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   catalog contains readable symlinks to every packaged EDJ.
 - The manually copied real `E20-Scifi-theme.edj` is accepted and renders.
 - Replacing a theme catalog symlink with a real file and seeding
-  `/Users/auzix/.e/e/themes` did not make the theme appear. Theme discovery and
-  default selection therefore require an E configuration fix, not file moves.
+  `/Users/auzix/.e/e/themes` did not make the theme appear.
+- Inspection of the running Enlightenment process showed its open live theme
+  files are `/Users/auzix/.elementary/themes/E20-Scifi-theme.edj` and
+  `/System/Compatibility/usr/share/elementary/themes/default.edj`. This Elive
+  build therefore discovers live themes through the Elementary theme catalog.
+- VM135 was hotpatched by preserving the canonical package payload under
+  `/Programs/AuzixThemes/2026.06/Resources/themes` and hard-linking/copying its
+  20 custom EDJs beside the proven system `default.edj`. Do not move or delete
+  the `/Programs` payload.
 - Wallpaper discovery did work after replacing its compatibility symlinks with
   real files/hard links. Preserve that bounded package change.
 - The packaged Elive `enlightenment_remote` omits the legacy directory-query
@@ -115,8 +122,10 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
    existing graphical session and preserve a useful log on failure.
 2. Verify the private CA is in the compatibility bundle and the browser's NSS
    trust path; change only the missing CA/NSS wiring.
-3. Stage custom theme EDJs in Enlightenment's expected system/user locations
-   and seed the manually proven sci-fi theme as the `auzix` default.
+3. Export custom theme EDJs into
+   `/System/Compatibility/usr/share/elementary/themes`, update the AuziX
+   `-theme-dir-list`/`-theme-list` compatibility queries to report that proven
+   catalog, and seed the manually proven sci-fi theme as the `auzix` default.
 4. Stage wallpapers in Enlightenment's expected background locations and seed
    the proven default wallpaper.
 5. Generate and review an allowlisted SquashFS changed-path manifest before
@@ -131,7 +140,12 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   `2048x1152`. The packaged and live-regenerated Xorg configurations now prefer
   `1920x1080`, with `1280x800` and `1024x768` fallbacks for smaller viewers.
 - The next candidate must include commits `fa1e1df` (validated wallpaper
-  exports) and `7fe24cf` (validated Enlightenment directory queries).
+  exports), `7fe24cf` and `b7025a5` (validated Enlightenment directory and
+  asset queries), and `1aaa38f` (1080p preferred mode).
+- Theme acceptance for the next candidate: `-theme-dir-list` reports the
+  Elementary system catalog, `-theme-list` enumerates all packaged custom
+  EDJs, the graphical selector shows them after a clean boot, and the sci-fi
+  theme is the default without a manual import.
 
 No kernel, initramfs, package-set, base root, or boot-layout rebuild belongs in
 this cleanup.
