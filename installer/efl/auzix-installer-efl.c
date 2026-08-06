@@ -146,13 +146,12 @@ static void begin_install_cb(void *data, Evas_Object *obj, void *event_info) {
   evas_object_show(confirm);
 }
 
-static Evas_Object *label(Evas_Object *parent, const char *text, int size) {
+static Evas_Object *form_label(Evas_Object *parent, const char *text) {
   Evas_Object *item = elm_label_add(parent);
-  char markup[2048];
-  snprintf(markup, sizeof(markup), "<font_size=%d><color=#dceaf3>%s</color></font_size>", size, text);
+  char markup[512];
+  snprintf(markup, sizeof(markup), "<b>%s</b>", text);
   elm_object_text_set(item, markup);
-  evas_object_size_hint_weight_set(item, EVAS_HINT_EXPAND, 0.0);
-  evas_object_size_hint_align_set(item, EVAS_HINT_FILL, 0.5);
+  evas_object_size_hint_align_set(item, 0.0, 0.5);
   evas_object_show(item);
   return item;
 }
@@ -163,66 +162,113 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   Installer ui = {0};
   ui.window = elm_win_util_standard_add("auzix-installer", "Install AuziX");
   elm_win_autodel_set(ui.window, EINA_TRUE);
-  elm_win_title_set(ui.window, "Install AuziX — guided live installer");
-  evas_object_resize(ui.window, 860, 600);
+  elm_win_title_set(ui.window, "BlackKnight // AuziX Deployment");
+  evas_object_resize(ui.window, 920, 620);
 
   Evas_Object *box = elm_box_add(ui.window);
   evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
   evas_object_size_hint_align_set(box, EVAS_HINT_FILL, EVAS_HINT_FILL);
-  elm_box_padding_set(box, 14, 10);
+  elm_box_padding_set(box, 12, 10);
   elm_win_resize_object_add(ui.window, box);
   evas_object_show(box);
 
-  elm_box_pack_end(box, label(box, "<b>AUZIX // FIRSTBOOT INSTALLER</b>", 28));
-  elm_box_pack_end(box, label(box, "Plan first. Validate. Confirm separately.  The disk is never touched from this screen.", 15));
-  elm_box_pack_end(box, label(box, "01  Target disk", 18));
-  ui.disk = elm_entry_add(box);
+  Evas_Object *header = elm_label_add(box);
+  elm_object_text_set(header,
+    "<color=#62d9ef><b>BLACKKNIGHT</b></color>  //  AUZIX DEPLOYMENT CONTROL");
+  evas_object_size_hint_align_set(header, 0.0, 0.5);
+  elm_box_pack_end(box, header); evas_object_show(header);
+
+  Evas_Object *intro = elm_label_add(box);
+  elm_object_text_set(intro,
+    "Operator lane: define the target, validate a signed-off plan, then cross the destructive gate separately.");
+  elm_label_line_wrap_set(intro, ELM_WRAP_WORD);
+  evas_object_size_hint_weight_set(intro, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(intro, EVAS_HINT_FILL, 0.5);
+  elm_box_pack_end(box, intro); evas_object_show(intro);
+
+  Evas_Object *frame = elm_frame_add(box);
+  elm_object_text_set(frame, "01 // TARGET AND HANDOFF");
+  evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+  elm_box_pack_end(box, frame); evas_object_show(frame);
+
+  Evas_Object *table = elm_table_add(frame);
+  elm_table_padding_set(table, 16, 14);
+  evas_object_size_hint_weight_set(table, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_size_hint_align_set(table, EVAS_HINT_FILL, EVAS_HINT_FILL);
+  elm_object_content_set(frame, table); evas_object_show(table);
+
+  Evas_Object *disk_label = form_label(table, "Target disk");
+  elm_table_pack(table, disk_label, 0, 0, 1, 1);
+  ui.disk = elm_entry_add(table);
   elm_entry_single_line_set(ui.disk, EINA_TRUE);
   elm_object_part_text_set(ui.disk, "guide", "/dev/sda");
   elm_entry_entry_set(ui.disk, "/dev/sda");
   evas_object_size_hint_weight_set(ui.disk, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.disk, EVAS_HINT_FILL, 0.5);
-  elm_box_pack_end(box, ui.disk); evas_object_show(ui.disk);
+  evas_object_size_hint_min_set(ui.disk, 420, 42);
+  elm_table_pack(table, ui.disk, 1, 0, 1, 1); evas_object_show(ui.disk);
 
-  elm_box_pack_end(box, label(box, "02  Machine identity", 18));
-  ui.hostname = elm_entry_add(box);
+  Evas_Object *host_label = form_label(table, "Machine name");
+  elm_table_pack(table, host_label, 0, 1, 1, 1);
+  ui.hostname = elm_entry_add(table);
   elm_entry_single_line_set(ui.hostname, EINA_TRUE);
   elm_entry_entry_set(ui.hostname, "auzix");
   evas_object_size_hint_weight_set(ui.hostname, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.hostname, EVAS_HINT_FILL, 0.5);
-  elm_box_pack_end(box, ui.hostname); evas_object_show(ui.hostname);
+  evas_object_size_hint_min_set(ui.hostname, 420, 42);
+  elm_table_pack(table, ui.hostname, 1, 1, 1, 1); evas_object_show(ui.hostname);
 
-  elm_box_pack_end(box, label(box, "03  Boot handoff", 18));
-  Evas_Object *boot_box = elm_box_add(box);
+  Evas_Object *boot_label = form_label(table, "Boot setup");
+  elm_table_pack(table, boot_label, 0, 2, 1, 1);
+  Evas_Object *boot_box = elm_box_add(table);
   elm_box_horizontal_set(boot_box, EINA_TRUE);
+  elm_box_padding_set(boot_box, 18, 0);
   Evas_Object *grub = elm_radio_add(boot_box);
   elm_object_text_set(grub, "Install GRUB"); elm_radio_state_value_set(grub, 0);
   Evas_Object *iso = elm_radio_add(boot_box);
-  elm_object_text_set(iso, "Live-ISO test handoff"); elm_radio_state_value_set(iso, 1);
+  elm_object_text_set(iso, "Test handoff only"); elm_radio_state_value_set(iso, 1);
   elm_radio_group_add(iso, grub); elm_radio_value_set(grub, 0);
   ui.boot = grub;
   elm_box_pack_end(boot_box, grub); elm_box_pack_end(boot_box, iso);
-  elm_box_pack_end(box, boot_box); evas_object_show(grub); evas_object_show(iso); evas_object_show(boot_box);
+  elm_table_pack(table, boot_box, 1, 2, 1, 1);
+  evas_object_show(grub); evas_object_show(iso); evas_object_show(boot_box);
 
-  Evas_Object *button = elm_button_add(box);
-  elm_object_text_set(button, "Validate and save unconfirmed plan");
+  Evas_Object *safety = elm_label_add(table);
+  elm_object_text_set(safety,
+    "<color=#ffb86c><b>Safety:</b> validating saves a plan only. Disk changes require a second explicit confirmation.</color>");
+  elm_label_line_wrap_set(safety, ELM_WRAP_WORD);
+  evas_object_size_hint_weight_set(safety, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(safety, EVAS_HINT_FILL, 0.5);
+  elm_table_pack(table, safety, 0, 3, 2, 1); evas_object_show(safety);
+
+  Evas_Object *actions = elm_box_add(box);
+  elm_box_horizontal_set(actions, EINA_TRUE);
+  elm_box_padding_set(actions, 12, 0);
+  evas_object_size_hint_weight_set(actions, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(actions, EVAS_HINT_FILL, 0.5);
+  Evas_Object *button = elm_button_add(actions);
+  elm_object_text_set(button, "02 // VALIDATE PLAN");
   evas_object_smart_callback_add(button, "clicked", write_plan_cb, &ui);
   evas_object_size_hint_weight_set(button, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(button, EVAS_HINT_FILL, 0.5);
-  elm_box_pack_end(box, button); evas_object_show(button);
+  elm_box_pack_end(actions, button); evas_object_show(button);
 
-  ui.run_button = elm_button_add(box);
-  elm_object_text_set(ui.run_button, "Review and begin guarded install");
+  ui.run_button = elm_button_add(actions);
+  elm_object_text_set(ui.run_button, "03 // AUTHORIZE INSTALL");
   elm_object_disabled_set(ui.run_button, EINA_TRUE);
   evas_object_smart_callback_add(ui.run_button, "clicked", begin_install_cb, &ui);
   evas_object_size_hint_weight_set(ui.run_button, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.run_button, EVAS_HINT_FILL, 0.5);
-  elm_box_pack_end(box, ui.run_button); evas_object_show(ui.run_button);
+  elm_box_pack_end(actions, ui.run_button); evas_object_show(ui.run_button);
+  elm_box_pack_end(box, actions); evas_object_show(actions);
 
   ui.status = elm_label_add(box);
-  elm_object_text_set(ui.status, "<color=#84a7b8>Next: review the saved plan, then use the explicit confirmation path.</color>");
-  evas_object_size_hint_weight_set(ui.status, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  evas_object_size_hint_align_set(ui.status, EVAS_HINT_FILL, 0.0);
+  elm_object_text_set(ui.status,
+    "<color=#62d9ef>STATUS // READY</color>  No storage changes are armed.");
+  elm_label_line_wrap_set(ui.status, ELM_WRAP_WORD);
+  evas_object_size_hint_weight_set(ui.status, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.status, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(box, ui.status); evas_object_show(ui.status);
 
   evas_object_show(ui.window);

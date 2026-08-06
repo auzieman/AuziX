@@ -143,6 +143,11 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - Publish both frontends as ordinary AuziX packages where practical. The live
   ISO may preinstall those same packages, but must not carry separate ad-hoc
   copies.
+- Screenshot review of the first Installer EFL launch found excessive vertical
+  expansion, weak field affordances, and actions below the visible area. The
+  next preflight build uses a compact framed form with aligned controls,
+  side-by-side gated actions, visible status, and BlackKnight/Auzietek operator
+  language while leaving window chrome to the selected E theme.
 
 ## Next-ISO display evidence
 
