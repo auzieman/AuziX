@@ -85,11 +85,16 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
 
 docker run --rm \
   -v "$(dirname "${BASE_ISO}"):/base:ro" -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
-    xorriso -indev "/base/'"$(basename "${BASE_ISO}")"'" \
-      -outdev "/work/'"${ISO_NAME}"'" \
-      -boot_image any replay \
-      -map /work/auzix-root.squashfs /live/auzix-root.squashfs \
-      -commit >/dev/null 2>&1
+    cp /work/auzix-root.squashfs /work/iso-tree/live/auzix-root.squashfs
+    xorriso -as mkisofs -r -J -V AUZIXLIVE \
+      --grub2-mbr --interval:local_fs:0s-15s:zero_mbrpt,zero_gpt,zero_apm:"/base/'"$(basename "${BASE_ISO}")"'" \
+      --protective-msdos-label -partition_cyl_align off -partition_offset 0 \
+      -partition_hd_cyl 70 -partition_sec_hd 32 -apm-block-size 2048 -hfsplus \
+      -efi-boot-part --efi-boot-image -c /boot.catalog \
+      -b /boot/grub/i386-pc/eltorito.img -no-emul-boot -boot-load-size 4 \
+      -boot-info-table --grub2-boot-info -eltorito-alt-boot \
+      -e /efi.img -no-emul-boot -boot-load-size 5760 \
+      -o "/work/'"${ISO_NAME}"'" /work/iso-tree
   '
 [[ -s "${candidate}" ]] || fail 'candidate ISO was not created'
 
