@@ -93,3 +93,60 @@ The Ollama worker may evaluate deterministic failures after a build. Give it
 the source metadata, recipe, build log, `ldd` output, receipt, and smoke log;
 accept only a proposed recipe/contract patch. It must not trigger publication
 or invent dependencies absent from package metadata and runtime evidence.
+
+## Host, service, and container-root profiles
+
+AuziX needs two inverse assembly profiles built from the same package receipts.
+
+### Kernel-owning VM or bare-metal host
+
+This profile boots an AuziX kernel and may own mounts, forwarding, firewall
+rules, storage clients, native daemons, and a Docker or Podman runtime.
+
+- NFS client, CIFS client, autofs, loop/device-mapper, overlayfs, and container
+  networking belong here because they require host kernel facilities.
+- Kernel NFS server additionally requires `nfsd`; treat that as a host service,
+  not a generally portable container payload.
+- Samba server is mostly userspace but still needs explicit filesystem,
+  identity, ports, capabilities, and volume contracts.
+- NFS-Ganesha may be evaluated separately as a userspace/container-oriented
+  NFS server; it is not interchangeable with the kernel NFS service.
+- Docker or Podman may host database, web, file, and application services after
+  the runtime substrate passes its own smoke gates.
+
+### Native AuziX `/Services`
+
+OpenSSH server, an HTTP server, Nginx, Samba, and selected database servers may
+also be native AuziX packages. A server receipt is incomplete until it owns:
+
+- `/Programs/<Name>/<Version>` commands and libraries;
+- `/System/Settings/<name>` configuration and upgrade-safe templates;
+- `/System/State/<name>` mutable state and `/System/Logs/<name>` logs;
+- `/Services/<name>/run`, readiness, stop/reload behavior, user/group, ports,
+  volumes, and dependencies;
+- a noninteractive smoke test and a backup/restore statement.
+
+MySQL/MariaDB and similar databases should be later service packages because
+their data migration, initialization, shutdown, and backup contracts are more
+important than merely making the daemon executable.
+
+### AuziX container root
+
+This profile does not install or manage a kernel, bootloader, hardware daemon,
+kernel module, host mount, firewall, DHCP client, display manager, or container
+runtime. It contains the selected application/service closure and a small
+entrypoint that starts one service or a reviewed service group.
+
+Use Debian bootstrap/source inputs to assemble missing dependency payloads, but
+normalize the result into AuziX `/Programs`, `/System`, and `/Services`
+receipts before publishing it. `debootstrap` output is an intake root, not the
+final AuziX container contract.
+
+The container-image lane should:
+
+1. resolve a package/service profile and dependency closure;
+2. stage it into a fresh root without boot/kernel packages;
+3. run path, linker, ownership, secret, and writable-state audits;
+4. emit OCI image metadata, SBOM, package receipts, and a rootfs tar;
+5. run the image under the proven Podman/Docker host lane;
+6. test signals, readiness, DNS/HTTPS, volumes, restart, and backup output.
