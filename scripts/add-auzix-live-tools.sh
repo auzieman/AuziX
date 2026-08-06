@@ -2409,8 +2409,8 @@ chown_path 1000:1000 \
   /Users/auzix/.elementary \
   /Users/auzix/.local \
   /Users/auzix/.midori
-chown_path 1000:1000 /System/State/packages /System/Logs/packages
-chmod_path 0755 /System/State/packages /System/Logs/packages
+chown_path 0:1000 /System/State/packages /System/Logs/packages
+chmod_path 0775 /System/State/packages /System/Logs/packages
 chmod_path 1777 /Work/Temp /dev/shm
 
 if [ -e "$(target_path /Programs/Sudo/host/Commands/sudo)" ]; then

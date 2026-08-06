@@ -67,6 +67,12 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Logs/packages" \
   "${AUZIX_ROOT}/System/PackageDB" \
   "${AUZIX_ROOT}/System/Tools"
+chown 0:1000 \
+  "${AUZIX_ROOT}/System/State/packages" \
+  "${AUZIX_ROOT}/System/Logs/packages" 2>/dev/null || true
+chmod 0775 \
+  "${AUZIX_ROOT}/System/State/packages" \
+  "${AUZIX_ROOT}/System/Logs/packages"
 
 install -m 0755 "$(command -v jq)" "${PROGRAM_ROOT}/Commands/jq.real"
 copy_runtime_deps "$(command -v jq)"
@@ -116,7 +122,7 @@ die() {
 prepare_state() {
   "${BB}" mkdir -p "${SETTINGS}" "${STATE}" "${LOGS}" "${WORK}"
   if [ ! -s "${REPO_CONF}" ]; then
-    echo "http://192.168.1.10/auzix/repo" >"${REPO_CONF}"
+    echo "@AUZIX_DEFAULT_REPO@" >"${REPO_CONF}"
   fi
   if [ ! -s "${INSTALLED}" ]; then
     cat >"${INSTALLED}" <<'JSON'
@@ -351,6 +357,7 @@ case "${command_name}" in
     ;;
 esac
 SCRIPT
+sed -i "s|@AUZIX_DEFAULT_REPO@|${DEFAULT_REPO}|g" "${PROGRAM_ROOT}/Commands/auzix-pkg"
 chmod 0755 "${PROGRAM_ROOT}/Commands/auzix-pkg"
 
 ln -sfn "/Programs/AuzixPackageTools/${PACKAGE_VERSION}" "${AUZIX_ROOT}/Programs/AuzixPackageTools/current"

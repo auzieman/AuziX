@@ -93,5 +93,23 @@ services:
       - /System/Build/Commands/auzix-base-ports-worker
     profiles: ["source-workbench"]
 
+  extended-workbench-worker:
+    image: auzix/native-workbench:phase3
+    working_dir: /Work
+    environment:
+      AUZIX_BASE_PORTS_MANIFEST: /System/Build/Manifests/extended-ports.manifest.json
+      AUZIX_BASE_PORTS_MODE: plan-only
+      AUZIX_BASE_PORTS_OUT: /Host/out/source-workbench/extended-ports-worker
+      AUZIX_BASE_PORTS_SLEEP_SECONDS: "3600"
+      AUZIX_OLLAMA_URL: http://192.168.1.9:11434
+      AUZIX_OLLAMA_MODEL: qwen3.5:latest
+    volumes:
+      - ./out:/Host/out
+    command:
+      - /bin/bash
+      - -lc
+      - /System/Build/Commands/auzix-base-ports-worker
+    profiles: ["source-workbench"]
+
 volumes:
   auzix-cache:

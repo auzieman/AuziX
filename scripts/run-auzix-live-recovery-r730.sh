@@ -115,8 +115,8 @@ docker run --rm \
     install -m 0755 scripts/enlightenment_remote-auzix \
       "${enlightenment_commands}/enlightenment_remote"
     mkdir -p /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
-    chown -R 1000:1000 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
-    chmod 0755 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
+    chown -R 0:1000 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
+    chmod 0775 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
   '
 
 log 'packing only the recovered root payload; preserved kernel and boot map remain unchanged'
@@ -162,7 +162,8 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   test "$(readlink /work/verify-root/System/Tools/auzix-package-manager)" = "/Programs/AuzixPackageManagerEfl/current/Commands/efl"
   grep -Fxq "Exec=/System/Tools/auzix-package-manager" /work/verify-root/System/Compatibility/usr/share/applications/auzix-package-manager.desktop
   test -s /work/verify-root/System/PackageDB/AuzixPackageManagerEfl-0.1.auzix.json
-  test "$(stat -c %u:%g /work/verify-root/System/State/packages)" = "1000:1000"
+  test "$(stat -c %u:%g /work/verify-root/System/State/packages)" = "0:1000"
+  test "$(stat -c %a /work/verify-root/System/State/packages)" = "775"
   test "$(stat -c %u:%g /work/verify-root/System/Logs/packages)" = "1000:1000"
   test -s /work/verify-root/System/Compatibility/etc/ssl/certs/ca-certificates.crt
   test -s /work/verify-root/Users/auzix/.e/e/config/standard/e.cfg

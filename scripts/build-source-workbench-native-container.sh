@@ -40,6 +40,7 @@ mkdir -p "${ROOTFS_DIR}" "${NATIVE_DIR}"
 cp -a "${TARGET_ROOT}/." "${ROOTFS_DIR}/"
 mkdir -p "${ROOTFS_DIR}/System/Build/Commands" "${ROOTFS_DIR}/System/Build/Manifests"
 cp "${ROOT_DIR}/packages/base-ports.manifest.json" "${ROOTFS_DIR}/System/Build/Manifests/base-ports.manifest.json"
+cp "${ROOT_DIR}/packages/extended-ports.manifest.json" "${ROOTFS_DIR}/System/Build/Manifests/extended-ports.manifest.json"
 
 cat > "${ROOTFS_DIR}/System/Build/Commands/auzix-base-ports-worker" <<'WORKER'
 #!/bin/sh
@@ -49,6 +50,8 @@ MANIFEST="${AUZIX_BASE_PORTS_MANIFEST:-/System/Build/Manifests/base-ports.manife
 OUT_DIR="${AUZIX_BASE_PORTS_OUT:-/Work/base-ports-worker}"
 MODE="${AUZIX_BASE_PORTS_MODE:-plan-only}"
 SLEEP_SECONDS="${AUZIX_BASE_PORTS_SLEEP_SECONDS:-3600}"
+OLLAMA_URL="${AUZIX_OLLAMA_URL:-}"
+OLLAMA_MODEL="${AUZIX_OLLAMA_MODEL:-}"
 
 mkdir -p "${OUT_DIR}"
 
@@ -67,6 +70,8 @@ write_plan() {
     --arg mode "${MODE}" \
     --arg manifest "${MANIFEST}" \
     --arg out_dir "${OUT_DIR}" \
+    --arg ollama_url "${OLLAMA_URL}" \
+    --arg ollama_model "${OLLAMA_MODEL}" \
     --argjson phases "$(jq '.phases | length' "${MANIFEST}")" \
     --argjson targets "$(jq '[.phases[].targets[]] | length' "${MANIFEST}")" \
     '{
@@ -77,6 +82,12 @@ write_plan() {
       out_dir: $out_dir,
       phase_count: $phases,
       target_count: $targets,
+      ollama: {
+        url: $ollama_url,
+        model: $ollama_model,
+        trigger: "failed-target-only",
+        authority: "advisory-contract-patch-only"
+      },
       note: "Plan-only background worker. Build execution remains disabled until phase runners are explicit."
     }' > "${OUT_DIR}/base-ports-worker-report.json"
 }

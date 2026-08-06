@@ -14,6 +14,7 @@ packages/source-workbench.schema.json  manifest schema
 packages/source-workbench.seed.json    first EFL/E/Terminology/NetSurf seed
 packages/source-build.sources.json     earlier NetSurf-focused source catalog
 packages/base-ports.manifest.json      non-GUI through X11/EFL ports sequence
+packages/extended-ports.manifest.json  filesystem and OCI host ports sequence
 docker/source-workbench/Dockerfile     minimal bootable workbench container
 scripts/source-workbench-boot.sh       manifest boot/plan entry point
 scripts/build-source-workbench-native-container.sh phase 3 native container
@@ -242,6 +243,7 @@ Generate the current plan without compiling:
 
 ```sh
 make auzix-base-ports-plan
+make auzix-extended-ports-plan
 ```
 
 Generated outputs:
@@ -262,6 +264,19 @@ prerequisites:
 04-x11-base           xorgproto, xcb, libX11, Xorg server
 05-efl-edge           GLib, D-Bus, Pixman, Cairo, EFL
 ```
+
+The repository-only extended lane follows with full filesystem tools, then the
+OCI substrate, Podman, and Docker. BusyBox `mkfs.ext2` and `mkfs.vfat` remain
+recovery fallbacks; they are not the installed-host filesystem contract.
+
+Run the extended planner in the native workbench with:
+
+```sh
+make auzix-extended-workbench-worker
+```
+
+The worker remains plan-only. Ollama may receive a bounded failure packet once
+a phase runner exists, but it cannot publish packages or advance target state.
 
 Every target must install under `/Programs/<Name>/current` and promote shared
 runtime libraries only into `/System/Libraries`. The report lists the tools

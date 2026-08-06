@@ -26,7 +26,7 @@
               "properties": {
                 "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]*$"},
                 "tier": {"enum": ["runtime", "build", "frontend"]},
-                "state": {"enum": ["ready", "planned"]},
+                "state": {"enum": ["ready", "first-pass", "planned"]},
                 "script": {
                   "type": "string",
                   "pattern": "^scripts/build-auzix-[a-z0-9-]+-package\\.sh$"

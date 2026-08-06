@@ -1,0 +1,61 @@
+{
+  "format": "auzix-base-ports-v1",
+  "profile": "phase4-extended-host-ports",
+  "description": "Ordered repository-only storage and OCI host targets after the base workbench is owned by AuZiX packages.",
+  "roots": {"sources": "sources/ports", "build": "out/build/extended-ports", "stage": "out/stage/extended-ports", "packages": "out/packages/extended-ports", "target": "out/source-workbench/AuZiXTarget"},
+  "policy": {"shared_library_root": "/System/Libraries", "program_prefix_pattern": "/Programs/<Name>/<Version>", "compatibility_roots_allowed": false, "source_metadata": "debian-source-is-reference-not-runtime"},
+  "phases": [
+    {
+      "id": "06-storage-discovery",
+      "purpose": "Own block-device discovery, partitioning, mounting, and swap tooling.",
+      "targets": [
+        {"name": "UtilLinux", "source": {"kind": "debian-source", "package": "util-linux", "version": "trixie"}, "prefix": "/Programs/UtilLinux/current", "commands": ["/Programs/UtilLinux/current/Commands/lsblk", "/Programs/UtilLinux/current/Commands/blkid", "/Programs/UtilLinux/current/Commands/fdisk", "/Programs/UtilLinux/current/Commands/sfdisk", "/Programs/UtilLinux/current/Commands/mount", "/Programs/UtilLinux/current/Commands/swapon"], "promotes": ["/System/Libraries"]},
+        {"name": "Parted", "source": {"kind": "debian-source", "package": "parted", "version": "trixie"}, "prefix": "/Programs/Parted/current", "commands": ["/Programs/Parted/current/Commands/parted", "/Programs/Parted/current/Commands/partprobe"], "promotes": ["/System/Libraries"]}
+      ]
+    },
+    {
+      "id": "07-filesystem-tools",
+      "purpose": "Replace BusyBox's ext2/VFAT fallback with complete filesystem creation and checking tools.",
+      "targets": [
+        {"name": "E2fsprogs", "source": {"kind": "debian-source", "package": "e2fsprogs", "version": "trixie"}, "prefix": "/Programs/E2fsprogs/current", "commands": ["/Programs/E2fsprogs/current/Commands/mke2fs", "/Programs/E2fsprogs/current/Commands/mkfs.ext2", "/Programs/E2fsprogs/current/Commands/mkfs.ext3", "/Programs/E2fsprogs/current/Commands/mkfs.ext4", "/Programs/E2fsprogs/current/Commands/e2fsck", "/Programs/E2fsprogs/current/Commands/resize2fs"], "promotes": ["/System/Libraries"]},
+        {"name": "Dosfstools", "source": {"kind": "debian-source", "package": "dosfstools", "version": "trixie"}, "prefix": "/Programs/Dosfstools/current", "commands": ["/Programs/Dosfstools/current/Commands/mkfs.fat", "/Programs/Dosfstools/current/Commands/fsck.fat"], "promotes": []},
+        {"name": "Exfatprogs", "source": {"kind": "debian-source", "package": "exfatprogs", "version": "trixie"}, "prefix": "/Programs/Exfatprogs/current", "commands": ["/Programs/Exfatprogs/current/Commands/mkfs.exfat", "/Programs/Exfatprogs/current/Commands/fsck.exfat"], "promotes": []},
+        {"name": "Xfsprogs", "source": {"kind": "debian-source", "package": "xfsprogs", "version": "trixie"}, "prefix": "/Programs/Xfsprogs/current", "commands": ["/Programs/Xfsprogs/current/Commands/mkfs.xfs", "/Programs/Xfsprogs/current/Commands/xfs_repair"], "promotes": ["/System/Libraries"]},
+        {"name": "BtrfsProgs", "source": {"kind": "debian-source", "package": "btrfs-progs", "version": "trixie"}, "prefix": "/Programs/BtrfsProgs/current", "commands": ["/Programs/BtrfsProgs/current/Commands/mkfs.btrfs", "/Programs/BtrfsProgs/current/Commands/btrfs"], "promotes": ["/System/Libraries"]}
+      ]
+    },
+    {
+      "id": "08-oci-foundation",
+      "purpose": "Prove OCI execution, storage, cgroups, and networking before a high-level runtime.",
+      "targets": [
+        {"name": "Runc", "source": {"kind": "debian-source", "package": "runc", "version": "trixie"}, "prefix": "/Programs/Runc/current", "commands": ["/Programs/Runc/current/Commands/runc"], "promotes": []},
+        {"name": "Crun", "source": {"kind": "debian-source", "package": "crun", "version": "trixie"}, "prefix": "/Programs/Crun/current", "commands": ["/Programs/Crun/current/Commands/crun"], "promotes": ["/System/Libraries"]},
+        {"name": "Conmon", "source": {"kind": "debian-source", "package": "conmon", "version": "trixie"}, "prefix": "/Programs/Conmon/current", "commands": ["/Programs/Conmon/current/Commands/conmon"], "promotes": []},
+        {"name": "Containerd", "source": {"kind": "debian-source", "package": "containerd", "version": "trixie"}, "prefix": "/Programs/Containerd/current", "commands": ["/Programs/Containerd/current/Commands/containerd", "/Programs/Containerd/current/Commands/ctr"], "promotes": ["/Services/containerd"]},
+        {"name": "CNIPlugins", "source": {"kind": "debian-source", "package": "containernetworking-plugins", "version": "trixie"}, "prefix": "/Programs/CNIPlugins/current", "commands": [], "promotes": []},
+        {"name": "FuseOverlayfs", "source": {"kind": "debian-source", "package": "fuse-overlayfs", "version": "trixie"}, "prefix": "/Programs/FuseOverlayfs/current", "commands": ["/Programs/FuseOverlayfs/current/Commands/fuse-overlayfs"], "promotes": []},
+        {"name": "Slirp4netns", "source": {"kind": "debian-source", "package": "slirp4netns", "version": "trixie"}, "prefix": "/Programs/Slirp4netns/current", "commands": ["/Programs/Slirp4netns/current/Commands/slirp4netns"], "promotes": []}
+      ]
+    },
+    {
+      "id": "09-podman-host",
+      "purpose": "Add the rootless-first Podman lane after the OCI substrate passes.",
+      "targets": [
+        {"name": "ContainersCommon", "source": {"kind": "debian-source", "package": "libpod", "version": "trixie"}, "prefix": "/Programs/ContainersCommon/current", "commands": [], "promotes": ["/System/Settings/containers"]},
+        {"name": "Netavark", "source": {"kind": "debian-source", "package": "netavark", "version": "trixie"}, "prefix": "/Programs/Netavark/current", "commands": ["/Programs/Netavark/current/Commands/netavark"], "promotes": []},
+        {"name": "AardvarkDNS", "source": {"kind": "debian-source", "package": "aardvark-dns", "version": "trixie"}, "prefix": "/Programs/AardvarkDNS/current", "commands": ["/Programs/AardvarkDNS/current/Commands/aardvark-dns"], "promotes": []},
+        {"name": "Podman", "source": {"kind": "debian-source", "package": "libpod", "version": "trixie"}, "prefix": "/Programs/Podman/current", "commands": ["/Programs/Podman/current/Commands/podman"], "promotes": []}
+      ]
+    },
+    {
+      "id": "10-docker-host",
+      "purpose": "Add Docker and image builders after runtime network, volume, restart, and cgroup checks pass.",
+      "targets": [
+        {"name": "Docker", "source": {"kind": "debian-source", "package": "docker.io", "version": "trixie"}, "prefix": "/Programs/Docker/current", "commands": ["/Programs/Docker/current/Commands/docker", "/Programs/Docker/current/Commands/dockerd"], "promotes": ["/Services/docker"]},
+        {"name": "BuildKit", "source": {"kind": "debian-source", "package": "golang-github-moby-buildkit", "version": "trixie"}, "prefix": "/Programs/BuildKit/current", "commands": ["/Programs/BuildKit/current/Commands/buildkitd", "/Programs/BuildKit/current/Commands/buildctl"], "promotes": ["/Services/buildkit"]},
+        {"name": "Buildah", "source": {"kind": "debian-source", "package": "golang-github-containers-buildah", "version": "trixie"}, "prefix": "/Programs/Buildah/current", "commands": ["/Programs/Buildah/current/Commands/buildah"], "promotes": []},
+        {"name": "Skopeo", "source": {"kind": "debian-source", "package": "skopeo", "version": "trixie"}, "prefix": "/Programs/Skopeo/current", "commands": ["/Programs/Skopeo/current/Commands/skopeo"], "promotes": []}
+      ]
+    }
+  ]
+}

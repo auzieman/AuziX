@@ -24,8 +24,14 @@ auzix-native-workbench-review: auzix-native-workbench
 auzix-native-workbench-worker: auzix-native-workbench
 	docker compose --profile source-workbench up -d native-workbench-worker
 
+auzix-extended-workbench-worker: auzix-native-workbench
+	docker compose --profile source-workbench up -d extended-workbench-worker
+
 auzix-base-ports-plan:
 	./scripts/generate-base-ports-plan.sh
+
+auzix-extended-ports-plan:
+	AUZIX_BASE_PORTS_OUT=out/source-workbench/extended-ports ./scripts/generate-base-ports-plan.sh packages/extended-ports.manifest.json
 
 auzix-package-bot-test:
 	./scripts/test-auzix-package-bot.sh

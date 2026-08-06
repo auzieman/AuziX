@@ -12,7 +12,8 @@ jq -e '
   and all(.batches[].packages[];
     (.state == "planned" and (has("script") | not))
     or
-    (.state == "ready" and (.script | test("^scripts/build-auzix-[a-z0-9-]+-package[.]sh$")))
+    ((.state == "ready" or .state == "first-pass") and
+      (.script | test("^scripts/build-auzix-[a-z0-9-]+-package[.]sh$")))
   )
 ' "${QUEUE_FILE}" >/dev/null
 
@@ -42,8 +43,13 @@ for required in AuzixPackageTools AuzixInstaller Xorg Enlightenment Terminology 
 done
 
 planned_ids="$(jq -r '.batches[] | select(.id == "installer-ui-next") | .packages[] | select(.state == "planned") | .id' "${QUEUE_FILE}")"
-for required in GCC Binutils Make PkgConfig Gtk3Runtime AuzixInstallerGtk AuzixInstallerEfl; do
+for required in GCC Binutils Make PkgConfig Gtk3Runtime AuzixInstallerGtk; do
   grep -Fx "${required}" <<<"${planned_ids}" >/dev/null
+done
+
+first_pass_ids="$(jq -r '.batches[] | .packages[] | select(.state == "first-pass") | .id' "${QUEUE_FILE}")"
+for required in AuzixInstallerEfl AuzixPackageManagerEfl; do
+  grep -Fx "${required}" <<<"${first_pass_ids}" >/dev/null
 done
 
 [[ "$(grep -c 'cp -f --remove-destination' "${ENLIGHTENMENT_BUILDER}")" -ge 2 ]]
