@@ -149,6 +149,24 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   side-by-side gated actions, visible status, and BlackKnight/Auzietek operator
   language while leaving window chrome to the selected E theme.
 
+## Live and optional package policy
+
+- Keep the live ISO focused on installation and recovery. Add a small storage
+  cohort beginning with GParted and its operational helpers: `parted`,
+  `e2fsprogs`, `dosfstools`, `exfatprogs`, `ntfs-3g`, `lvm2`, `cryptsetup`,
+  `mdadm`, `dmsetup`, `smartmontools`, `nvme-cli`, and `efibootmgr`.
+- Add `testdisk` and GNU `ddrescue` as recovery candidates after package/runtime
+  audit; destructive tools still require explicit privilege and device gates.
+- Keep office, graphics, media, development, and alternate desktop applications
+  as ordinary optional packages discoverable through Package Manager EFL.
+- Model the installer after Elive's proven separation: automatic guarded
+  planning plus an explicit GParted/manual-partitioning escape hatch. Reuse
+  public Elive behavior and source where licensing and provenance are clear;
+  do not copy unverified fragments.
+- None of these packages enters the next ISO until its AuziX package receipt,
+  dependencies, desktop discovery, privilege path, and live launch are
+  preflighted through a BKC-visible package lane.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
