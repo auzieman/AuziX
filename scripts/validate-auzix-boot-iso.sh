@@ -8,6 +8,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ISO_PATH="${1:-${ROOT_DIR}/artifacts/auzix/auzix-strict-shell.iso}"
 REQUIRE_UEFI="${AUZIX_REQUIRE_UEFI:-1}"
+REQUIRE_WRITABLE_MOUNT_HANDOFF="${AUZIX_REQUIRE_WRITABLE_MOUNT_HANDOFF:-1}"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "required command missing: $1"; }
@@ -41,7 +42,9 @@ mkdir "${tmp_dir}/initramfs"
 test -f "${tmp_dir}/initramfs/init" || fail 'initramfs /init is missing'
 grep -q 'auzix-root.squashfs' "${tmp_dir}/initramfs/init" || fail 'initramfs does not mount the SquashFS root'
 grep -q 'refusing readonly desktop fallback' "${tmp_dir}/initramfs/init" || fail 'initramfs permits a readonly desktop fallback'
-grep -q 'mkdir -p "${merged}/proc" "${merged}/sys" "${merged}/dev" "${merged}/run"' "${tmp_dir}/initramfs/init" || fail 'initramfs does not create runtime mount points in the writable live root'
-grep -q 'mount --move /proc "${merged}/proc" || return 1' "${tmp_dir}/initramfs/init" || fail 'initramfs does not require the proc mount handoff'
+if [[ "${REQUIRE_WRITABLE_MOUNT_HANDOFF}" == "1" ]]; then
+  grep -q 'mkdir -p "${merged}/proc" "${merged}/sys" "${merged}/dev" "${merged}/run"' "${tmp_dir}/initramfs/init" || fail 'initramfs does not create runtime mount points in the writable live root'
+  grep -q 'mount --move /proc "${merged}/proc" || return 1' "${tmp_dir}/initramfs/init" || fail 'initramfs does not require the proc mount handoff'
+fi
 
 printf 'PASS: boot ISO publication contract: %s\n' "${ISO_PATH}"
