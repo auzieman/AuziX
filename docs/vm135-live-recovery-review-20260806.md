@@ -78,6 +78,28 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   cache state, while archive extraction into `/Programs`, `/System`, and
   `/Services` requires the existing privileged installation gate.
 
+### ABIWord install acceptance
+
+- `auzix-pkg install AbiWord` completed and recorded AbiWord as installed.
+- Run Everything discovers and launches AbiWord successfully.
+- The package installed its command wrapper, application icons, upstream
+  desktop file, and the compatibility export
+  `/System/Compatibility/usr/share/applications/auzix-abiword.desktop`.
+- No application icon appeared in E because the per-user Efreet desktop cache
+  retained its boot-time timestamp. Icon caches were regenerated, but the
+  desktop application cache was not. Package post-install must explicitly
+  request an Efreet desktop-cache refresh.
+
+### Theme discovery acceptance
+
+- E does not list custom personal or system themes even though the system
+  catalog contains readable symlinks to every packaged EDJ.
+- The manually copied real `E20-Scifi-theme.edj` is accepted and renders.
+- Replace catalog-only symlink exports with real files or hard links during
+  root staging. Seed the intended theme as a real file under
+  `/Users/auzix/.e/e/themes`; SquashFS content deduplication avoids duplicating
+  its compressed payload.
+
 ## Bounded next steps
 
 1. Make the desktop installer launcher execute InstallerEFL directly in the
