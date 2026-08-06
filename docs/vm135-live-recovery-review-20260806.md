@@ -186,6 +186,24 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   preflight their ordinary packages first, then consume the validated receipts
   in the preserved-SquashFS ISO lane.
 
+### Shared installer/package selection model
+
+- Installer EFL must enumerate real install candidates (`sd*`, `vd*`, and
+  `nvme*`) with device size/model rather than defaulting a free-text `/dev/sda`.
+- Keep storage choices intentionally small: whole-disk automatic layout or a
+  root/home split controlled by a simple percentage/ratio. GParted is the
+  advanced manual-partitioning escape hatch.
+- Installer EFL and Package Manager EFL should consume one package-profile
+  format and render packages as multi-select checkboxes. A reviewed first-boot
+  desktop profile may preselect useful packages such as AbiWord and Gnumeric.
+- Checking packages never performs a transaction by itself. Installer review
+  records the selected package profile in its plan; Package Manager review
+  submits the selected set to `auzix-pkg` only after explicit confirmation.
+- Package metadata shown beside each checkbox should include name, version,
+  kind, size, installed/available state, and a short description when present.
+- After a successful desktop-package transaction, refresh Efreet once so new
+  applications become visible without restarting the entire desktop.
+
 ### VM135 UI preflight — current overlay
 
 - Committed sources compiled in temporary R730 builder scratch with
