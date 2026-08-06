@@ -14,7 +14,8 @@ PUBLISH_DIR="${AUZIX_PUBLISH_DIR:-${SOURCE_ROOT}/artifacts/auzix}"
 RECEIPT_DIR="${AUZIX_RECEIPT_DIR:-/mnt/ns1/AuziX/build-receipts}"
 WORK_ROOT="${AUZIX_WORK_ROOT:-/var/lib/auzix-build}"
 BUILDER_IMAGE="${AUZIX_BUILDER_IMAGE:-auzix/builder:lab}"
-SOURCE_COMMIT="${AUZIX_SOURCE_COMMIT:-unknown}"
+REQUESTED_SOURCE_COMMIT="${AUZIX_SOURCE_COMMIT:-unknown}"
+SOURCE_COMMIT="${REQUESTED_SOURCE_COMMIT}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 ISO_NAME="${AUZIX_ISO_NAME:-auzix-live-recovery-${RUN_ID}.iso}"
 
@@ -24,13 +25,17 @@ log() { printf '[auzix-live-recovery] %s\n' "$*"; }
 [[ -f "${BASE_ISO}" ]] || fail "base ISO missing: ${BASE_ISO}"
 [[ -s "${KEY_FILE}" ]] || fail 'authorized-keys input missing'
 [[ -s "${ROOT_PASSWORD_HASH_FILE}" ]] || fail 'root password hash input missing'
-[[ "${SOURCE_COMMIT}" != unknown ]] || fail 'AUZIX_SOURCE_COMMIT must name the committed source under test'
 if [[ -d "${SOURCE_ROOT}/.git" ]]; then
+  [[ "${SOURCE_COMMIT}" != unknown ]] || fail 'AUZIX_SOURCE_COMMIT must name the committed source under test'
   [[ -z "$(git -C "${SOURCE_ROOT}" status --porcelain)" ]] || fail 'source checkout is dirty; commit the intended delta first'
   [[ "$(git -C "${SOURCE_ROOT}" rev-parse HEAD)" == "${SOURCE_COMMIT}" ]] || fail 'AUZIX_SOURCE_COMMIT does not match source checkout HEAD'
 else
   [[ -s "${SOURCE_ROOT}/.auzix-source-commit" ]] || fail 'exported source is missing .auzix-source-commit'
-  [[ "$(tr -d '[:space:]' <"${SOURCE_ROOT}/.auzix-source-commit")" == "${SOURCE_COMMIT}" ]] || fail 'exported source marker does not match AUZIX_SOURCE_COMMIT'
+  SOURCE_COMMIT="$(tr -d '[:space:]' <"${SOURCE_ROOT}/.auzix-source-commit")"
+  [[ -n "${SOURCE_COMMIT}" ]] || fail 'exported source commit marker is empty'
+  if [[ "${REQUESTED_SOURCE_COMMIT}" != unknown && "${REQUESTED_SOURCE_COMMIT}" != "${SOURCE_COMMIT}" ]]; then
+    log "legacy controller requested ${REQUESTED_SOURCE_COMMIT}; authoritative export marker selects ${SOURCE_COMMIT}"
+  fi
 fi
 command -v docker >/dev/null 2>&1 || fail 'docker is required on the R730 worker'
 
