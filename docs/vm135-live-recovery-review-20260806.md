@@ -242,6 +242,17 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - The unconfirmed EFL plan must live in the user's state tree. Writing it below
   root-owned `/System/State` failed correctly; only the separately authorized
   destructive execution may cross into privileged system state.
+- MVP pass `ee6be33` compiled both frontends with `-Werror`. Installer SHA-256
+  was `561660bad70a4a3700f118d9650f106f64f9363be5d0b61e87233d804392e81c`;
+  Package Manager SHA-256 was
+  `130435ff08c1f9c92e03ba7811500c220576b37d020491bc3dc52af316924e24`.
+- A synthetic graphical plan successfully validated in VM135 with a split
+  layout, 60% home allocation, primary username, disabled-root policy, region
+  defaults, and AbiWord/Gnumeric selections. It remained explicitly
+  unconfirmed and contained no passwords.
+- Both MVP windows remain live for operator review. Do not call the installer
+  install-capable until discovered-disk selection, credential handoff, package
+  checkbox behavior, and the final review gate are separately accepted.
 
 ## Next-ISO display evidence
 
