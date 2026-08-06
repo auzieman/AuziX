@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a bounded recovery derivative from the last runtime-proven ISO and the
-# recovered staged root. This deliberately does not run the broad root builder,
-# select a worker kernel, or rebuild the builder image.
+# Build a bounded recovery derivative from the last runtime-proven ISO. The
+# embedded SquashFS is the only root input; do not mix in a staged root.
 
 SOURCE_ROOT="${AUZIX_SOURCE_ROOT:-/mnt/ns1/AuziX/src}"
-STAGED_ROOT="${AUZIX_STAGED_ROOT:-${SOURCE_ROOT}/out/auzix-iso/iso/AuzixRoot}"
 BASE_ISO="${AUZIX_BASE_ISO:-${SOURCE_ROOT}/artifacts/auzix/auzix-live-theme-app-candidate.iso}"
 BASE_ISO_SHA256="${AUZIX_BASE_ISO_SHA256:-dbc37d309059b70cc39e37b7a5e0be7d27dae770654bf3ccf7ddf7d142c25cb6}"
 BASE_SQUASHFS_SHA256="${AUZIX_BASE_SQUASHFS_SHA256:-7e2cc1a249e76c2711dd3659fc5485637229e9afd158584b6c937104ed37220a}"
@@ -24,7 +22,6 @@ fail() { printf '[auzix-live-recovery] FAIL: %s\n' "$*" >&2; exit 1; }
 log() { printf '[auzix-live-recovery] %s\n' "$*"; }
 
 [[ -f "${BASE_ISO}" ]] || fail "base ISO missing: ${BASE_ISO}"
-[[ -d "${STAGED_ROOT}" ]] || fail "staged root missing: ${STAGED_ROOT}"
 [[ -s "${KEY_FILE}" ]] || fail 'authorized-keys input missing'
 [[ -s "${ROOT_PASSWORD_HASH_FILE}" ]] || fail 'root password hash input missing'
 command -v docker >/dev/null 2>&1 || fail 'docker is required on the R730 worker'
@@ -44,12 +41,11 @@ log_file="${RECEIPT_DIR}/live-recovery-${RUN_ID}.log"
 mkdir -p "${work_dir}" "${work_source}" "${work_root}" "${work_iso_tree}" "${RECEIPT_DIR}"
 exec > >(tee "${log_file}") 2>&1
 
-log 'snapshotting committed source and recovered staged root to worker-local scratch'
+log 'snapshotting committed source to worker-local scratch'
 docker run --rm \
-  -v "${SOURCE_ROOT}:/source:ro" -v "${STAGED_ROOT}:/staged:ro" -v "${work_dir}:/work" \
+  -v "${SOURCE_ROOT}:/source:ro" -v "${work_dir}:/work" \
   "${BUILDER_IMAGE}" sh -ec '
     rsync -a --delete --exclude .git/ --exclude out/ --exclude artifacts/ --exclude downloads/ /source/ /work/source/
-    rsync -a --delete /staged/ /work/AuzixRoot/
   '
 
 log 'extracting the preserved boot tree and verifying its embedded SquashFS'
@@ -59,6 +55,9 @@ docker run --rm -v "$(dirname "${BASE_ISO}"):/base:ro" -v "${work_dir}:/work" \
   '
 embedded_sha="$(sha256sum "${work_iso_tree}/live/auzix-root.squashfs" | awk '{print $1}')"
 [[ "${embedded_sha}" == "${BASE_SQUASHFS_SHA256}" ]] || fail "base SquashFS hash mismatch: ${embedded_sha}"
+docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
+  unsquashfs -no-xattrs -d /work/AuzixRoot /work/iso-tree/live/auzix-root.squashfs >/dev/null
+'
 
 log 'applying the bounded live-access and InstallerEFL deltas'
 docker run --rm \
@@ -131,7 +130,7 @@ source_commit=${SOURCE_COMMIT}
 base_iso=${BASE_ISO}
 base_iso_sha256=${BASE_ISO_SHA256}
 base_squashfs_sha256=${BASE_SQUASHFS_SHA256}
-staged_root=${STAGED_ROOT}
+root_input=embedded-base-squashfs
 deltas=live-access,installer-efl
 iso_path=${PUBLISH_DIR}/${ISO_NAME}
 iso_sha256=${candidate_sha}
