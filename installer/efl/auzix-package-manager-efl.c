@@ -95,7 +95,9 @@ static void list_populate(Package_Manager *ui) {
     if (!package_name_safe(line)) continue;
     char *name = strdup(line);
     if (!name) continue;
-    Elm_Object_Item *item = elm_list_item_append(ui->list, tab + 1, NULL, NULL,
+    char display[1024];
+    snprintf(display, sizeof(display), "<b>%s</b>  //  %s", line, tab + 1);
+    Elm_Object_Item *item = elm_list_item_append(ui->list, display, NULL, NULL,
                                                  selected_cb, ui);
     elm_object_item_data_set(item, name);
     count++;
@@ -160,40 +162,59 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   (void)argc; (void)argv;
   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
   Package_Manager ui = {0};
-  ui.window = elm_win_util_standard_add("auzix-package-manager", "AuziX Package Manager");
+  ui.window = elm_win_util_standard_add("auzix-package-manager", "BlackKnight // AuziX Packages");
   elm_win_autodel_set(ui.window, EINA_TRUE);
-  evas_object_resize(ui.window, 900, 650);
+  evas_object_resize(ui.window, 960, 680);
 
   Evas_Object *box = elm_box_add(ui.window);
   evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
   evas_object_size_hint_align_set(box, EVAS_HINT_FILL, EVAS_HINT_FILL);
-  elm_box_padding_set(box, 10, 10);
+  elm_box_padding_set(box, 12, 10);
   elm_win_resize_object_add(ui.window, box);
   evas_object_show(box);
 
   Evas_Object *title = elm_label_add(box);
-  elm_object_text_set(title, "<font_size=26><b>AUZIX // PACKAGE MANAGER</b></font_size>");
+  elm_object_text_set(title,
+    "<color=#62d9ef><b>BLACKKNIGHT</b></color>  //  AUZIX PACKAGE CONTROL");
+  evas_object_size_hint_align_set(title, 0.0, 0.5);
   elm_box_pack_end(box, title); evas_object_show(title);
 
-  ui.list = elm_list_add(box);
+  Evas_Object *intro = elm_label_add(box);
+  elm_object_text_set(intro,
+    "Repository-backed software catalog. Package discovery and transactions remain owned by auzix-pkg.");
+  elm_label_line_wrap_set(intro, ELM_WRAP_WORD);
+  evas_object_size_hint_weight_set(intro, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(intro, EVAS_HINT_FILL, 0.5);
+  elm_box_pack_end(box, intro); evas_object_show(intro);
+
+  Evas_Object *frame = elm_frame_add(box);
+  elm_object_text_set(frame, "01 // AVAILABLE PACKAGES");
+  evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+  elm_box_pack_end(box, frame); evas_object_show(frame);
+
+  ui.list = elm_list_add(frame);
   evas_object_size_hint_weight_set(ui.list, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
   evas_object_size_hint_align_set(ui.list, EVAS_HINT_FILL, EVAS_HINT_FILL);
-  elm_box_pack_end(box, ui.list); evas_object_show(ui.list);
+  elm_object_content_set(frame, ui.list); evas_object_show(ui.list);
 
   Evas_Object *buttons = elm_box_add(box);
   elm_box_horizontal_set(buttons, EINA_TRUE);
   Evas_Object *refresh = elm_button_add(buttons);
-  elm_object_text_set(refresh, "Refresh");
+  elm_object_text_set(refresh, "REFRESH CATALOG");
   evas_object_smart_callback_add(refresh, "clicked", refresh_cb, &ui);
   elm_box_pack_end(buttons, refresh); evas_object_show(refresh);
   ui.install_button = elm_button_add(buttons);
-  elm_object_text_set(ui.install_button, "Install selected");
+  elm_object_text_set(ui.install_button, "INSTALL SELECTED");
   elm_object_disabled_set(ui.install_button, EINA_TRUE);
   evas_object_smart_callback_add(ui.install_button, "clicked", install_cb, &ui);
   elm_box_pack_end(buttons, ui.install_button); evas_object_show(ui.install_button);
   elm_box_pack_end(box, buttons); evas_object_show(buttons);
 
   ui.status = elm_label_add(box);
+  elm_object_text_set(ui.status,
+    "<color=#62d9ef>STATUS // READY</color>  Select a package to inspect or install.");
+  elm_label_line_wrap_set(ui.status, ELM_WRAP_WORD);
   evas_object_size_hint_weight_set(ui.status, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.status, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(box, ui.status); evas_object_show(ui.status);

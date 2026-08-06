@@ -167,6 +167,25 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   dependencies, desktop discovery, privilege path, and live launch are
   preflighted through a BKC-visible package lane.
 
+## Upcoming ISO frontend checkpoint
+
+- Installer EFL and Package Manager EFL source/UI cleanup is in scope now;
+  compilation and package publication may be tabled until the BKC-visible EFL
+  package-build lane is ready.
+- Both frontends use the same compact BlackKnight/Auzietek operator language,
+  selected E theme chrome, explicit state text, and controls that remain visible
+  at the supported fallback resolution.
+- Installer acceptance: enumerate real target disks rather than relying on a
+  text default, offer the preflighted GParted escape hatch, preserve the
+  plan/validate/destructive-confirmation separation, and retain actionable logs.
+- Package Manager acceptance: refresh and enumerate the repository, prominently
+  display package name/version/kind/size, install only the selected safe package
+  through `auzix-pkg`, refresh Efreet after desktop-package changes, and expose
+  failures through visible status plus a user-readable log.
+- Do not trigger the next ISO merely to compile these frontends. Build and
+  preflight their ordinary packages first, then consume the validated receipts
+  in the preserved-SquashFS ISO lane.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
