@@ -186,6 +186,21 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   preflight their ordinary packages first, then consume the validated receipts
   in the preserved-SquashFS ISO lane.
 
+### VM135 UI preflight — current overlay
+
+- Committed sources compiled in temporary R730 builder scratch with
+  `-Wall -Wextra -Werror`; this was a one-off diagnostic preflight, not a
+  package publication or ISO build.
+- Installer EFL binary SHA-256:
+  `13adf070d847e924bbcdf383dc06a6225b5b42e3a6bf4a0d804937c20be3ccd8`.
+- Package Manager EFL binary SHA-256:
+  `10f5faa368cf27015d1113cf825de467e0186f8634b7a7c5a1ad659153eb3de4`.
+- Both binaries were staged only into VM135's writable overlay and remained
+  alive in the existing E session. Package Manager completed its initial query
+  with no lingering child and the user-owned repository cache remained valid.
+- The only captured runtime diagnostic was the known nonfatal Elementary
+  `hint_fill_set` warning. Visual/operator acceptance remains pending.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
