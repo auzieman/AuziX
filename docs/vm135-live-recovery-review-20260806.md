@@ -95,10 +95,11 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - E does not list custom personal or system themes even though the system
   catalog contains readable symlinks to every packaged EDJ.
 - The manually copied real `E20-Scifi-theme.edj` is accepted and renders.
-- Replace catalog-only symlink exports with real files or hard links during
-  root staging. Seed the intended theme as a real file under
-  `/Users/auzix/.e/e/themes`; SquashFS content deduplication avoids duplicating
-  its compressed payload.
+- Replacing a theme catalog symlink with a real file and seeding
+  `/Users/auzix/.e/e/themes` did not make the theme appear. Theme discovery and
+  default selection therefore require an E configuration fix, not file moves.
+- Wallpaper discovery did work after replacing its compatibility symlinks with
+  real files/hard links. Preserve that bounded package change.
 
 ## Bounded next steps
 

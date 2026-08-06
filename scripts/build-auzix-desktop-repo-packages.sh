@@ -37,11 +37,19 @@ set -eu
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 SOURCE=${source_dir}
 EXPORT=${export_dir}
+ASSET_KIND=${asset_kind}
 
 "\${BB}" mkdir -p "\${EXPORT}" /System/Logs/packages
 for asset in "\${SOURCE}"/*; do
   [ -f "\${asset}" ] || continue
-  "\${BB}" ln -sfn "\${asset}" "\${EXPORT}/\${asset##*/}"
+  target="\${EXPORT}/\${asset##*/}"
+  "\${BB}" rm -f "\${target}"
+  if [ "\${ASSET_KIND}" = wallpapers ]; then
+    "\${BB}" ln "\${asset}" "\${target}" 2>/dev/null ||
+      "\${BB}" cp -f "\${asset}" "\${target}"
+  else
+    "\${BB}" ln -sfn "\${asset}" "\${target}"
+  fi
 done
 echo "\${AUZIX_PACKAGE_NAME:-desktop-assets} \${AUZIX_PACKAGE_VERSION:-unknown} activated" \
   >>/System/Logs/packages/desktop-assets.log
@@ -153,11 +161,11 @@ build_wallpapers() {
   ln -sfn "/Programs/AuzixWallpapers/${VERSION}" "${AUZIX_ROOT}/Programs/AuzixWallpapers/current"
   for wallpaper in "${assets}"/*; do
     [[ -f "${wallpaper}" ]] || continue
-    ln -sfn "/Programs/AuzixWallpapers/${VERSION}/Resources/backgrounds/$(basename "${wallpaper}")" \
-      "${exports}/$(basename "${wallpaper}")"
+    rm -f "${exports}/$(basename "${wallpaper}")"
+    ln "${wallpaper}" "${exports}/$(basename "${wallpaper}")"
   done
 
-  exports_json="$(find "${exports}" -maxdepth 1 -type l -printf '/System/Compatibility/usr/share/enlightenment/data/backgrounds/%f\n' | sort -u | jq -R . | jq -s .)"
+  exports_json="$(find "${exports}" -maxdepth 1 -type f -printf '/System/Compatibility/usr/share/enlightenment/data/backgrounds/%f\n' | sort -u | jq -R . | jq -s .)"
   cat >"${AUZIX_ROOT}/System/PackageDB/AuzixWallpapers-${VERSION}.auzix.json" <<EOF
 {
   "name": "AuzixWallpapers",
