@@ -14,7 +14,7 @@ list_dirs() {
     themes|theme)
       printf '%s\n' \
         "${home_dir}/.e/e/themes" \
-        "${compat_share}/enlightenment/themes"
+        "${compat_share}/elementary/themes"
       ;;
     applications|application|apps|app)
       printf '%s\n' \
@@ -56,7 +56,7 @@ case "${1:-}" in
   -theme-list|-theme-available-list)
     list_matching_files \
       "${home_dir}/.e/e/themes" \
-      "${compat_share}/enlightenment/themes"
+      "${compat_share}/elementary/themes"
     ;;
   -app-list|-app-available-list)
     list_matching_files \

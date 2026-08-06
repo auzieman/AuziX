@@ -103,6 +103,17 @@ docker run --rm \
     AUZIX_EFL_PACKAGE_MANAGER_BINARY=/work/auzix-package-manager-efl \
       ./scripts/build-auzix-package-manager-efl-package.sh /work/AuzixRoot
     ./scripts/build-auzix-desktop-assets-package.sh /work/AuzixRoot
+    enlightenment_version=$(basename "$(readlink /work/AuzixRoot/Programs/Enlightenment/current)")
+    enlightenment_commands=/work/AuzixRoot/Programs/Enlightenment/${enlightenment_version}/Commands
+    test -d "${enlightenment_commands}"
+    if test -x "${enlightenment_commands}/enlightenment_remote" && \
+       ! test -e "${enlightenment_commands}/enlightenment_remote.elive"; then
+      mv "${enlightenment_commands}/enlightenment_remote" \
+        "${enlightenment_commands}/enlightenment_remote.elive"
+    fi
+    test -x "${enlightenment_commands}/enlightenment_remote.elive"
+    install -m 0755 scripts/enlightenment_remote-auzix \
+      "${enlightenment_commands}/enlightenment_remote"
     mkdir -p /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chown -R 1000:1000 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chmod 0755 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
@@ -158,6 +169,15 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   test -L /work/verify-root/System/Settings/display/assets
   test -f /work/verify-root/Programs/DesktopAssets/auzietek/Resources/display/assets/themes/E20-Scifi-theme.edj
   test -e /work/verify-root/System/Compatibility/usr/share/elementary/themes/E20-Scifi-theme.edj
+  test -e /work/verify-root/System/Compatibility/usr/share/terminology/themes/Scifi-terminology-theme.edj
+  test ! -e /work/verify-root/System/Compatibility/usr/share/elementary/themes/Scifi-terminology-theme.edj
+  enlightenment_version=$(basename "$(readlink /work/verify-root/Programs/Enlightenment/current)")
+  enlightenment_commands=/work/verify-root/Programs/Enlightenment/${enlightenment_version}/Commands
+  test -x "${enlightenment_commands}/enlightenment_remote"
+  test -x "${enlightenment_commands}/enlightenment_remote.elive"
+  HOME=/work/verify-root/Users/auzix sh \
+    "${enlightenment_commands}/enlightenment_remote" \
+      -theme-dir-list | grep -Fxq /System/Compatibility/usr/share/elementary/themes
 '
 
 candidate_sha="$(sha256sum "${candidate}" | awk '{print $1}')"
@@ -175,7 +195,7 @@ base_iso=${BASE_ISO}
 base_iso_sha256=${BASE_ISO_SHA256}
 base_squashfs_sha256=${BASE_SQUASHFS_SHA256}
 root_input=embedded-base-squashfs
-deltas=live-access,installer-backend,installer-efl,package-manager-efl,desktop-assets
+deltas=live-access,installer-backend,installer-efl,package-manager-efl,desktop-assets,enlightenment-remote-wrapper
 iso_path=${PUBLISH_DIR}/${ISO_NAME}
 iso_sha256=${candidate_sha}
 squashfs_sha256=${candidate_squashfs_sha}
