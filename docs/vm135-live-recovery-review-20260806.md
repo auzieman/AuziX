@@ -100,6 +100,11 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   default selection therefore require an E configuration fix, not file moves.
 - Wallpaper discovery did work after replacing its compatibility symlinks with
   real files/hard links. Preserve that bounded package change.
+- The packaged Elive `enlightenment_remote` omits the legacy directory-query
+  family and returns success after printing help for unsupported options. The
+  AuziX compatibility front end was live-validated with
+  `-wallpaper-dir-list`, `-theme-dir-list`, and `-app-dir-list`; delegation to
+  the Elive backend still reports Enlightenment `0.25.4`.
 
 ## Bounded next steps
 

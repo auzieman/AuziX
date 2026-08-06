@@ -132,6 +132,13 @@ for cmd in \
   copy_binary "${path}" "${E_PROGRAM}/Commands/${cmd}"
 done
 
+if [[ -x "${E_PROGRAM}/Commands/enlightenment_remote" ]]; then
+  mv "${E_PROGRAM}/Commands/enlightenment_remote" \
+    "${E_PROGRAM}/Commands/enlightenment_remote.elive"
+  install -m 0755 "${ROOT_DIR}/scripts/enlightenment_remote-auzix" \
+    "${E_PROGRAM}/Commands/enlightenment_remote"
+fi
+
 for cmd in edje_cc eet evas_cserve2 ecore_evas_convert embryo_cc efreetd; do
   path="$(command -v "${cmd}" 2>/dev/null || true)"
   [[ -n "${path}" && -x "${path}" ]] || continue

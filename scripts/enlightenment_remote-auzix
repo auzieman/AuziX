@@ -1,0 +1,51 @@
+#!/System/Compatibility/bin/sh
+set -eu
+
+home_dir=${HOME:-/Users/auzix}
+compat_share=/System/Compatibility/usr/share
+
+list_dirs() {
+  case "$1" in
+    wallpapers|wallpaper|backgrounds|background)
+      printf '%s\n' \
+        "${home_dir}/.e/e/backgrounds" \
+        "${compat_share}/enlightenment/data/backgrounds"
+      ;;
+    themes|theme)
+      printf '%s\n' \
+        "${home_dir}/.e/e/themes" \
+        "${compat_share}/enlightenment/themes"
+      ;;
+    applications|application|apps|app)
+      printf '%s\n' \
+        "${home_dir}/.local/share/applications" \
+        "${compat_share}/applications"
+      ;;
+    *)
+      printf 'Unsupported Enlightenment directory type: %s\n' "$1" >&2
+      return 2
+      ;;
+  esac
+}
+
+case "${1:-}" in
+  -wallpaper-dir-list)
+    list_dirs wallpapers
+    ;;
+  -theme-dir-list)
+    list_dirs themes
+    ;;
+  -app-dir-list)
+    list_dirs applications
+    ;;
+  -dirs-list)
+    if [ "$#" -ne 2 ]; then
+      printf 'Usage: enlightenment_remote -dirs-list TYPE\n' >&2
+      exit 2
+    fi
+    list_dirs "$2"
+    ;;
+  *)
+    exec /Programs/Enlightenment/current/Commands/enlightenment_remote.elive "$@"
+    ;;
+esac
