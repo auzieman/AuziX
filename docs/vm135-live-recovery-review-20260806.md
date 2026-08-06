@@ -289,6 +289,33 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
    the visible BKC lane. Boot that exact checksum on VM135 and repeat the live
    acceptance checks before any GitHub merge.
 
+## Executable installer and package transaction preflight
+
+- Commit `d164e3a` adds the first deliberately narrow executable EFL handoff.
+  The graphical frontend still writes only an unconfirmed plan. The backend
+  `execute PLAN EXPECTED_DISK` action revalidates it, requires the reviewed
+  disk to match, creates a private mode-0600 confirmed copy, and removes that
+  copy after invoking the existing disk executor.
+- VM135 no-op-executor tests passed for a reviewed `/dev/sda` whole-disk plan
+  and refused both a `/dev/sdb` substitution and a plan containing first-boot
+  packages. No block device was written during this preflight.
+- Installer EFL SHA-256 is
+  `e13dee7f71eac7a8cbb4183e9e86bc3ebc4a57cfc8e537021fb367ed47224318`;
+  that exact binary is running in VM135 as PID 4833.
+- The current executable slice is intentionally whole-disk only. It retains
+  the live image's account defaults; split root/home, credential application,
+  and installed-root package transactions remain hard refusals rather than
+  ignored UI selections.
+- A real current-repository transaction on VM135 installed
+  `Debian.gnumeric` `1.12.57-1.1+b1` through the same privileged absolute
+  `auzix-pkg` path used by Package Manager EFL. Fetch, checksum verification,
+  extraction, finalization, and installed-state registration passed.
+- That package is still `stage-0-fhs-build`: its receipt declares no commands
+  or compatibility exports. This is evidence that repository transactions
+  work, but also the reason to defer a larger first-boot catalog until the
+  Ollama-assisted package worker and per-package porting lane improve runtime
+  integration.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
