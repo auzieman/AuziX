@@ -316,6 +316,28 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   Ollama-assisted package worker and per-package porting lane improve runtime
   integration.
 
+## Recovery ISO r4 boot validation
+
+- Source commit: `1773061c20f44d1c4bacb5cf34565c36d1e428a5`.
+- Build lineage: BKC run `2e526763-fada-4b82-b64c-a81403a0594f`, worker retry
+  `r4`. The deployed BKC image recorded the run but reported the workflow as
+  unwired; the exact committed worker script produced the linked receipt.
+- Artifact:
+  `auzix-live-recovery-2e526763-fada-4b82-b64c-a81403a0594f-r4.iso`.
+- Static validation passed `AUZIXLIVE`, protective MBR/GPT/APM, BIOS GRUB El
+  Torito, UEFI El Torito, and all bounded payload assertions.
+- Proxmox verified the published checksum, attached the ISO to VM135, used the
+  required stop/start fallback after ACPI shutdown timed out, and booted it
+  CD-first. SSH returned at `192.168.1.60`.
+- Runtime validation passed kernel `6.1.0-48-amd64`, SSH, Xorg, Enlightenment,
+  installer backend, both EFL frontend hashes, CA compatibility links, and a
+  real hard-linked sci-fi EDJ in the process-proven Elementary catalog.
+- Installer EFL and Package Manager EFL launched in the clean session as PIDs
+  1987 and 1988 for operator review.
+- Follow-up: this media still exposes Elive's limited native
+  `enlightenment_remote`; stage the committed AuziX compatibility wrapper as a
+  bounded file delta and point its theme queries at the Elementary catalog.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
