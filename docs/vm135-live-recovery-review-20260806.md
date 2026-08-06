@@ -204,6 +204,22 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - After a successful desktop-package transaction, refresh Efreet once so new
   applications become visible without restarting the entire desktop.
 
+### Minimum credible installer inputs
+
+- Machine: hostname with a sensible editable default, timezone, locale, and
+  keyboard layout.
+- Primary account: username, optional display name, password plus confirmation,
+  and an explicit administrator/sudo membership choice.
+- Root account: choose disabled/direct-login-off, use the primary account's
+  password, or supply and confirm a separate root password. Never embed a
+  default password or persist plaintext credentials in the plan or logs.
+- Storage: selected discovered disk, whole-disk versus root/home split, split
+  ratio, bootloader mode, and an explicit destructive target summary.
+- Software: checkbox-based reviewed package profile shared with Package Manager
+  EFL, including useful first-boot defaults without silently installing them.
+- Review: show identity, storage, boot, accounts, and package selections before
+  enabling the separate destructive authorization action.
+
 ### VM135 UI preflight — current overlay
 
 - Committed sources compiled in temporary R730 builder scratch with
