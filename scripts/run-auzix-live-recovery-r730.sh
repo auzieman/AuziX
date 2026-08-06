@@ -82,7 +82,16 @@ docker run --rm \
     AUZIX_AUTHORIZED_KEYS_SOURCE=/run/auzix-runtime/authorized_keys \
     AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
       ./scripts/stage-auzix-live-access.sh /work/AuzixRoot
-    ./scripts/build-auzix-installer-package.sh /work/AuzixRoot
+    installer_version=$(basename "$(readlink /work/AuzixRoot/Programs/AuzixInstaller/current)")
+    installer_resources=/work/AuzixRoot/Programs/AuzixInstaller/${installer_version}/Resources
+    test -d "${installer_resources}"
+    install -m 0644 installer/auzix-installer.lua "${installer_resources}/auzix-installer.lua"
+    install -m 0644 installer/install-plan.schema.json "${installer_resources}/install-plan.schema.json"
+    install -m 0644 installer/questions.json "${installer_resources}/questions.json"
+    install -m 0644 installer/plans/default.json "${installer_resources}/plans/default.json"
+    install -m 0644 installer/install-plan.schema.json /work/AuzixRoot/System/Settings/installer/install-plan.schema.json
+    install -m 0644 installer/questions.json /work/AuzixRoot/System/Settings/installer/questions.json
+    install -m 0644 installer/plans/default.json /work/AuzixRoot/System/Settings/installer/plans/default.json
     gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
       -o /work/auzix-installer-efl installer/efl/auzix-installer-efl.c \
       $(pkg-config --cflags --libs elementary)
