@@ -41,20 +41,25 @@ end
 local validation_filter = [[
   . as $p
   | ($p | type == "object")
-  and (($p | keys - ["format", "target", "storage", "bootloader", "identity", "execution", "frontend"] | length) == 0)
+  and (($p | keys - ["format", "target", "storage", "bootloader", "identity", "accounts", "packages", "execution", "frontend"] | length) == 0)
   and ($p.format == "auzix-install-plan-v1")
   and ($p.target | type == "object")
   and (($p.target | keys - ["disk"] | length) == 0)
   and ($p.target.disk | type == "string" and test("^/dev/([A-Za-z0-9._:+-]+|disk/by-id/[A-Za-z0-9._:+-]+)$"))
   and ($p.storage | type == "object")
-  and (($p.storage | keys - ["filesystem"] | length) == 0)
+  and (($p.storage | keys - ["filesystem", "layout", "home_percent"] | length) == 0)
   and ($p.storage.filesystem == "ext4")
+  and ((($p.storage | has("layout")) | not) or ($p.storage.layout | IN("whole", "split")))
+  and ((($p.storage | has("home_percent")) | not) or ($p.storage.home_percent | type == "number" and . >= 20 and . <= 80))
   and ($p.bootloader | type == "object")
   and (($p.bootloader | keys - ["mode"] | length) == 0)
   and ($p.bootloader.mode == "grub" or $p.bootloader.mode == "iso")
   and ($p.identity | type == "object")
-  and (($p.identity | keys - ["hostname"] | length) == 0)
+  and (($p.identity | keys - ["hostname", "username", "locale", "timezone", "keyboard"] | length) == 0)
   and ($p.identity.hostname | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$"))
+  and ((($p.identity | has("username")) | not) or ($p.identity.username | type == "string" and test("^[a-z_][a-z0-9_-]{0,31}$")))
+  and ((($p | has("accounts")) | not) or ($p.accounts.root_policy | IN("disabled", "same", "separate")))
+  and ((($p | has("packages")) | not) or ($p.packages.selected | type == "array" and all(.[]; type == "string" and test("^[A-Za-z0-9._+-]+$"))))
   and ($p.execution | type == "object")
   and (($p.execution | keys - ["confirmed"] | length) == 0)
   and ($p.execution.confirmed | type == "boolean")
@@ -224,6 +229,14 @@ end
 -- frontends use it to create an *unconfirmed* plan, then the same validator
 -- and run gate used by the TUI remain responsible for any disk action.
 local function write_frontend_plan(output_plan, disk, bootloader, hostname, frontend)
+  local username = arg[7] or "auzix"
+  local root_policy = arg[8] or "disabled"
+  local layout = arg[9] or "whole"
+  local home_percent = tonumber(arg[10]) or 60
+  local packages = arg[11] or ""
+  local locale = arg[12] or "en_US.UTF-8"
+  local timezone = arg[13] or "UTC"
+  local keyboard = arg[14] or "us"
   if frontend ~= "graphical" and frontend ~= "tui" and frontend ~= "automation" then
     io.stderr:write("auzix-installer: unsupported frontend: " .. tostring(frontend) .. "\n")
     return false
@@ -240,12 +253,22 @@ local function write_frontend_plan(output_plan, disk, bootloader, hostname, fron
     "--arg bootloader", shell_quote(bootloader),
     "--arg hostname", shell_quote(hostname),
     "--arg frontend", shell_quote(frontend),
+    "--arg username", shell_quote(username),
+    "--arg root_policy", shell_quote(root_policy),
+    "--arg layout", shell_quote(layout),
+    "--argjson home_percent", tostring(home_percent),
+    "--arg packages", shell_quote(packages),
+    "--arg locale", shell_quote(locale),
+    "--arg timezone", shell_quote(timezone),
+    "--arg keyboard", shell_quote(keyboard),
     shell_quote([[{
       format: "auzix-install-plan-v1",
       target: {disk: $disk},
-      storage: {filesystem: "ext4"},
+      storage: {filesystem: "ext4", layout: $layout, home_percent: $home_percent},
       bootloader: {mode: $bootloader},
-      identity: {hostname: $hostname},
+      identity: {hostname: $hostname, username: $username, locale: $locale, timezone: $timezone, keyboard: $keyboard},
+      accounts: {root_policy: $root_policy},
+      packages: {selected: ($packages | split(",") | map(select(length > 0)))},
       execution: {confirmed: false},
       frontend: $frontend
     }]]),
@@ -345,7 +368,7 @@ Usage:
   auzix-installer run PLAN
   auzix-installer tui [OUTPUT_PLAN]
   auzix-installer tui-plan [OUTPUT_PLAN]
-  auzix-installer plan OUTPUT_PLAN DISK BOOTLOADER HOSTNAME [FRONTEND]
+  auzix-installer plan OUTPUT_PLAN DISK BOOTLOADER HOSTNAME [FRONTEND USERNAME ROOT_POLICY LAYOUT HOME_PERCENT PACKAGES LOCALE TIMEZONE KEYBOARD]
   auzix-installer questions
 
 The run command only accepts a validated, explicitly confirmed plan. tui-plan

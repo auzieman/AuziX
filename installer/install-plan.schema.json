@@ -34,6 +34,14 @@
       "properties": {
         "filesystem": {
           "enum": ["ext4"]
+        },
+        "layout": {
+          "enum": ["whole", "split"]
+        },
+        "home_percent": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 80
         }
       }
     },
@@ -55,7 +63,25 @@
         "hostname": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$"
-        }
+        },
+        "username": {"type": "string", "pattern": "^[a-z_][a-z0-9_-]{0,31}$"},
+        "locale": {"type": "string"},
+        "timezone": {"type": "string"},
+        "keyboard": {"type": "string"}
+      }
+    },
+    "accounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_policy"],
+      "properties": {"root_policy": {"enum": ["disabled", "same", "separate"]}}
+    },
+    "packages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected"],
+      "properties": {
+        "selected": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]+$"}, "uniqueItems": true}
       }
     },
     "execution": {

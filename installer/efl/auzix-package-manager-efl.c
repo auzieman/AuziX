@@ -6,6 +6,8 @@
 
 typedef enum { ACTION_NONE, ACTION_REFRESH, ACTION_LIST, ACTION_INSTALL } Action;
 
+typedef struct Package_Row Package_Row;
+
 typedef struct {
   Evas_Object *window;
   Evas_Object *list;
@@ -17,9 +19,15 @@ typedef struct {
   Ecore_Event_Handler *done_handler;
   char *output;
   size_t output_size;
-  char selected[256];
+  Eina_List *rows;
   Action action;
 } Package_Manager;
+
+struct Package_Row {
+  Package_Manager *manager;
+  Evas_Object *check;
+  char *name;
+};
 
 static void status_set(Package_Manager *ui, const char *text) {
   elm_object_text_set(ui->status, text);
@@ -63,22 +71,39 @@ static void list_start(Package_Manager *ui) {
     status_set(ui, "<color=#ff6b6b>Could not start auzix-pkg.</color>");
 }
 
-static void selected_cb(void *data, Evas_Object *obj, void *event_info) {
-  (void)obj;
-  Package_Manager *ui = data;
-  Elm_Object_Item *item = event_info;
-  const char *name = elm_object_item_data_get(item);
-  if (!name) return;
-  snprintf(ui->selected, sizeof(ui->selected), "%s", name);
-  elm_object_disabled_set(ui->install_button, EINA_FALSE);
+static unsigned int selected_count(Package_Manager *ui) {
+  unsigned int count = 0;
+  Eina_List *node;
+  Package_Row *row;
+  EINA_LIST_FOREACH(ui->rows, node, row) {
+    if (elm_check_state_get(row->check)) count++;
+  }
+  return count;
+}
+
+static void checked_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj; (void)event_info;
+  Package_Row *row = data;
+  Package_Manager *ui = row->manager;
+  unsigned int count = selected_count(ui);
+  elm_object_disabled_set(ui->install_button, count == 0);
   char message[512];
-  snprintf(message, sizeof(message), "<color=#dceaf3>Selected: %s</color>", name);
+  snprintf(message, sizeof(message), "<color=#dceaf3>%u package%s selected.</color>",
+           count, count == 1 ? "" : "s");
   status_set(ui, message);
 }
 
+static void rows_clear(Package_Manager *ui) {
+  Package_Row *row;
+  EINA_LIST_FREE(ui->rows, row) {
+    free(row->name);
+    free(row);
+  }
+}
+
 static void list_populate(Package_Manager *ui) {
+  rows_clear(ui);
   elm_list_clear(ui->list);
-  ui->selected[0] = '\0';
   elm_object_disabled_set(ui->install_button, EINA_TRUE);
   unsigned int count = 0;
   if (!ui->output || !ui->output[0]) {
@@ -92,13 +117,18 @@ static void list_populate(Package_Manager *ui) {
     if (!tab) continue;
     *tab = '\0';
     if (!package_name_safe(line)) continue;
-    char *name = strdup(line);
-    if (!name) continue;
+    Package_Row *row = calloc(1, sizeof(*row));
+    if (!row) continue;
+    row->manager = ui;
+    row->name = strdup(line);
+    if (!row->name) { free(row); continue; }
     char display[1024];
     snprintf(display, sizeof(display), "%s  //  %s", line, tab + 1);
-    Elm_Object_Item *item = elm_list_item_append(ui->list, display, NULL, NULL,
-                                                 selected_cb, ui);
-    elm_object_item_data_set(item, name);
+    row->check = elm_check_add(ui->list);
+    evas_object_smart_callback_add(row->check, "changed", checked_cb, row);
+    evas_object_show(row->check);
+    elm_list_item_append(ui->list, display, row->check, NULL, NULL, NULL);
+    ui->rows = eina_list_append(ui->rows, row);
     count++;
   }
   elm_list_go(ui->list);
@@ -147,14 +177,27 @@ static void refresh_cb(void *data, Evas_Object *obj, void *event_info) {
 static void install_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Package_Manager *ui = data;
-  if (!package_name_safe(ui->selected)) return;
-  char command[512];
-  snprintf(command, sizeof(command),
-           "/System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg install '%s'",
-           ui->selected);
-  status_set(ui, "<color=#84a7b8>Installing selected package…</color>");
+  unsigned int count = selected_count(ui);
+  if (count == 0) return;
+  size_t capacity = 256 + ((size_t)count * 384);
+  char *command = calloc(1, capacity);
+  if (!command) return;
+  snprintf(command, capacity, "/System/Compatibility/bin/sh -c \"");
+  Eina_List *node;
+  Package_Row *row;
+  EINA_LIST_FOREACH(ui->rows, node, row) {
+    if (!elm_check_state_get(row->check) || !package_name_safe(row->name)) continue;
+    if (strlen(command) > strlen("/System/Compatibility/bin/sh -c \""))
+      strncat(command, " && ", capacity - strlen(command) - 1);
+    strncat(command, "/System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg install '", capacity - strlen(command) - 1);
+    strncat(command, row->name, capacity - strlen(command) - 1);
+    strncat(command, "'", capacity - strlen(command) - 1);
+  }
+  strncat(command, "\"", capacity - strlen(command) - 1);
+  status_set(ui, "<color=#84a7b8>Installing selected packages…</color>");
   if (!run_action(ui, ACTION_INSTALL, command))
     status_set(ui, "<color=#ffb86c>A package operation is already running.</color>");
+  free(command);
 }
 
 EAPI_MAIN int elm_main(int argc, char **argv) {
@@ -227,6 +270,7 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   if (ui.data_handler) ecore_event_handler_del(ui.data_handler);
   if (ui.error_handler) ecore_event_handler_del(ui.error_handler);
   if (ui.done_handler) ecore_event_handler_del(ui.done_handler);
+  rows_clear(&ui);
   output_reset(&ui);
   elm_shutdown();
   return 0;
