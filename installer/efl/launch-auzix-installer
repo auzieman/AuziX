@@ -6,8 +6,12 @@ if [ "${1:-}" = "--autostart" ]; then
   sleep "${AUZIX_INSTALLER_AUTOSTART_DELAY:-3}"
 fi
 
-log_dir=/System/Logs/installer
-mkdir -p "${log_dir}" 2>/dev/null || true
+state_home=${XDG_STATE_HOME:-${HOME:-/Users/auzix}/.local/state}
+log_dir=${state_home}/auzix/installer
+if ! mkdir -p "${log_dir}" 2>/dev/null; then
+  log_dir=/tmp/auzix-installer-${USER:-live}
+  mkdir -p "${log_dir}"
+fi
 log_file="${log_dir}/installer-efl.log"
 
 exec /Programs/AuzixInstallerEfl/current/Commands/efl \

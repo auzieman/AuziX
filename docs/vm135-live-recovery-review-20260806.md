@@ -38,10 +38,11 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   `/Programs/AuzixInstaller/current/Frontends/efl` ->
   `/Programs/AuzixInstallerEfl/current/Commands/efl`.
 - The desktop entry invokes `/System/Tools/launch-auzix-installer`.
-- That launcher still wraps `/System/Tools/auzix-installer-gui` in Terminology.
-  The resulting terminal reports `Install AuziX stopped running unexpectedly`
-  and does not preserve useful child output in
-  `/System/Logs/installer/installer-launch.log`.
+- The direct EFL launcher initially exited before `exec`: the unprivileged
+  `auzix` session could not create its log below root-owned `/System/Logs`.
+- The launcher now logs below `${XDG_STATE_HOME:-$HOME/.local/state}` with a
+  `/tmp` fallback. The exact desktop command was live-validated on VM135 and
+  left `efl.real` running in the existing graphical session.
 - Running the EFL frontend directly as `auzix` with the live session's
   `DISPLAY`, `XDG_RUNTIME_DIR`, and DBus address keeps the frontend alive until
   the five-second diagnostic timeout. EFL logs a non-fatal `hint_fill_set`
