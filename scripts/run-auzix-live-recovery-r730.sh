@@ -74,6 +74,11 @@ docker run --rm \
       $(pkg-config --cflags --libs elementary)
     AUZIX_EFL_INSTALLER_BINARY=/work/auzix-installer-efl \
       ./scripts/build-auzix-installer-efl-package.sh /work/AuzixRoot
+    gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
+      -o /work/auzix-package-manager-efl installer/efl/auzix-package-manager-efl.c \
+      $(pkg-config --cflags --libs elementary)
+    AUZIX_EFL_PACKAGE_MANAGER_BINARY=/work/auzix-package-manager-efl \
+      ./scripts/build-auzix-package-manager-efl-package.sh /work/AuzixRoot
     mkdir -p /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chown -R 1000:1000 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chmod 0755 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
@@ -116,6 +121,10 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   test -L /work/verify-root/Programs/AuzixInstaller/0.2/Frontends/efl
   test "$(readlink /work/verify-root/System/Tools/launch-auzix-installer)" = "/Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer"
   grep -Fq "/Programs/AuzixInstallerEfl/current/Commands/efl" /work/verify-root/Programs/AuzixInstallerEfl/0.1/Commands/launch-auzix-installer
+  test -x /work/verify-root/Programs/AuzixPackageManagerEfl/0.1/Commands/efl.real
+  test "$(readlink /work/verify-root/System/Tools/auzix-package-manager)" = "/Programs/AuzixPackageManagerEfl/current/Commands/efl"
+  grep -Fxq "Exec=/System/Tools/auzix-package-manager" /work/verify-root/System/Compatibility/usr/share/applications/auzix-package-manager.desktop
+  test -s /work/verify-root/System/PackageDB/AuzixPackageManagerEfl-0.1.auzix.json
   test "$(stat -c %u:%g /work/verify-root/System/State/packages)" = "1000:1000"
   test "$(stat -c %u:%g /work/verify-root/System/Logs/packages)" = "1000:1000"
   test -s /work/verify-root/System/Compatibility/etc/ssl/certs/ca-certificates.crt

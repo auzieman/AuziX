@@ -132,6 +132,18 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 5. Generate and review an allowlisted SquashFS changed-path manifest before
    triggering another BKC build.
 
+## EFL frontend preflight gate
+
+- Build Installer EFL and Package Manager EFL independently in the disposable
+  EFL builder before the next ISO packaging stage.
+- Validate both PackageDB receipts, program commands, `/System/Tools` links,
+  desktop entries, unprivileged launch behavior, and user-writable logs.
+- Package Manager EFL remains a thin client: refresh/list/install operations
+  delegate to `auzix-pkg`; it does not implement a second transaction engine.
+- Publish both frontends as ordinary AuziX packages where practical. The live
+  ISO may preinstall those same packages, but must not carry separate ad-hoc
+  copies.
+
 ## Next-ISO display evidence
 
 - VM135 uses Proxmox's default virtual display with AuziX's Xorg `modesetting`
