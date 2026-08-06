@@ -11,5 +11,27 @@ inkscape
 librewolf
 audacious
 
-# Container/server substrate
+# Native web service
 nginx
+
+# Kernel-owning host networking and storage
+samba
+nfs-common
+nfs-kernel-server
+autofs
+
+# Native /Services candidates
+openssh-server
+apache2
+mariadb-server
+
+# VM container-host substrate
+docker.io
+podman
+buildah
+skopeo
+fuse-overlayfs
+slirp4netns
+
+# AuziX container-root intake
+debootstrap

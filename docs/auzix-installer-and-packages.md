@@ -194,10 +194,12 @@ become runnable after a source-catalog entry and AuziX recipe exist; the profile
 does not install Debian packages directly into the base image.
 
 The smaller `profiles/packages/auzix-repo-next.packages` batch records the next
-repository-only cleanup target: LibreOffice, GIMP, Inkscape, LibreWolf,
-Audacious, and Nginx. None are live-ISO payloads. Nginx additionally requires a
+repository-only cleanup targets. It includes the initial desktop applications,
+kernel-owning host networking/storage packages, native `/Services` candidates,
+the Docker/Podman host substrate, and `debootstrap` as a container-root intake
+tool. None are live-ISO payloads. Server packages additionally require a
 declared `/Services` entry point and configuration ownership suitable for the
-planned AuziX container image before publication.
+planned AuziX host or container profile before publication.
 
 The next intake lane should stay batch-oriented. Use Debian source metadata to
 find and unpack sources, but prefer the package's own nested build system when
