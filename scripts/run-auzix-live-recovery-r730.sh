@@ -141,7 +141,7 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   grep -qx "PasswordAuthentication yes" /work/verify-root/System/Settings/ssh/sshd_config
   test -s /work/verify-root/Users/root/.ssh/authorized_keys
   test -L /work/verify-root/Programs/AuzixInstallerEfl/current
-  test -x /work/verify-root/System/Tools/auzix-installer
+  test "$(readlink /work/verify-root/System/Tools/auzix-installer)" = "/Programs/AuzixInstaller/current/Commands/auzix-installer"
   test -s /work/verify-root/System/Settings/installer/install-plan.schema.json
   test -x /work/verify-root/Programs/AuzixInstallerEfl/0.1/Commands/efl.real
   test -L /work/verify-root/Programs/AuzixInstaller/0.2/Frontends/efl
