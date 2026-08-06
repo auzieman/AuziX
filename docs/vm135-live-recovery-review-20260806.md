@@ -205,6 +205,9 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   100-row `auzix-pkg` stream, and shorten installer actions so both remain
   visible. Installer validation also requires the current backend package: the
   booted baseline predates the committed `plan` command used by Installer EFL.
+- The unconfirmed EFL plan must live in the user's state tree. Writing it below
+  root-owned `/System/State` failed correctly; only the separately authorized
+  destructive execution may cross into privileged system state.
 
 ## Next-ISO display evidence
 

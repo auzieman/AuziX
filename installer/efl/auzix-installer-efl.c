@@ -23,7 +23,7 @@ typedef struct {
   Eina_Bool plan_ready;
 } Installer;
 
-static const char *plan_path = "/System/State/installer/efl-pending-plan.json";
+static const char *plan_path = "/Users/auzix/.local/state/auzix/installer/efl-pending-plan.json";
 
 static void status_set(Installer *ui, const char *text) {
   elm_object_text_set(ui->status, text);
@@ -116,9 +116,11 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
 static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Installer *ui = data;
+  char command[1024];
   progress_close(ui);
   progress_open(ui, "Installing AuziX", "Writing the confirmed plan. Do not power off this machine.\nThe live recovery environment stays available if the install reports a failure.", EINA_TRUE);
-  ui->runner = ecore_exe_run("/System/Tools/auzix-installer run /System/State/installer/efl-pending-plan.json", ui);
+  snprintf(command, sizeof(command), "/System/Tools/auzix-installer run '%s'", plan_path);
+  ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
     status_set(ui, "<color=#ff6b6b>Could not start the guarded installer command.</color>");
