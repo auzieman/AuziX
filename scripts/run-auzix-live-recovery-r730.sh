@@ -24,6 +24,10 @@ log() { printf '[auzix-live-recovery] %s\n' "$*"; }
 [[ -f "${BASE_ISO}" ]] || fail "base ISO missing: ${BASE_ISO}"
 [[ -s "${KEY_FILE}" ]] || fail 'authorized-keys input missing'
 [[ -s "${ROOT_PASSWORD_HASH_FILE}" ]] || fail 'root password hash input missing'
+[[ "${SOURCE_COMMIT}" != unknown ]] || fail 'AUZIX_SOURCE_COMMIT must name the committed source under test'
+[[ -d "${SOURCE_ROOT}/.git" ]] || fail "source checkout metadata missing: ${SOURCE_ROOT}/.git"
+[[ -z "$(git -C "${SOURCE_ROOT}" status --porcelain)" ]] || fail 'source checkout is dirty; commit the intended delta first'
+[[ "$(git -C "${SOURCE_ROOT}" rev-parse HEAD)" == "${SOURCE_COMMIT}" ]] || fail 'AUZIX_SOURCE_COMMIT does not match source checkout HEAD'
 command -v docker >/dev/null 2>&1 || fail 'docker is required on the R730 worker'
 
 actual_base_sha="$(sha256sum "${BASE_ISO}" | awk '{print $1}')"
@@ -59,7 +63,7 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   unsquashfs -no-xattrs -d /work/AuzixRoot /work/iso-tree/live/auzix-root.squashfs >/dev/null
 '
 
-log 'applying the bounded live-access and InstallerEFL deltas'
+log 'applying the bounded live-access, installer, package-control, and desktop-asset deltas'
 docker run --rm \
   -v "${work_dir}:/work" \
   -v "${KEY_FILE}:/run/auzix-runtime/authorized_keys:ro" \
@@ -69,6 +73,7 @@ docker run --rm \
     AUZIX_AUTHORIZED_KEYS_SOURCE=/run/auzix-runtime/authorized_keys \
     AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
       ./scripts/stage-auzix-live-access.sh /work/AuzixRoot
+    ./scripts/build-auzix-installer-package.sh /work/AuzixRoot
     gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
       -o /work/auzix-installer-efl installer/efl/auzix-installer-efl.c \
       $(pkg-config --cflags --libs elementary)
@@ -79,6 +84,7 @@ docker run --rm \
       $(pkg-config --cflags --libs elementary)
     AUZIX_EFL_PACKAGE_MANAGER_BINARY=/work/auzix-package-manager-efl \
       ./scripts/build-auzix-package-manager-efl-package.sh /work/AuzixRoot
+    ./scripts/build-auzix-desktop-assets-package.sh /work/AuzixRoot
     mkdir -p /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chown -R 1000:1000 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
     chmod 0755 /work/AuzixRoot/System/State/packages /work/AuzixRoot/System/Logs/packages
@@ -117,6 +123,8 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   grep -qx "PasswordAuthentication yes" /work/verify-root/System/Settings/ssh/sshd_config
   test -s /work/verify-root/Users/root/.ssh/authorized_keys
   test -L /work/verify-root/Programs/AuzixInstallerEfl/current
+  test -x /work/verify-root/System/Tools/auzix-installer
+  test -s /work/verify-root/System/Settings/installer/install-plan.schema.json
   test -x /work/verify-root/Programs/AuzixInstallerEfl/0.1/Commands/efl.real
   test -L /work/verify-root/Programs/AuzixInstaller/0.2/Frontends/efl
   test "$(readlink /work/verify-root/System/Tools/launch-auzix-installer)" = "/Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer"
@@ -131,6 +139,7 @@ docker run --rm -v "${work_dir}:/work" "${BUILDER_IMAGE}" sh -ec '
   test -s /work/verify-root/Users/auzix/.e/e/config/standard/e.cfg
   test -L /work/verify-root/System/Settings/display/assets
   test -f /work/verify-root/Programs/DesktopAssets/auzietek/Resources/display/assets/themes/E20-Scifi-theme.edj
+  test -e /work/verify-root/System/Compatibility/usr/share/elementary/themes/E20-Scifi-theme.edj
 '
 
 candidate_sha="$(sha256sum "${candidate}" | awk '{print $1}')"
@@ -148,7 +157,7 @@ base_iso=${BASE_ISO}
 base_iso_sha256=${BASE_ISO_SHA256}
 base_squashfs_sha256=${BASE_SQUASHFS_SHA256}
 root_input=embedded-base-squashfs
-deltas=live-access,installer-efl
+deltas=live-access,installer-backend,installer-efl,package-manager-efl,desktop-assets
 iso_path=${PUBLISH_DIR}/${ISO_NAME}
 iso_sha256=${candidate_sha}
 squashfs_sha256=${candidate_squashfs_sha}

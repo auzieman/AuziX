@@ -8,7 +8,9 @@ ASSET_SOURCE_ROOT="${ASSET_ROOT}"
 ASSET_PROGRAM="${AUZIX_ROOT}/Programs/DesktopAssets/auzietek"
 RECEIPT="${AUZIX_ROOT}/System/PackageDB/DesktopAssets-auzietek.auzix.json"
 GLOBAL_E_ROOT="${AUZIX_ROOT}/System/Compatibility/usr/share/enlightenment"
-GLOBAL_THEMES="${GLOBAL_E_ROOT}/themes"
+# VM135 process evidence proved that this Elive/EFL build opens themes from
+# the Elementary catalog, while wallpapers remain in Enlightenment's catalog.
+GLOBAL_THEMES="${AUZIX_ROOT}/System/Compatibility/usr/share/elementary/themes"
 GLOBAL_BACKGROUNDS="${GLOBAL_E_ROOT}/data/backgrounds"
 STAGED_COPY="$(mktemp -d)"
 
@@ -89,7 +91,7 @@ asset_size="$(du -sb "${ASSET_PROGRAM}/Resources/display/assets" | awk '{print $
 exports_json="$(
   {
     find "${GLOBAL_THEMES}" -maxdepth 1 -type l -printf '/%P\n' |
-      sed "s#^/#/System/Compatibility/usr/share/enlightenment/themes/#"
+      sed "s#^/#/System/Compatibility/usr/share/elementary/themes/#"
     find "${GLOBAL_BACKGROUNDS}" -maxdepth 1 -type l -printf '/%P\n' |
       sed "s#^/#/System/Compatibility/usr/share/enlightenment/data/backgrounds/#"
   } | sort -u | jq -R . | jq -s .
@@ -117,7 +119,7 @@ cat > "${RECEIPT}" <<EOF
     "assets": "/Programs/DesktopAssets/auzietek/Resources/display/assets"
   },
   "global_exports": {
-    "themes": "/System/Compatibility/usr/share/enlightenment/themes",
+    "themes": "/System/Compatibility/usr/share/elementary/themes",
     "backgrounds": "/System/Compatibility/usr/share/enlightenment/data/backgrounds"
   },
   "settings": [],

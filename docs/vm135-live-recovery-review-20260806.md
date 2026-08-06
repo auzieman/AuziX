@@ -253,6 +253,41 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
 - Both MVP windows remain live for operator review. Do not call the installer
   install-capable until discovered-disk selection, credential handoff, package
   checkbox behavior, and the final review gate are separately accepted.
+- UI refinement commit `a5b0e72` compiled with `-Wall -Wextra -Werror` in
+  disposable R730 scratch. Installer SHA-256 is
+  `ac16fe788aeb24f99277ee355ee9702d972b92b699c50138c6ef941e09445533`;
+  Package Manager SHA-256 is
+  `6f9013c42164972fbf1da1ab9792be3127b448c8d544a5539e8b7dae71ec1d79`.
+- Those exact binaries are running in VM135's overlay as PIDs 4700 and 4701.
+  This pass separates and frames password confirmation, adds a scrollable
+  eight-item first-boot package set, and makes Package Manager rows toggle
+  their checkboxes. Logs contain only the known nonfatal EFL fill-hint warning.
+- Password values are still memory-only validation inputs; the backend does
+  not yet apply credentials. Disk discovery/selection and destructive review
+  remain explicit blockers to calling this installer install-capable.
+
+## Next ISO build steps
+
+1. Start only from the hash-pinned, runtime-proven ISO and its embedded
+   SquashFS. Extract that root once; do not layer ISO images or import a newly
+   remixed root.
+2. Snapshot a clean committed source tree on R730. Refuse dirty source and
+   record the source commit in the BKC-visible run receipt.
+3. Apply only the reviewed deltas: live SSH access, installer backend/schema,
+   Installer EFL, Package Manager EFL, corrected CA/browser trust wiring,
+   DesktopAssets exports, user defaults, and the 1080p display preference.
+4. Export theme EDJs to the process-proven Elementary catalog
+   `/System/Compatibility/usr/share/elementary/themes`; keep wallpapers in
+   Enlightenment's background catalog. Seed the accepted sci-fi selection in
+   the `auzix` profile without copying caches or unrelated home state.
+5. Repack one fresh SquashFS, replace only the SquashFS payload in a copied
+   boot tree, and reproduce the preserved BIOS/UEFI boot map.
+6. Before publication, verify backend/schema and both EFL package receipts,
+   CA bundle and browser trust, theme/wallpaper catalogs and defaults, 1080p
+   preference, SSH access, `auzix-pkg refresh`, and ISO BIOS/UEFI validation.
+7. Publish ISO, SHA-256, changed-path manifest, build log, and receipt through
+   the visible BKC lane. Boot that exact checksum on VM135 and repeat the live
+   acceptance checks before any GitHub merge.
 
 ## Next-ISO display evidence
 
