@@ -391,3 +391,6 @@ this cleanup.
   Podman, and debootstrap only as stage-0 payload receipts. Its supposedly
   Trixie builder resolved Bookworm versions after refreshing APT metadata, so
   suite/snapshot pinning is required before any of those packages are published.
+- `docs/images/Screenshot at 2026-08-06 14-58-22.png` is the installed-root
+  publication proof: the AuziX desktop shows AbiWord, Gnumeric, the public
+  Auzietek site, Package Control, and the on-disk AuziX root in one session.
