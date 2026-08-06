@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 BUILD_DIR="${ROOT_DIR}/out/auzix-packages/installer-efl"
 SOURCE="${ROOT_DIR}/installer/efl/auzix-installer-efl.c"
+LAUNCHER_SOURCE="${ROOT_DIR}/installer/efl/launch-auzix-installer"
 BIN="${AUZIX_EFL_INSTALLER_BINARY:-${BUILD_DIR}/auzix-installer-efl}"
 PROGRAM="${AUZIX_ROOT}/Programs/AuzixInstallerEfl/0.1"
 INSTALLER_FRONTENDS="${AUZIX_ROOT}/Programs/AuzixInstaller/0.2/Frontends"
@@ -29,25 +30,7 @@ export LD_LIBRARY_PATH="/Programs/AuzixInstallerEfl/current/Libraries:/System/Co
 exec /Programs/AuzixInstallerEfl/current/Commands/efl.real "$@"
 SCRIPT
 chmod 0755 "${PROGRAM}/Commands/efl"
-cat >"${PROGRAM}/Commands/launch-auzix-installer" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
-set -eu
-
-if [ "${1:-}" = "--autostart" ]; then
-  shift
-  sleep "${AUZIX_INSTALLER_AUTOSTART_DELAY:-3}"
-fi
-
-log_dir=/System/Logs/installer
-mkdir -p "${log_dir}" 2>/dev/null || true
-log_file="${log_dir}/installer-efl.log"
-
-exec /Programs/AuzixInstallerEfl/current/Commands/efl \
-  --questions /System/Settings/installer/questions.json \
-  --schema /System/Settings/installer/install-plan.schema.json \
-  "$@" >>"${log_file}" 2>&1
-SCRIPT
-chmod 0755 "${PROGRAM}/Commands/launch-auzix-installer"
+install -m 0755 "${LAUNCHER_SOURCE}" "${PROGRAM}/Commands/launch-auzix-installer"
 install -m 0644 "${SOURCE}" "${PROGRAM}/Resources/auzix-installer-efl.c"
 ln -sfn /Programs/AuzixInstallerEfl/0.1 "${AUZIX_ROOT}/Programs/AuzixInstallerEfl/current"
 ln -sfn /Programs/AuzixInstallerEfl/current/Commands/efl "${INSTALLER_FRONTENDS}/efl"

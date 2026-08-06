@@ -1,0 +1,16 @@
+#!/System/Compatibility/bin/sh
+set -eu
+
+if [ "${1:-}" = "--autostart" ]; then
+  shift
+  sleep "${AUZIX_INSTALLER_AUTOSTART_DELAY:-3}"
+fi
+
+log_dir=/System/Logs/installer
+mkdir -p "${log_dir}" 2>/dev/null || true
+log_file="${log_dir}/installer-efl.log"
+
+exec /Programs/AuzixInstallerEfl/current/Commands/efl \
+  --questions /System/Settings/installer/questions.json \
+  --schema /System/Settings/installer/install-plan.schema.json \
+  "$@" >>"${log_file}" 2>&1
