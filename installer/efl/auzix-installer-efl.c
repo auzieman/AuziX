@@ -248,14 +248,14 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   evas_object_size_hint_weight_set(actions, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(actions, EVAS_HINT_FILL, 0.5);
   Evas_Object *button = elm_button_add(actions);
-  elm_object_text_set(button, "02 // VALIDATE PLAN");
+  elm_object_text_set(button, "VALIDATE PLAN");
   evas_object_smart_callback_add(button, "clicked", write_plan_cb, &ui);
   evas_object_size_hint_weight_set(button, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(button, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(actions, button); evas_object_show(button);
 
   ui.run_button = elm_button_add(actions);
-  elm_object_text_set(ui.run_button, "03 // AUTHORIZE INSTALL");
+  elm_object_text_set(ui.run_button, "AUTHORIZE INSTALL");
   elm_object_disabled_set(ui.run_button, EINA_TRUE);
   evas_object_smart_callback_add(ui.run_button, "clicked", begin_install_cb, &ui);
   evas_object_size_hint_weight_set(ui.run_button, EVAS_HINT_EXPAND, 0.0);

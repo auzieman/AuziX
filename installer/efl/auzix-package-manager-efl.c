@@ -53,8 +53,7 @@ static Eina_Bool run_action(Package_Manager *ui, Action action, const char *comm
   output_reset(ui);
   ui->action = action;
   ui->runner = ecore_exe_pipe_run(command,
-    ECORE_EXE_PIPE_READ | ECORE_EXE_PIPE_ERROR | ECORE_EXE_PIPE_READ_LINE_BUFFERED |
-    ECORE_EXE_PIPE_ERROR_LINE_BUFFERED, ui);
+    ECORE_EXE_PIPE_READ | ECORE_EXE_PIPE_ERROR, ui);
   return ui->runner != NULL;
 }
 
@@ -96,7 +95,7 @@ static void list_populate(Package_Manager *ui) {
     char *name = strdup(line);
     if (!name) continue;
     char display[1024];
-    snprintf(display, sizeof(display), "<b>%s</b>  //  %s", line, tab + 1);
+    snprintf(display, sizeof(display), "%s  //  %s", line, tab + 1);
     Elm_Object_Item *item = elm_list_item_append(ui->list, display, NULL, NULL,
                                                  selected_cb, ui);
     elm_object_item_data_set(item, name);

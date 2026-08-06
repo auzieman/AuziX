@@ -200,6 +200,11 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   with no lingering child and the user-owned repository cache remained valid.
 - The only captured runtime diagnostic was the known nonfatal Elementary
   `hint_fill_set` warning. Visual/operator acceptance remains pending.
+- First visual review at the operator-selected higher resolution found three
+  follow-ups: remove literal markup from package rows, capture the complete
+  100-row `auzix-pkg` stream, and shorten installer actions so both remain
+  visible. Installer validation also requires the current backend package: the
+  booted baseline predates the committed `plan` command used by Installer EFL.
 
 ## Next-ISO display evidence
 
