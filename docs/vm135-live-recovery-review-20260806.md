@@ -105,6 +105,9 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   AuziX compatibility front end was live-validated with
   `-wallpaper-dir-list`, `-theme-dir-list`, and `-app-dir-list`; delegation to
   the Elive backend still reports Enlightenment `0.25.4`.
+- The compatibility front end also provides `-wallpaper-list`, `-theme-list`,
+  and `-app-list` (plus `-available-list` aliases) so validation can enumerate
+  the files available through each reported search path.
 
 ## Bounded next steps
 

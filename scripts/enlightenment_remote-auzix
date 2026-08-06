@@ -28,6 +28,16 @@ list_dirs() {
   esac
 }
 
+list_matching_files() {
+  for directory in "$@"; do
+    [ -d "${directory}" ] || continue
+    for file in "${directory}"/*; do
+      [ -f "${file}" ] || continue
+      printf '%s\n' "${file}"
+    done
+  done
+}
+
 case "${1:-}" in
   -wallpaper-dir-list)
     list_dirs wallpapers
@@ -37,6 +47,21 @@ case "${1:-}" in
     ;;
   -app-dir-list)
     list_dirs applications
+    ;;
+  -wallpaper-list|-wallpaper-available-list)
+    list_matching_files \
+      "${home_dir}/.e/e/backgrounds" \
+      "${compat_share}/enlightenment/data/backgrounds"
+    ;;
+  -theme-list|-theme-available-list)
+    list_matching_files \
+      "${home_dir}/.e/e/themes" \
+      "${compat_share}/enlightenment/themes"
+    ;;
+  -app-list|-app-available-list)
+    list_matching_files \
+      "${home_dir}/.local/share/applications" \
+      "${compat_share}/applications"
     ;;
   -dirs-list)
     if [ "$#" -ne 2 ]; then
