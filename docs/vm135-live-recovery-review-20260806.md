@@ -125,8 +125,8 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   driver; no alternate VNC/display driver is required.
 - The current live session selected `1280x800`.
 - Xorg accepted advertised modes including `1920x1080`, `1920x1200`, and
-  `2048x1152`. Use `1920x1080` as the next candidate's screenshot-friendly
-  preferred mode, retaining automatic fallback for smaller viewers.
+  `2048x1152`. The packaged and live-regenerated Xorg configurations now prefer
+  `1920x1080`, with `1280x800` and `1024x768` fallbacks for smaller viewers.
 - The next candidate must include commits `fa1e1df` (validated wallpaper
   exports) and `7fe24cf` (validated Enlightenment directory queries).
 

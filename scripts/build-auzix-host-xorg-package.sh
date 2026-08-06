@@ -198,6 +198,11 @@ EndSection
 Section "Screen"
     Identifier "AuzixScreen"
     Device "AuzixVideo"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Modes "1920x1080" "1280x800" "1024x768"
+    EndSubSection
 EndSection
 
 Section "ServerLayout"
