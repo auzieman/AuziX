@@ -1,0 +1,163 @@
+>f..t...... init
+*deleting   Programs/Dialog/1.3-20230209-1/Libraries/libncursesw.so.6
+*deleting   Programs/Lua/5.4.4-3+deb12u1/Libraries/libtinfo.so.6
+*deleting   Programs/Lua/5.4.4-3+deb12u1/Libraries/libreadline.so.8
+.d..t...... Programs/
+.d..t...... Programs/AuzixInstaller/
+.L..t...... Programs/AuzixInstaller/current -> /Programs/AuzixInstaller/0.2
+.d..t...... Programs/AuzixInstaller/0.2/
+.d..t...... Programs/AuzixInstaller/0.2/Commands/
+>f..t...... Programs/AuzixInstaller/0.2/Commands/auzix-installer
+>f..t...... Programs/AuzixInstaller/0.2/Commands/auzix-installer-gui
+>f..t...... Programs/AuzixInstaller/0.2/Commands/auzix-package-setup
+>f..t...... Programs/AuzixInstaller/0.2/Commands/launch-auzix-installer
+.d..t...... Programs/AuzixInstaller/0.2/Frontends/
+.d..t...... Programs/AuzixInstaller/0.2/Resources/
+>f..t...... Programs/AuzixInstaller/0.2/Resources/auzix-installer.lua
+>f..t...... Programs/AuzixInstaller/0.2/Resources/auzix-package-setup.lua
+>f..t...... Programs/AuzixInstaller/0.2/Resources/install-plan.schema.json
+>f..t...... Programs/AuzixInstaller/0.2/Resources/questions.json
+.d..t...... Programs/AuzixInstaller/0.2/Resources/plans/
+>f..t...... Programs/AuzixInstaller/0.2/Resources/plans/default.json
+.d..t...... Programs/DesktopAssets/
+.d..t...... Programs/DesktopAssets/auzietek/
+.d..t...... Programs/DesktopAssets/auzietek/Resources/
+.d..t...... Programs/DesktopAssets/auzietek/Resources/display/
+.d..t...... Programs/DesktopAssets/auzietek/Resources/display/assets/
+>f..t...... Programs/DesktopAssets/auzietek/Resources/display/assets/README.auzix-assets.txt
+.d..t...... Programs/Dialog/
+.L..t...... Programs/Dialog/current -> /Programs/Dialog/1.3-20230209-1
+.d..t...... Programs/Dialog/1.3-20230209-1/
+.d..t...... Programs/Dialog/1.3-20230209-1/Commands/
+>f..t...... Programs/Dialog/1.3-20230209-1/Commands/dialog
+>f..t...... Programs/Dialog/1.3-20230209-1/Commands/dialog.real
+.d..t...... Programs/Dialog/1.3-20230209-1/Libraries/
+>f..t...... Programs/Dialog/1.3-20230209-1/Libraries/ld-linux-x86-64.so.2
+>f..t...... Programs/Dialog/1.3-20230209-1/Libraries/libc.so.6
+>f..t...... Programs/Dialog/1.3-20230209-1/Libraries/libm.so.6
+>f..t...... Programs/Dialog/1.3-20230209-1/Libraries/libtinfo.so.6
+.d..t...... Programs/Lua/
+.L..t...... Programs/Lua/current -> /Programs/Lua/5.4.4-3+deb12u1
+.d..t...... Programs/Lua/5.4.4-3+deb12u1/
+.d..t...... Programs/Lua/5.4.4-3+deb12u1/Commands/
+>f..t...... Programs/Lua/5.4.4-3+deb12u1/Commands/lua
+>f..t...... Programs/Lua/5.4.4-3+deb12u1/Commands/lua.real
+.d..t...... Programs/Lua/5.4.4-3+deb12u1/Libraries/
+>f..t...... Programs/Lua/5.4.4-3+deb12u1/Libraries/ld-linux-x86-64.so.2
+>f..t...... Programs/Lua/5.4.4-3+deb12u1/Libraries/libc.so.6
+>f..t...... Programs/Lua/5.4.4-3+deb12u1/Libraries/libm.so.6
+>f..t...... System/Boot/InstalledInit
+>f.st...... System/Boot/StartSequence
+.d..t...... System/Compatibility/bin/
+.L..t...... System/Compatibility/bin/dialog -> /Programs/Dialog/current/Commands/dialog
+.L..t...... System/Compatibility/bin/lua -> /Programs/Lua/current/Commands/lua
+.d..t...... System/Compatibility/lib/x86_64-linux-gnu/
+>f..t...... System/Compatibility/lib/x86_64-linux-gnu/libc.so.6
+>f..t...... System/Compatibility/lib/x86_64-linux-gnu/libm.so.6
+>f..t...... System/Compatibility/lib/x86_64-linux-gnu/libtinfo.so.6
+.d..t...... System/Compatibility/lib64/
+>f..t...... System/Compatibility/lib64/ld-linux-x86-64.so.2
+.f...p..... System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_ckpasswd
+.f...p..... System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system
+.f...p..... System/Compatibility/usr/lib/xorg/Xorg.wrap
+>f.st...... System/Compatibility/usr/share/applications/auzix-installer.desktop
+>f..t...... System/Compatibility/usr/share/applications/auzix-package-setup.desktop
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-applications.directory
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-internet.directory
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-multimedia.directory
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-other.directory
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-settings.directory
+>f..t...... System/Compatibility/usr/share/desktop-directories/auzix-system.directory
+.d..t...... System/Compatibility/usr/share/enlightenment/data/backgrounds/
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/Dead.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/Dead.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/Devil-Girl-10.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/Devil-Girl-10.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/E-Mag2.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/E-Mag2.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/E23-scifi-good-FULL-anim.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/E23-scifi-good-FULL-anim.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/Tron-fight-for-the-user.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/Tron-fight-for-the-user.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/Tron-fight-for-the-user.jpg -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/Tron-fight-for-the-user.jpg
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/amiga.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/amiga.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/back.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/back.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/background-oh-V1 (1).edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/background-oh-V1 (1).edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/background-oh-V1.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/background-oh-V1.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/blackhole-pclos-bt2.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/blackhole-pclos-bt2.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/blade-runner-cityscape.jpg -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/blade-runner-cityscape.jpg
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/bull-anim-moon (1).edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/bull-anim-moon (1).edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/bull-anim-moon.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/bull-anim-moon.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/mandalorian.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/mandalorian.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/sexy-walk-final.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/sexy-walk-final.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/xupprfgr21mc1.jpeg -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/xupprfgr21mc1.jpeg
+cL+++++++++ System/Compatibility/usr/share/enlightenment/data/backgrounds/—Pngtree—animated gif webcam overlay pixel_16187374.png -> /Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/—Pngtree—animated gif webcam overlay pixel_16187374.png
+.d..t...... System/Compatibility/usr/share/enlightenment/themes/
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Cerium2.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Cerium2.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Dark.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Dark.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Dimensions.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Dimensions.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/E20-Scifi-theme.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/E20-Scifi-theme.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Fireball2.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Fireball2.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Grunge2.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Grunge2.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Ice.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Ice.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Neonz.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Neonz.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/R-Matrix-2.0_E22.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/R-Matrix-2.0_E22.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/R-NightBling2-2.0_E22.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/R-NightBling2-2.0_E22.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Retrowave-theme.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Retrowave-theme.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Scifi-terminology-theme.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Scifi-terminology-theme.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Transient-Color.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Transient-Color.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/Transient.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/Transient.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/openSUSE-Neon.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/openSUSE-Neon.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/openSUSE-Oliveleaf.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/openSUSE-Oliveleaf.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/openSUSE-ice.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/openSUSE-ice.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/openSUSE.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/openSUSE.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/vtx.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/vtx.edj
+cL+++++++++ System/Compatibility/usr/share/enlightenment/themes/vulcan-retro-20221211121900.edj -> /Programs/DesktopAssets/auzietek/Resources/display/assets/themes/vulcan-retro-20221211121900.edj
+>f..t...... System/Drivers/6.1.0-48-amd64/modules.alias
+>f..t...... System/Drivers/6.1.0-48-amd64/modules.alias.bin
+>f..t...... System/Drivers/6.1.0-48-amd64/modules.dep
+>f..t...... System/Drivers/6.1.0-48-amd64/modules.dep.bin
+.d..t...... System/Drivers/6.1.0-48-amd64/kernel/drivers/block/
+>f+++++++++ System/Drivers/6.1.0-48-amd64/kernel/drivers/block/loop.ko
+.d..t...... System/Drivers/6.1.0-48-amd64/kernel/fs/
+cd+++++++++ System/Drivers/6.1.0-48-amd64/kernel/fs/squashfs/
+>f+++++++++ System/Drivers/6.1.0-48-amd64/kernel/fs/squashfs/squashfs.ko
+.d..t...... System/PackageDB/
+>f..t...... System/PackageDB/AuzixInstaller-0.2.auzix.json
+>f..t...... System/PackageDB/DesktopAssets-auzietek.auzix.json
+>f..t...... System/PackageDB/Dialog-1.3-20230209-1.auzix.json
+>f..t...... System/PackageDB/KernelModules-6.1.0-48-amd64.auzix.json
+>f..t...... System/PackageDB/Lua-5.4.4-3+deb12u1.auzix.json
+>f..t...... System/Settings/mdev.conf
+*deleting   System/Settings/display/assets/README.txt
+.d..t...... System/Settings/display/
+cL+++++++++ System/Settings/display/assets -> /Programs/DesktopAssets/auzietek/Resources/display/assets
+>f..t...... System/Settings/display/autostart
+>f..t...... System/Settings/display/e27-stage.txt
+>f.st...... System/Settings/display/defaults/user-defaults-note.txt
+>f..t...... System/Settings/install/live-tools.txt
+.d..t...... System/Settings/installer/
+>f..t...... System/Settings/installer/install-plan.schema.json
+>f..t...... System/Settings/installer/questions.json
+.d..t...... System/Settings/installer/plans/
+>f..t...... System/Settings/installer/plans/default.json
+>f..t...... System/Settings/xdg/menus/e-applications.menu
+.d..t...... System/Tools/
+>f..t...... System/Tools/auzix-hw-detect
+>f..t...... System/Tools/auzix-install-disk
+>f..t...... System/Tools/auzix-install-package
+.L..t...... System/Tools/auzix-installer -> /Programs/AuzixInstaller/current/Commands/auzix-installer
+.L..t...... System/Tools/auzix-installer-gui -> /Programs/AuzixInstaller/current/Commands/auzix-installer-gui
+>f+++++++++ System/Tools/auzix-live-agent
+>f..t...... System/Tools/auzix-load-module
+.L..t...... System/Tools/auzix-package-setup -> /Programs/AuzixInstaller/current/Commands/auzix-package-setup
+>f..t...... System/Tools/auzix-packages
+>f..t...... System/Tools/finalize-installed-root
+.L..t...... System/Tools/launch-auzix-installer -> /Programs/AuzixInstaller/current/Commands/launch-auzix-installer
+>f..t...... System/Tools/prepare-livecd-state
+>f..t...... System/Tools/repair-e-state
+>f..t...... System/Tools/reset-e-theme-state
+>f..t...... System/Tools/start-e
+>f..t...... System/Tools/start-e-supervisor
+>f..t...... System/Tools/start-enlightenment-session
+>f..t...... System/Tools/start-gui-stage
+>f..t...... System/Tools/start-lightdm-stage
+.d..t...... Users/auzix/
+>f.st...... Users/auzix/.config/autostart/auzix-installer.desktop
+cd+++++++++ Users/auzix/Desktop/
+>f+++++++++ Users/auzix/Desktop/Install AuziX.desktop
