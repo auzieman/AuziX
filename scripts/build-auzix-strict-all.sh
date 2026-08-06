@@ -37,6 +37,7 @@ run_step make auzix-strict-lightdm
 run_step make auzix-strict-display-templates
 run_step make auzix-strict-user-defaults
 run_step make auzix-strict-live-tools
+run_step ./scripts/validate-auzix-live-agent.sh
 run_step make auzix-strict-kernel-modules
 run_step make auzix-strict-package-repo
 run_step make auzix-strict-audit

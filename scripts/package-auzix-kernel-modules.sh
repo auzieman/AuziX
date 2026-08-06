@@ -97,6 +97,11 @@ if [[ ! -d "${HOST_MODULE_DIR}" ]]; then
   printf 'Host module directory not found: %s\n' "${HOST_MODULE_DIR}" >&2
   exit 1
 fi
+if [[ ! -f "${HOST_MODULE_DIR}/modules.dep" ]]; then
+  printf 'Kernel module index is missing: %s/modules.dep\n' "${HOST_MODULE_DIR}" >&2
+  printf 'Install the matching kernel package normally or run depmod before packaging modules.\n' >&2
+  exit 1
+fi
 if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
   printf 'Auzix strict root is missing: %s\n' "${AUZIX_ROOT}" >&2
   exit 1
@@ -134,7 +139,9 @@ module_names=(
   vmxnet3
   r8169
   cdrom
+  loop
   isofs
+  squashfs
   crc16
   crc32c_generic
   crc32c-intel
@@ -187,6 +194,15 @@ audio_module_names=(
 
 for module in "${module_names[@]}"; do
   copy_module_name "${module}"
+done
+
+# Live media cannot operate without these exact filesystem modules.  Do not
+# publish a superficially successful receipt that silently omitted one.
+for required_live_module in loop isofs squashfs overlay; do
+  if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_live_module}.ko" -print -quit | grep -q .; then
+    printf 'Required live-boot module was not packaged: %s\n' "${required_live_module}" >&2
+    exit 1
+  fi
 done
 if [[ "${INCLUDE_GRAPHICS}" == "1" ]]; then
   for module in "${graphics_module_names[@]}"; do

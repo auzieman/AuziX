@@ -10,6 +10,33 @@ OPENSSH_PROGRAM="${AUZIX_ROOT}/Programs/OpenSSH/${OPENSSH_VERSION}"
 RUNTIME_LIB="${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu"
 RUNTIME_LIB64="${AUZIX_ROOT}/System/Compatibility/lib64"
 AUTHORIZED_KEYS_SOURCE="${AUZIX_AUTHORIZED_KEYS_SOURCE:-${HOME}/.ssh/id_rsa.pub}"
+ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-key-only}"
+ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-}"
+
+case "${ACCESS_PROFILE}" in
+  key-only)
+    ROOT_SHADOW='*'
+    ROOT_LOGIN_POLICY='prohibit-password'
+    PASSWORD_AUTH='no'
+    ;;
+  lab-password)
+    if [[ -z "${ROOT_PASSWORD_HASH_FILE}" || ! -s "${ROOT_PASSWORD_HASH_FILE}" ]]; then
+      printf 'lab-password access profile requires AUZIX_ROOT_PASSWORD_HASH_FILE.\n' >&2
+      exit 1
+    fi
+    ROOT_SHADOW="$(<"${ROOT_PASSWORD_HASH_FILE}")"
+    if [[ "${ROOT_SHADOW}" != '$'* ]]; then
+      printf 'lab-password access profile received an invalid password hash.\n' >&2
+      exit 1
+    fi
+    ROOT_LOGIN_POLICY='yes'
+    PASSWORD_AUTH='yes'
+    ;;
+  *)
+    printf 'Unsupported AUZIX_ACCESS_PROFILE: %s\n' "${ACCESS_PROFILE}" >&2
+    exit 1
+    ;;
+esac
 
 log() {
   printf '[auzix-access] %s\n' "$*" >&2
@@ -230,9 +257,9 @@ render:x:105:root,auzix
 audio:x:29:root,auzix
 EOF
 
-cat > "${AUZIX_ROOT}/System/Settings/shadow" <<'EOF'
-root:*:19700:0:99999:7:::
-auzix:$6$KWazk/HqqlvaI6Ea$vkl9YiHeS22wtMLINxyZMO6PnbMea1YYMXM5c0Osgf2AiQCDQc.ThzmQgl.21MBekV0Oi/PoVoFB6wzxzGnUT0:19700:0:99999:7:::
+cat > "${AUZIX_ROOT}/System/Settings/shadow" <<EOF
+root:${ROOT_SHADOW}:19700:0:99999:7:::
+auzix:\$6\$KWazk/HqqlvaI6Ea\$vkl9YiHeS22wtMLINxyZMO6PnbMea1YYMXM5c0Osgf2AiQCDQc.ThzmQgl.21MBekV0Oi/PoVoFB6wzxzGnUT0:19700:0:99999:7:::
 sshd:*:19700:0:99999:7:::
 messagebus:*:19700:0:99999:7:::
 lightdm:*:19700:0:99999:7:::
@@ -269,8 +296,8 @@ HostKey /System/State/ssh/ssh_host_ed25519_key
 HostKey /System/State/ssh/ssh_host_rsa_key
 PidFile /run/sshd.pid
 AuthorizedKeysFile .ssh/authorized_keys
-PermitRootLogin prohibit-password
-PasswordAuthentication no
+PermitRootLogin ${ROOT_LOGIN_POLICY}
+PasswordAuthentication ${PASSWORD_AUTH}
 KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
 UsePAM no

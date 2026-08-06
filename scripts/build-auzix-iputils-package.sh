@@ -50,6 +50,11 @@ for cmd in apt-cache apt-get dpkg-deb install ldd; do
   require_cmd "${cmd}"
 done
 
+if ! apt-cache show iputils-ping >/dev/null 2>&1; then
+  log "APT metadata is absent; refreshing package indexes for iputils-ping"
+  apt-get update >/dev/null
+fi
+
 IPUTILS_VERSION="${AUZIX_IPUTILS_VERSION:-$(apt-cache show iputils-ping 2>/dev/null | awk '/^Version:/ {print $2; exit}')}"
 IPUTILS_VERSION="${IPUTILS_VERSION:-host}"
 IPUTILS_PROGRAM="${AUZIX_ROOT}/Programs/IPUtils/${IPUTILS_VERSION}"

@@ -47,7 +47,9 @@ is_mounted() {
 }
 
 prepare_live_runtime_state() {
-  [ -d /run/live/iso/AuzixRoot ] || return 0
+  # The ISO remains mounted at /run/live/iso after switch_root. The former
+  # raw AuzixRoot directory is intentionally absent from a SquashFS layout.
+  [ -d /run/live/iso ] || return 0
 
   "${BB}" mkdir -p /run/auzix-state-seed /run/auzix-log-seed 2>/dev/null || true
   if [ -d /System/State/ssh ] && [ ! -d /run/auzix-state-seed/ssh ]; then
@@ -793,6 +795,9 @@ report_network_status
 console_note "stage: starting declared services"
 start_services
 report_service_status
+console_note "stage: recording live diagnostic receipt"
+/System/Tools/auzix-live-agent collect boot >/System/Logs/live-agent.log 2>&1 || \
+  console_note "diagnostics: receipt collection failed; inspect /System/Logs/live-agent.log"
 display_autostart="$("${BB}" head -n 1 /System/Settings/display/autostart 2>/dev/null || echo manual)"
 if [ "${AUZIX_GUI_AUTOSTART:-0}" = "1" ] || [ "${display_autostart}" != "manual" ]; then
   console_note "stage: starting display"
@@ -804,6 +809,107 @@ console_note "stage: complete"
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Boot/StartSequence"
+
+cat > "${AUZIX_ROOT}/System/Tools/auzix-live-agent" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+# Auzix live diagnostic agent: local evidence collection only.
+# It opens no listener, changes no network state, and carries no credentials.
+set -u
+
+PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
+export PATH
+BB=/Programs/BusyBox/1.36.1/Commands/busybox
+STATE=/System/State/agent
+LOGS=/System/Logs/agent
+
+usage() {
+  echo "usage: auzix-live-agent {collect [phase]|status|midori-check}"
+}
+
+prepare() {
+  "${BB}" mkdir -p "${STATE}" "${LOGS}" 2>/dev/null || true
+}
+
+mounted() {
+  "${BB}" grep -q " $1 " /proc/mounts 2>/dev/null
+}
+
+writable() {
+  marker="$1/.auzix-write-test.$$"
+  ( : > "${marker}" ) 2>/dev/null && {
+    "${BB}" rm -f "${marker}" 2>/dev/null || true
+    echo writable
+    return
+  }
+  echo readonly-or-unavailable
+}
+
+emit_receipt() {
+  phase="${1:-manual}"
+  receipt="${LOGS}/receipt-${phase}.log"
+  {
+    echo "Auzix live diagnostic receipt"
+    echo "phase=${phase}"
+    echo "timestamp=$("${BB}" date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)"
+    echo "kernel=$("${BB}" uname -r 2>/dev/null || true)"
+    echo "cmdline=$("${BB}" tr '\n' ' ' </proc/cmdline 2>/dev/null || true)"
+    echo
+    echo "[mounts]"
+    "${BB}" mount 2>/dev/null || true
+    echo
+    echo "[writable-path-contract]"
+    for path in /run /tmp /Users /Work /System/State /System/Logs /Network/DNS; do
+      [ -d "${path}" ] || "${BB}" mkdir -p "${path}" 2>/dev/null || true
+      echo "${path}: $(writable "${path}")"
+    done
+    echo
+    echo "[network]"
+    "${BB}" ip -brief address 2>/dev/null || "${BB}" ifconfig -a 2>/dev/null || true
+    "${BB}" ip route 2>/dev/null || true
+    echo "resolv.conf:"
+    "${BB}" cat /run/resolv.conf 2>/dev/null || "${BB}" cat /System/Settings/resolv.conf 2>/dev/null || true
+    echo
+    echo "[services]"
+    "${BB}" ps 2>/dev/null | "${BB}" grep -E "sshd|dbus-daemon|acpid|udevd|Xorg|enlightenment|start-e" | "${BB}" grep -v grep || true
+    echo
+    echo "[midori]"
+    /System/Tools/auzix-live-agent midori-check
+  } >"${receipt}" 2>&1
+  "${BB}" cp "${receipt}" "${LOGS}/latest.log" 2>/dev/null || true
+  echo "receipt=${receipt}"
+}
+
+midori_check() {
+  executable=/Programs/Midori/current/Resources/midori/midori
+  wrapper=/Programs/Midori/current/Commands/midori
+  ca=/System/Compatibility/etc/ssl/certs/ca-certificates.crt
+  echo "wrapper=$([ -x "${wrapper}" ] && echo ready || echo missing)"
+  echo "executable=$([ -x "${executable}" ] && echo ready || echo missing)"
+  echo "ca_bundle=$([ -s "${ca}" ] && echo ready || echo missing)"
+  echo "dns_config=$([ -s /run/resolv.conf ] && echo ready || echo missing)"
+  if [ -x "${executable}" ] && command -v ldd >/dev/null 2>&1; then
+    echo "loader_check:"
+    ldd "${executable}" 2>&1 | "${BB}" grep -E 'not found|=> ' || true
+  fi
+  if command -v curl >/dev/null 2>&1; then
+    echo "https_probe:"
+    curl -fsS --connect-timeout 8 --max-time 12 -o /dev/null https://example.com 2>&1 && echo ok || echo failed
+  elif command -v wget >/dev/null 2>&1; then
+    echo "https_probe:"
+    wget -q -T 12 -O /dev/null https://example.com 2>&1 && echo ok || echo failed
+  else
+    echo "https_probe=unavailable-no-curl-or-wget"
+  fi
+}
+
+case "${1:-status}" in
+  collect) prepare; emit_receipt "${2:-manual}" ;;
+  status) prepare; [ -f "${LOGS}/latest.log" ] && "${BB}" tail -n 80 "${LOGS}/latest.log" || echo "no receipt yet" ;;
+  midori-check) midori_check ;;
+  *) usage; exit 2 ;;
+esac
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-live-agent"
 
 cat > "${AUZIX_ROOT}/System/Tools/prepare-livecd-state" <<'SCRIPT'
 #!/System/Compatibility/bin/sh

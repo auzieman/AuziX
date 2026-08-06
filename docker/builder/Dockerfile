@@ -29,12 +29,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       git \
       grub-common \
       grub-efi-amd64-bin \
+      grub-pc \
       grub-pc-bin \
       jq \
       libc-bin \
       libc6-dev \
       lightdm \
       lightdm-gtk-greeter \
+      libarchive-tools \
+      libefl-all-dev \
       linux-image-amd64 \
       make \
       mtools \
@@ -44,10 +47,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       openssh-server \
       openssl \
       pulseaudio \
+      pkg-config \
       qemu-utils \
       rsync \
       strace \
       sudo \
+      squashfs-tools \
       terminology \
       udev \
       wget \

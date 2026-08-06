@@ -63,7 +63,7 @@
         {"id": "Binutils", "tier": "build", "state": "planned", "depends": [], "notes": "ELF and link tools."},
         {"id": "Make", "tier": "build", "state": "planned", "depends": [], "notes": "Small build orchestrator."},
         {"id": "PkgConfig", "tier": "build", "state": "planned", "depends": [], "notes": "Discovers EFL and GTK libraries."},
-        {"id": "Gtk3Runtime", "tier": "frontend", "state": "planned", "depends": [], "notes": "GTK fallback runtime."},
+        {"id": "Gtk3Runtime", "tier": "frontend", "state": "planned", "depends": [], "notes": "Optional compatibility fallback runtime."},
         {
           "id": "AuzixInstallerGtk",
           "tier": "frontend",
@@ -74,9 +74,10 @@
         {
           "id": "AuzixInstallerEfl",
           "tier": "frontend",
-          "state": "planned",
+          "state": "first-pass",
           "depends": ["AuzixInstaller", "Enlightenment"],
-          "notes": "Preferred native Enlightenment frontend after the GTK protocol proof."
+          "script": "scripts/build-auzix-installer-efl-package.sh",
+          "notes": "Preferred native Enlightenment frontend. First pass emits an unconfirmed guarded plan through the existing installer contract."
         }
       ]
     }

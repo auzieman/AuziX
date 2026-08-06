@@ -55,8 +55,8 @@ auzix-strict-all:
 auzix-core-validation:
 	./scripts/run-auzix-core-validation.sh
 
-auzix-image:
-	./scripts/build-auzix-x86-image.sh
+auzix-image: auzix-strict-iso
+	@echo "auzix-image is retained as a compatibility alias for auzix-strict-iso."
 
 auzix-vdi:
 	./scripts/build-auzix-vdi.sh

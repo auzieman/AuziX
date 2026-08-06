@@ -32,6 +32,7 @@ require_cmd rsync
 mkdir -p \
   "${TARGET_HOME}/.e/e/config" \
   "${TARGET_HOME}/.config/autostart" \
+  "${TARGET_HOME}/Desktop" \
   "${AUZIX_ROOT}/System/Settings/display/defaults"
 
 copy_filtered_tree "${SOURCE_HOME}/.e/e/config" "${TARGET_HOME}/.e/e/config" \
@@ -72,14 +73,28 @@ cat > "${TARGET_HOME}/.config/autostart/auzix-installer.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Install AuziX
-Comment=Start the guided AuziX installer after the desktop session is ready
+Comment=Desktop launcher is preferred; do not start the installer unattended
 Exec=/System/Tools/launch-auzix-installer --autostart
 Terminal=false
-X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-enabled=false
+Hidden=true
 EOF
 
 chmod 0644 "${TARGET_HOME}/.config/autostart/auzix-installer.desktop"
+
+cat > "${TARGET_HOME}/Desktop/Install AuziX.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Install AuziX
+Comment=Start the guided AuziX installer
+Exec=/System/Tools/launch-auzix-installer
+Icon=drive-harddisk
+Terminal=false
+Categories=System;Settings;
+EOF
+chmod 0755 "${TARGET_HOME}/Desktop/Install AuziX.desktop"
 chown -R 1000:1000 "${TARGET_HOME}/.config" 2>/dev/null || true
+chown -R 1000:1000 "${TARGET_HOME}/Desktop" 2>/dev/null || true
 
 cat > "${AUZIX_ROOT}/System/Settings/display/defaults/user-defaults-note.txt" <<TXT
 User desktop defaults staged from:

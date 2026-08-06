@@ -100,7 +100,6 @@ copy_dir_if_present /etc/pulse "${AUZIX_ROOT}/System/Settings/pulse"
 find \
   "${RUNTIME_USR}/lib/pulse-16.1+dfsg1" \
   "${RUNTIME_USR}/lib/x86_64-linux-gnu/pulseaudio" \
-  "${RUNTIME_LIB}" \
   -type f 2>/dev/null |
 while IFS= read -r file_path; do
   if file "${file_path}" | grep -q 'ELF'; then

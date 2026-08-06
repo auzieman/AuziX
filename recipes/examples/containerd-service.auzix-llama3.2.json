@@ -1,0 +1,31 @@
+{
+  "$schema": "../service.schema.json",
+  "name": "containerd",
+  "runtime": "host-process",
+  "program": {
+    "command": "/Programs/containerd/2.3/Commands/containerd",
+    "arguments": ["--config", "/System/Settings/containerd/config.toml"],
+    "environment": {
+      "PATH": "/System/Compatibility/bin:/Programs/runc/current/Commands:/Programs/containerd/current/Commands"
+    }
+  },
+  "paths": {
+    "settings": "/System/Settings/containerd",
+    "state": "/System/State/containerd",
+    "logs": "/System/Logs/containerd",
+    "work": "/Work/Containers"
+  },
+  "policy": {
+    "start": "boot",
+    "restart": "always",
+    "dependencies": ["network-online", "local-storage"]
+  },
+  "ports": [
+    {
+      "name": "containerd-socket",
+      "protocol": "unix",
+      "port": "/run/containerd/containerd.sock"
+    }
+  ],
+  "notes": "Containerd is the OCI runtime substrate. Auzix still models running identities under /Services and composed intent under /Stacks."
+}

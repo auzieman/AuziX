@@ -199,9 +199,9 @@ cat >"${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-installer.
 Type=Application
 Name=Install AuziX
 Comment=Install AuziX using the guided installer
-Exec=/System/Tools/auzix-installer-gui
+Exec=/System/Tools/launch-auzix-installer
 Icon=drive-harddisk
-Terminal=true
+Terminal=false
 Categories=System;Settings;
 Keywords=install;disk;system;
 EOF
@@ -287,11 +287,16 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
 }
 EOF
 
-LD_LIBRARY_PATH="${LUA_PROGRAM}/Libraries:${RUNTIME_LIB}:${RUNTIME_LIB64}" \
-  AUZIX_JQ="$(command -v jq)" \
-  "${LUA_PROGRAM}/Commands/lua.real" \
-  "${INSTALLER_PROGRAM}/Resources/auzix-installer.lua" \
-  validate "${INSTALLER_PROGRAM}/Resources/plans/default.json" >/dev/null
+if [[ "${AUZIX_SKIP_INSTALLER_SELFTEST:-0}" != "1" ]]; then
+  # This smoke test is valid only when the builder's jq ABI matches the staged
+  # compatibility runtime. Cross-era package builders should run the dedicated
+  # target-root test instead of loading host jq with staged libjq.
+  LD_LIBRARY_PATH="${LUA_PROGRAM}/Libraries:${RUNTIME_LIB}:${RUNTIME_LIB64}" \
+    AUZIX_JQ="$(command -v jq)" \
+    "${LUA_PROGRAM}/Commands/lua.real" \
+    "${INSTALLER_PROGRAM}/Resources/auzix-installer.lua" \
+    validate "${INSTALLER_PROGRAM}/Resources/plans/default.json" >/dev/null
+fi
 
 log "Lua installed at ${LUA_PROGRAM}"
 log "Dialog installed at ${DIALOG_PROGRAM}"

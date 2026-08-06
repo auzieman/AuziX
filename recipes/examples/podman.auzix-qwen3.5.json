@@ -1,0 +1,26 @@
+{
+  "$schema": "../service.schema.json",
+  "name": "podman",
+  "runtime": "host-process-nspawner",
+  "program": {
+    "command": "/Programs/podman/current/Commands/podman",
+    "arguments": ["--storage-driver=overlay"],
+    "environment": {
+      "PATH": "/System/Compatibility/bin:/Programs/runc/current/Commands:/Programs/containerd/current/Commands"
+    }
+  },
+  "paths": {
+    "settings": "/System/Settings/podman",
+    "state": "/System/State/podman",
+    "containers": "/System/Containers/Pods",
+    "images": "/System/Images/Layers",
+    "logs": "/System/Logs/podman"
+  },
+  "policy": {
+    "start": "boot-if-active-containers",
+    "restart": "always-for-services",
+    "dependencies": ["local-storage", "network-online"]
+  },
+  "ports": [],
+  "notes": "Podman is the Pod-compatible OCI runtime companion. Provides rootless containerization with Auzix service isolation."
+}

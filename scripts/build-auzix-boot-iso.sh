@@ -17,6 +17,11 @@ INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}"
 LIVE_ROOT_MODE="${AUZIX_LIVE_ROOT_MODE:-iso-root}"
 INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}"
 INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}"
+ISO_VOLID="${AUZIX_ISO_VOLID:-AUZIXLIVE}"
+# A beta image must boot on current physical hardware and normal Proxmox OVMF
+# guests.  Do not quietly publish another BIOS-only artifact unless an explicit
+# diagnostic build asks for one.
+REQUIRE_UEFI="${AUZIX_REQUIRE_UEFI:-1}"
 
 log() {
   printf '[auzix-iso] %s\n' "$*" >&2
@@ -27,6 +32,33 @@ need_cmd() {
     printf 'Required command not found: %s\n' "$1" >&2
     exit 1
   fi
+}
+
+require_uefi_grub() {
+  [[ "${REQUIRE_UEFI}" == "1" ]] || return 0
+
+  local efi_dir=""
+  for candidate in \
+    /usr/lib/grub/x86_64-efi \
+    /usr/lib/grub2/x86_64-efi \
+    /usr/share/grub2/x86_64-efi
+  do
+    if [[ -d "${candidate}" ]]; then
+      efi_dir="${candidate}"
+      break
+    fi
+  done
+
+  if [[ -z "${efi_dir}" ]]; then
+    cat >&2 <<'EOF'
+UEFI GRUB modules are not installed on this builder. Refusing to publish a
+BIOS-only beta ISO. Install the platform's x86_64 EFI GRUB module package, or
+set AUZIX_REQUIRE_UEFI=0 only for an explicitly labelled legacy-BIOS test.
+EOF
+    exit 1
+  fi
+
+  log "UEFI GRUB modules: ${efi_dir}"
 }
 
 copy_root_payload() {
@@ -194,12 +226,14 @@ load_storage_and_net() {
     crc32c_generic \
     crc32c-intel \
     cdrom \
+    loop \
     isofs \
     mbcache \
     jbd2 \
     ext2 \
     ext4 \
     overlay \
+    squashfs \
     e1000 \
     e1000e \
     pcnet32 \
@@ -246,9 +280,10 @@ SCRIPT
 }
 
 mount_live_iso_root() {
-  local dev iso_root lower merged upper work attempt
+  local dev iso_root root_image lower merged upper work attempt
   iso_root="/run/auzix-iso"
-  lower="${iso_root}/AuzixRoot"
+  root_image="${iso_root}/live/auzix-root.squashfs"
+  lower="/run/auzix-lower"
   merged="/run/auzix-root"
   upper="/run/auzix-upper"
   work="/run/auzix-work"
@@ -273,18 +308,33 @@ mount_live_iso_root() {
     echo "Failed to mount Auzix live ISO."
     return 1
   fi
-  if [ ! -x "${lower}/System/Boot/StartSequence" ]; then
-    echo "AuzixRoot missing from live ISO."
+  if [ ! -f "${root_image}" ]; then
+    echo "Auzix SquashFS root is missing from live ISO."
     return 1
   fi
 
-  mkdir -p "${lower}/proc" "${lower}/sys" "${lower}/dev" "${lower}/run" "${upper}" "${work}" 2>/dev/null || true
+  mkdir -p "${lower}"
+  if ! mount -t squashfs -o ro "${root_image}" "${lower}"; then
+    echo "Failed to mount Auzix SquashFS live root."
+    return 1
+  fi
+  if [ ! -x "${lower}/init" ] || [ ! -x "${lower}/System/Boot/StartSequence" ]; then
+    echo "Auzix live-root boot contract is incomplete."
+    return 1
+  fi
+
+  mkdir -p "${upper}" "${work}"
   if mount -t overlay overlay -o "lowerdir=${lower},upperdir=${upper},workdir=${work}" "${merged}" 2>/dev/null; then
     echo "live-root=overlay lower=${lower} upper=${upper}"
   else
-    echo "overlay-root-failed; falling back to readonly bind"
-    mount --bind "${lower}" "${merged}" 2>/dev/null || return 1
+    echo "Auzix live overlay root failed; refusing readonly desktop fallback."
+    return 1
   fi
+
+  # The SquashFS lower layer is read-only and does not carry runtime mount
+  # points.  Create them through the writable overlay before moving the
+  # initramfs mounts into the new root.
+  mkdir -p "${merged}/proc" "${merged}/sys" "${merged}/dev" "${merged}/run"
 
   mkdir -p /run/live-run "${merged}/run" 2>/dev/null || true
   mount -t tmpfs tmpfs /run/live-run 2>/dev/null || true
@@ -292,9 +342,9 @@ mount_live_iso_root() {
 
   mkdir -p "${merged}/run/live/iso" 2>/dev/null || true
   mount --move "${iso_root}" "${merged}/run/live/iso" 2>/dev/null || true
-  mount --move /proc "${merged}/proc" 2>/dev/null || true
-  mount --move /sys "${merged}/sys" 2>/dev/null || true
-  mount --move /dev "${merged}/dev" 2>/dev/null || true
+  mount --move /proc "${merged}/proc" || return 1
+  mount --move /sys "${merged}/sys" || return 1
+  mount --move /dev "${merged}/dev" || return 1
   exec "${BB}" switch_root "${merged}" /init
 }
 
@@ -334,7 +384,10 @@ if [ -n "${AUZIX_ROOT_DEVICE}" ]; then
   echo "Failed to mount requested Auzix root: ${AUZIX_ROOT_DEVICE}"
 fi
 
-mount_live_iso_root || true
+if ! mount_live_iso_root; then
+  echo "Auzix live-root handoff failed; remaining in initramfs rescue shell."
+  exec "${BB}" cttyhack "${BB}" sh
+fi
 
 if [ -c /dev/tty2 ]; then
   "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on tty2. Startup continues on console/tty1." >/dev/tty2; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty2 >/dev/tty2 2>&1' &
@@ -389,6 +442,9 @@ need_cmd cpio
 need_cmd file
 need_cmd gzip
 need_cmd grub-mkrescue
+need_cmd xorriso
+need_cmd mksquashfs
+require_uefi_grub
 select_kernel
 select_root
 detect_kernel_release
@@ -397,6 +453,20 @@ if [[ ! -f "${KERNEL_IMAGE}" ]]; then
   printf 'Kernel image not found: %s\n' "${KERNEL_IMAGE}" >&2
   exit 1
 fi
+KERNEL_REALPATH="$(readlink -f "${KERNEL_IMAGE}")"
+WORK_REALPATH="$(readlink -m "${WORK_DIR}")"
+case "${KERNEL_REALPATH}" in
+  "${WORK_REALPATH}"/*)
+    cat >&2 <<EOF
+Selected kernel is inside the ISO work directory:
+  kernel: ${KERNEL_REALPATH}
+  work:   ${WORK_REALPATH}
+The builder clears its work directory before assembling media, so this would
+erase the kernel. Copy or extract the kernel to a stable path first.
+EOF
+    exit 1
+    ;;
+esac
 if [[ ! -x "${ROOT_SOURCE}/Programs/BusyBox/1.36.1/Commands/busybox" ]]; then
   printf 'BusyBox payload missing from %s. Run make auzix-strict-busybox first.\n' "${ROOT_SOURCE}" >&2
   exit 1
@@ -414,6 +484,18 @@ if [[ ! -d "${ROOT_SOURCE}/System/Drivers/${KERNEL_RELEASE}" ]]; then
     printf 'Expected %s/System/Drivers/%s or /lib/modules/%s.\n' "${ROOT_SOURCE}" "${KERNEL_RELEASE}" "${KERNEL_RELEASE}" >&2
     exit 1
   fi
+fi
+
+if [[ "${LIVE_ROOT_MODE}" == "iso-root" ]]; then
+  for required_module in loop isofs overlay squashfs; do
+    if ! find "${ROOT_SOURCE}/System/Drivers/${KERNEL_RELEASE}" -type f \
+      \( -name "${required_module}.ko" -o -name "${required_module}.ko.xz" -o -name "${required_module}.ko.zst" \) \
+      -print -quit | grep -q .; then
+      printf 'Missing required live-ISO module %s for kernel %s. Rebuild the KernelModules receipt before building SquashFS media.\n' \
+        "${required_module}" "${KERNEL_RELEASE}" >&2
+      exit 1
+    fi
+  done
 fi
 
 rm -rf "${WORK_DIR}"
@@ -441,7 +523,7 @@ EOF
     ;;
   iso-root)
     log "Using split ISO-root live mode"
-    mkdir -p "${WORK_DIR}/iso/AuzixRoot"
+    mkdir -p "${WORK_DIR}/rootfs-stage" "${WORK_DIR}/iso/live"
     mkdir -p \
       "${WORK_DIR}/initramfs/bin" \
       "${WORK_DIR}/initramfs/Programs" \
@@ -460,16 +542,20 @@ EOF
       ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${WORK_DIR}/initramfs/System/Compatibility/bin/${applet}"
       ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${WORK_DIR}/initramfs/bin/${applet}"
     done
-    copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/iso/AuzixRoot"
+    copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/rootfs-stage"
     if [[ "${INCLUDE_LIVE_ASSETS}" != "1" ]]; then
-      rm -rf "${WORK_DIR}/iso/AuzixRoot/System/Settings/display/assets"
-      mkdir -p "${WORK_DIR}/iso/AuzixRoot/System/Settings/display/assets"
-      cat > "${WORK_DIR}/iso/AuzixRoot/System/Settings/display/assets/README.txt" <<'EOF'
+      rm -rf "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
+      mkdir -p "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
+      cat > "${WORK_DIR}/rootfs-stage/System/Settings/display/assets/README.txt" <<'EOF'
 Large Enlightenment assets are intentionally not embedded in the live ISO root.
 Stage them onto an installed root or package store with stage-auzix-enlightenment-assets.sh.
 Set AUZIX_INCLUDE_LIVE_ASSETS=1 only for media where a large ISO payload is acceptable.
 EOF
     fi
+    mksquashfs "${WORK_DIR}/rootfs-stage" "${WORK_DIR}/iso/live/auzix-root.squashfs" \
+      -noappend -comp gzip >/dev/null
+    test -s "${WORK_DIR}/iso/live/auzix-root.squashfs"
+    log "live root: /live/auzix-root.squashfs"
     ;;
   *)
     printf 'Unknown AUZIX_LIVE_ROOT_MODE=%s. Use initramfs or iso-root.\n' "${LIVE_ROOT_MODE}" >&2
@@ -494,7 +580,7 @@ elif [[ "${INCLUDE_ISO_ASSETS}" == "1" && -d "${ROOT_SOURCE}/System/Settings/dis
 fi
 write_grub_cfg "${WORK_DIR}/iso"
 
-grub-mkrescue -o "${ISO_PATH}" "${WORK_DIR}/iso" >/dev/null
+grub-mkrescue -o "${ISO_PATH}" "${WORK_DIR}/iso" -- -volid "${ISO_VOLID}" >/dev/null
 
 sha256sum "${ISO_PATH}" > "${ISO_PATH}.sha256"
 ls -lh "${ISO_PATH}" "${ISO_PATH}.sha256"

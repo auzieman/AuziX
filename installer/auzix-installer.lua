@@ -220,6 +220,41 @@ local function write_plan(output_plan, disk, bootloader, hostname, confirmed)
   return command_ok(create) and validate(output_plan)
 end
 
+-- This is deliberately a narrow frontend hand-off.  Native graphical
+-- frontends use it to create an *unconfirmed* plan, then the same validator
+-- and run gate used by the TUI remain responsible for any disk action.
+local function write_frontend_plan(output_plan, disk, bootloader, hostname, frontend)
+  if frontend ~= "graphical" and frontend ~= "tui" and frontend ~= "automation" then
+    io.stderr:write("auzix-installer: unsupported frontend: " .. tostring(frontend) .. "\n")
+    return false
+  end
+  if not output_plan or not disk or not bootloader or not hostname then
+    io.stderr:write("auzix-installer: plan requires OUTPUT_PLAN DISK BOOTLOADER HOSTNAME\n")
+    return false
+  end
+  command_ok("mkdir -p " .. shell_quote(output_plan:match("(.+)/[^/]+$") or "."))
+  local temporary = output_plan .. ".tmp"
+  local create = table.concat({
+    shell_quote(jq), "-n",
+    "--arg disk", shell_quote(disk),
+    "--arg bootloader", shell_quote(bootloader),
+    "--arg hostname", shell_quote(hostname),
+    "--arg frontend", shell_quote(frontend),
+    shell_quote([[{
+      format: "auzix-install-plan-v1",
+      target: {disk: $disk},
+      storage: {filesystem: "ext4"},
+      bootloader: {mode: $bootloader},
+      identity: {hostname: $hostname},
+      execution: {confirmed: false},
+      frontend: $frontend
+    }]]),
+    ">", shell_quote(temporary),
+    "&& mv", shell_quote(temporary), shell_quote(output_plan)
+  }, " ")
+  return command_ok(create) and validate(output_plan)
+end
+
 local function plan_summary_text(plan)
   return table.concat({
     "Installation disk: " .. field(plan, ".target.disk"),
@@ -310,6 +345,7 @@ Usage:
   auzix-installer run PLAN
   auzix-installer tui [OUTPUT_PLAN]
   auzix-installer tui-plan [OUTPUT_PLAN]
+  auzix-installer plan OUTPUT_PLAN DISK BOOTLOADER HOSTNAME [FRONTEND]
   auzix-installer questions
 
 The run command only accepts a validated, explicitly confirmed plan. tui-plan
@@ -334,6 +370,9 @@ elseif action == "tui" then
   ok = tui(arg[2], true)
 elseif action == "tui-plan" then
   ok = tui(arg[2], false)
+elseif action == "plan" then
+  ok = write_frontend_plan(arg[2], arg[3], arg[4], arg[5], arg[6] or "automation")
+  if ok then print("unconfirmed plan written to " .. arg[2]) end
 elseif action == "questions" then
   ok = command_ok(shell_quote(jq) .. " . " .. shell_quote(questions))
 elseif action == "--help" or action == "-h" or action == "help" then
