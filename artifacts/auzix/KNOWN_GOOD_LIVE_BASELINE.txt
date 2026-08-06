@@ -1,5 +1,5 @@
-AuziX known-good live baseline
-==============================
+AuziX last bootable live baseline
+=================================
 
 Artifact: auzix-live-theme-app-candidate.iso
 ISO SHA-256: dbc37d309059b70cc39e37b7a5e0be7d27dae770654bf3ccf7ddf7d142c25cb6
@@ -16,7 +16,12 @@ Runtime validation
 - DHCP configured eth0 as 192.168.1.60/24 with DNS 192.168.1.1.
 - udev, D-Bus, ACPI service, and the graphical display sequence started.
 - The baseline SSH daemon exited and TCP/22 did not listen. This is the narrow
-  recovery delta; it must not be addressed by rebuilding unrelated root state.
+  health-check report was later proven false: sshd was listening, but the
+  operator key was not authorized. Access remains a narrow configuration delta.
+- This is not a release-good application baseline. Runtime validation on
+  2026-08-06 also reproduced three regressions: Midori did not accept the site
+  certificate chain, the theme selector did not discover the bundled themes,
+  and the legacy installer launcher exited immediately.
 
 Visual evidence
 ---------------
@@ -24,12 +29,14 @@ Visual evidence
 - docs/images/Screenshot at 2026-08-05 16-05-42.png
 - docs/images/Screenshot at 2026-08-05 17-42-10.png
 - docs/images/Screenshot at 2026-08-05 19-46-43.png
+- docs/images/Screenshot at 2026-08-06 08-46-29.png
 
 Derivative rule
 ---------------
 
 Treat this ISO and its embedded SquashFS as immutable provenance inputs. A
 recovery derivative may change only explicitly declared SSH access files,
-InstallerEFL payload files, and a required initramfs handoff fix. Every build
-must originate from a committed, visible bkc.lab pipeline run and publish input
-and output hashes.
+InstallerEFL payload files, and separately declared fixes for CA discovery and
+theme discovery. The preserved baseline's working runtime mount handoff must not
+be replaced. Every build must originate from a committed, visible bkc.lab
+pipeline run and publish input and output hashes.
