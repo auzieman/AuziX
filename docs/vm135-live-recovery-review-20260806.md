@@ -102,10 +102,10 @@ Its reviewed delta is limited to live SSH access and InstallerEFL files.
   files are `/Users/auzix/.elementary/themes/E20-Scifi-theme.edj` and
   `/System/Compatibility/usr/share/elementary/themes/default.edj`. This Elive
   build therefore discovers live themes through the Elementary theme catalog.
-- VM135 was hotpatched by preserving the canonical package payload under
-  `/Programs/AuzixThemes/2026.06/Resources/themes` and hard-linking/copying its
-  20 custom EDJs beside the proven system `default.edj`. Do not move or delete
-  the `/Programs` payload.
+- VM135 was hotpatched by hard-linking/copying the 20 custom EDJs beside the
+  proven system `default.edj`. For the next ISO, consolidate the EDJs into this
+  live catalog and remove the redundant theme exports/package copies; retaining
+  duplicate locations is not a requirement.
 - Wallpaper discovery did work after replacing its compatibility symlinks with
   real files/hard links. Preserve that bounded package change.
 - The packaged Elive `enlightenment_remote` omits the legacy directory-query
