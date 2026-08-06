@@ -78,6 +78,14 @@
           "depends": ["AuzixInstaller", "Enlightenment"],
           "script": "scripts/build-auzix-installer-efl-package.sh",
           "notes": "Preferred native Enlightenment frontend. First pass emits an unconfirmed guarded plan through the existing installer contract."
+        },
+        {
+          "id": "AuzixPackageManagerEfl",
+          "tier": "frontend",
+          "state": "first-pass",
+          "depends": ["AuzixPackageTools", "Enlightenment"],
+          "script": "scripts/build-auzix-package-manager-efl-package.sh",
+          "notes": "Thin native EFL frontend for refresh, available-package queries, and auzix-pkg install transactions."
         }
       ]
     }
