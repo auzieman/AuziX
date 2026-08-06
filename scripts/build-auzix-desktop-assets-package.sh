@@ -73,8 +73,7 @@ ln -sfn /Programs/DesktopAssets/auzietek/Resources/display/assets \
 
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/themes/*.edj; do
   [[ -f "${asset}" ]] || continue
-  ln -sfn "/Programs/DesktopAssets/auzietek/Resources/display/assets/themes/$(basename "${asset}")" \
-    "${GLOBAL_THEMES}/$(basename "${asset}")"
+  ln -f "${asset}" "${GLOBAL_THEMES}/$(basename "${asset}")"
 done
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
   [[ -f "${asset}" ]] || continue
@@ -82,17 +81,16 @@ for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
     *.edj|*.jpg|*.jpeg|*.png|*.JPG|*.JPEG|*.PNG) ;;
     *) continue ;;
   esac
-  ln -sfn "/Programs/DesktopAssets/auzietek/Resources/display/assets/backgrounds/$(basename "${asset}")" \
-    "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
+  ln -f "${asset}" "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
 done
 
 asset_count="$(find "${ASSET_PROGRAM}/Resources/display/assets" -type f | wc -l | tr -d ' ')"
 asset_size="$(du -sb "${ASSET_PROGRAM}/Resources/display/assets" | awk '{print $1}')"
 exports_json="$(
   {
-    find "${GLOBAL_THEMES}" -maxdepth 1 -type l -printf '/%P\n' |
+    find "${GLOBAL_THEMES}" -maxdepth 1 -type f -printf '/%P\n' |
       sed "s#^/#/System/Compatibility/usr/share/elementary/themes/#"
-    find "${GLOBAL_BACKGROUNDS}" -maxdepth 1 -type l -printf '/%P\n' |
+    find "${GLOBAL_BACKGROUNDS}" -maxdepth 1 -type f -printf '/%P\n' |
       sed "s#^/#/System/Compatibility/usr/share/enlightenment/data/backgrounds/#"
   } | sort -u | jq -R . | jq -s .
 )"
