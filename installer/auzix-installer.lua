@@ -153,6 +153,45 @@ local function temp_path(name)
   return base .. "/auzix-installer-" .. name .. "-" .. tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
 end
 
+-- The graphical frontend never writes a confirmed plan. This backend gate
+-- revalidates its unconfirmed plan, rechecks the reviewed disk, and creates a
+-- private confirmed copy only for the duration of the executor run.
+local function confirm_and_run(plan, expected_disk)
+  if not validate(plan) then return false end
+  if field(plan, ".execution.confirmed") ~= "false" then
+    io.stderr:write("auzix-installer: confirmation input must be an unconfirmed plan\n")
+    return false
+  end
+  local disk = field(plan, ".target.disk")
+  if not expected_disk or disk ~= expected_disk then
+    io.stderr:write("auzix-installer: selected disk changed after review; refusing execution\n")
+    return false
+  end
+  if field(plan, ".storage.layout // \"whole\"") ~= "whole" then
+    io.stderr:write("auzix-installer: split storage execution is not implemented\n")
+    return false
+  end
+  if field(plan, ".packages.selected | length") ~= "0" then
+    io.stderr:write("auzix-installer: first-boot package execution is not implemented\n")
+    return false
+  end
+
+  local confirmed = temp_path("confirmed-plan")
+  if not confirmed then return false end
+  local command = table.concat({
+    shell_quote(jq), "-e", shell_quote('.execution.confirmed = true'),
+    shell_quote(plan), ">", shell_quote(confirmed),
+    "&& chmod 0600", shell_quote(confirmed)
+  }, " ")
+  if not command_ok(command) or not validate(confirmed) then
+    os.remove(confirmed)
+    return false
+  end
+  local ok = run(confirmed)
+  os.remove(confirmed)
+  return ok
+end
+
 local function dialog_value(args)
   local output = temp_path("dialog")
   if not output then
@@ -366,6 +405,7 @@ Usage:
   auzix-installer validate [PLAN]
   auzix-installer summary [PLAN]
   auzix-installer run PLAN
+  auzix-installer execute PLAN EXPECTED_DISK
   auzix-installer tui [OUTPUT_PLAN]
   auzix-installer tui-plan [OUTPUT_PLAN]
   auzix-installer plan OUTPUT_PLAN DISK BOOTLOADER HOSTNAME [FRONTEND USERNAME ROOT_POLICY LAYOUT HOME_PERCENT PACKAGES LOCALE TIMEZONE KEYBOARD]
@@ -374,6 +414,8 @@ Usage:
 The run command only accepts a validated, explicitly confirmed plan. tui-plan
 writes an unconfirmed plan. tui reviews that plan, performs a separate
 destructive confirmation, updates it atomically, and then invokes the executor.
+The execute command is the graphical handoff. It accepts an unconfirmed
+whole-disk plan, rechecks EXPECTED_DISK, and creates a private confirmed copy.
 ]])
 end
 
@@ -389,6 +431,8 @@ elseif action == "summary" then
   ok = summary(plan)
 elseif action == "run" then
   ok = run(arg[2])
+elseif action == "execute" then
+  ok = confirm_and_run(arg[2], arg[3])
 elseif action == "tui" then
   ok = tui(arg[2], true)
 elseif action == "tui-plan" then

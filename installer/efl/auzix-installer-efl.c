@@ -38,6 +38,7 @@ typedef struct {
   Ecore_Exe *runner;
   Ecore_Event_Handler *runner_handler;
   Eina_Bool plan_ready;
+  char reviewed_disk[256];
 } Installer;
 
 static const char *plan_path = "/Users/auzix/.local/state/auzix/installer/efl-pending-plan.json";
@@ -154,6 +155,7 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
            home_percent, packages, locale, timezone, keyboard);
   if (system(command) == 0) {
     ui->plan_ready = EINA_TRUE;
+    snprintf(ui->reviewed_disk, sizeof(ui->reviewed_disk), "%s", disk);
     elm_object_disabled_set(ui->run_button, EINA_FALSE);
     progress_open(ui, "Plan validated", "The selected disk has not changed.\nA guarded install plan is ready for final review.", EINA_FALSE);
     status_set(ui, "<color=#82d4bb>Plan validated and saved. Nothing has been written to disk.</color>");
@@ -168,7 +170,9 @@ static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
   char command[1024];
   progress_close(ui);
   progress_open(ui, "Installing AuziX", "Writing the confirmed plan. Do not power off this machine.\nThe live recovery environment stays available if the install reports a failure.", EINA_TRUE);
-  snprintf(command, sizeof(command), "/System/Tools/auzix-installer run '%s'", plan_path);
+  snprintf(command, sizeof(command),
+           "sudo -n /System/Tools/auzix-installer execute '%s' '%s'",
+           plan_path, ui->reviewed_disk);
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
@@ -183,8 +187,23 @@ static void begin_install_cb(void *data, Evas_Object *obj, void *event_info) {
     status_set(ui, "<color=#ffb86c>Validate a plan before requesting installation.</color>");
     return;
   }
-  progress_open(ui, "Final destructive confirmation",
-                "This runs the previously validated plan and erases its selected disk.\nChoose Install only after reviewing the plan.", EINA_FALSE);
+  if (elm_radio_value_get(ui->storage_layout) != 0) {
+    status_set(ui, "<color=#ffb86c>Split root/home execution is not ready. Select Whole disk for this installer slice.</color>");
+    return;
+  }
+  if (elm_check_state_get(ui->abiword) || elm_check_state_get(ui->gnumeric) ||
+      elm_check_state_get(ui->geany) || elm_check_state_get(ui->gimp) ||
+      elm_check_state_get(ui->mpv) || elm_check_state_get(ui->claws) ||
+      elm_check_state_get(ui->firefox) || elm_check_state_get(ui->zathura)) {
+    status_set(ui, "<color=#ffb86c>First-boot package execution is not ready. Clear package selections to install the base system.</color>");
+    return;
+  }
+  char warning[1024];
+  snprintf(warning, sizeof(warning),
+           "ERASE %s and install the validated AuziX live root?\n\n"
+           "This first executable slice retains the live image account defaults; identity fields are not applied yet.",
+           ui->reviewed_disk);
+  progress_open(ui, "Final destructive confirmation", warning, EINA_FALSE);
   Evas_Object *cancel = elm_button_add(ui->progress_popup);
   elm_object_text_set(cancel, "Cancel");
   evas_object_smart_callback_add(cancel, "clicked", cancel_install_cb, ui);
@@ -344,8 +363,8 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   ui.field = elm_check_add(package_box); elm_object_text_set(ui.field, label); \
   elm_check_state_set(ui.field, selected); elm_box_pack_end(package_box, ui.field); evas_object_show(ui.field); \
 } while (0)
-  ADD_PACKAGE_CHECK(abiword, "AbiWord — documents", EINA_TRUE);
-  ADD_PACKAGE_CHECK(gnumeric, "Gnumeric — spreadsheets", EINA_TRUE);
+  ADD_PACKAGE_CHECK(abiword, "AbiWord — documents (planned)", EINA_FALSE);
+  ADD_PACKAGE_CHECK(gnumeric, "Gnumeric — spreadsheets (planned)", EINA_FALSE);
   ADD_PACKAGE_CHECK(geany, "Geany — editor and lightweight IDE", EINA_FALSE);
   ADD_PACKAGE_CHECK(gimp, "GIMP — image editing", EINA_FALSE);
   ADD_PACKAGE_CHECK(mpv, "MPV — media playback", EINA_FALSE);

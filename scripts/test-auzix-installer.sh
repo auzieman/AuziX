@@ -146,6 +146,25 @@ jq -e '
 ' "${WORK_DIR}/graphical-plan.json" >/dev/null
 [[ ! -e "${WORK_DIR}/executor.log" ]] || rm -f "${WORK_DIR}/executor.log"
 
+run_tui_installer execute "${WORK_DIR}/graphical-plan.json" /dev/vda >/dev/null
+cat >"${WORK_DIR}/expected-graphical.log" <<'EOF'
+--force
+--bootloader
+grub
+/dev/vda
+EOF
+cmp "${WORK_DIR}/expected-graphical.log" "${WORK_DIR}/executor.log"
+if run_tui_installer execute "${WORK_DIR}/graphical-plan.json" /dev/vdb >/dev/null 2>&1; then
+  echo "Graphical execution accepted a disk that was not reviewed." >&2
+  exit 1
+fi
+jq '.packages.selected = ["Gnumeric"]' "${WORK_DIR}/graphical-plan.json" >"${WORK_DIR}/graphical-packages.json"
+if run_tui_installer execute "${WORK_DIR}/graphical-packages.json" /dev/vda >/dev/null 2>&1; then
+  echo "Graphical execution accepted unimplemented first-boot packages." >&2
+  exit 1
+fi
+rm -f "${WORK_DIR}/executor.log"
+
 run_tui_installer tui "${WORK_DIR}/confirmed-tui-plan.json" >/dev/null
 jq -e '.execution.confirmed == true' "${WORK_DIR}/confirmed-tui-plan.json" >/dev/null
 cmp "${WORK_DIR}/expected.log" "${WORK_DIR}/executor.log"
