@@ -61,6 +61,20 @@ Validated August 6/7, 2026:
 See `docs/2026-08-06-vm135-podman-proving-ground.md` for commands, decisions,
 and remaining release gates.
 
+### VM135 Does Not Complete ACPI Shutdown
+
+Observed during the August 6/7 nightly shutdown:
+
+- AUZiX containers stopped cleanly and the guest filesystem was synced.
+- `qm shutdown 135 --timeout 60` left VM135 running.
+- `qm stop 135 --timeout 30` was required and completed successfully.
+
+Next evidence:
+
+- verify the Lua/init service path handles the QEMU ACPI power-button event;
+- confirm the next installed image can power off from both the guest command
+  path and Proxmox `qm shutdown` before filming or unattended lab operation.
+
 ### Package Runtime Audit Is Noisy
 
 The first local audit-only `make auzix-core-validation` run produced:
