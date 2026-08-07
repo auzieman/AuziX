@@ -10,6 +10,8 @@ published or runtime-ready.
 - `installer-ui.*.json` defines the executable installer UI package batch.
 - `oci-and-python.queue.json` records the executable Podman dependency order
   and the deliberately scoped Python/Flask/MicroBlog follow-up batch.
+- `flatpak-desktop.queue.json` records the post-Podman Flatpak desktop lane:
+  Bubblewrap, OSTree, xdg-dbus-proxy, Flatpak, portals, and program adapters.
 
 The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and

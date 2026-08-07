@@ -1,0 +1,53 @@
+{
+  "$schema": "package-build-queue.schema.json",
+  "format": "auzix-package-build-queue-v1",
+  "batches": [
+    {
+      "id": "flatpak-minimal-runtime",
+      "purpose": "Port the smallest Flatpak substrate after Podman without accepting donor /usr, /lib, /bin, /etc, or /var paths as AUZiX root authority.",
+      "packages": [
+        {
+          "id": "Bubblewrap",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Libcap", "Seccomp"],
+          "notes": "Sandbox helper. First proof must run /Programs/Bubblewrap/current/Commands/bwrap --version without requiring /usr/bin/bwrap."
+        },
+        {
+          "id": "OSTree",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "GLib", "Curl", "OpenSSL", "Zlib"],
+          "notes": "Content-addressed backing store lives under /System/State/ostree; commands project through /Programs/OSTree/current/Commands."
+        },
+        {
+          "id": "XdgDbusProxy",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["DBus", "GLib"],
+          "notes": "Portal/dbus boundary helper. Keep runtime sockets under /run and AUZiX service state, not donor /var paths."
+        },
+        {
+          "id": "Flatpak",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["Bubblewrap", "OSTree", "XdgDbusProxy", "DBus", "GLib"],
+          "notes": "System installation state belongs under /System/State/flatpak and settings under /System/Settings/flatpak. No app is considered integrated until it has a /Programs/<App>/current adapter."
+        }
+      ]
+    },
+    {
+      "id": "flatpak-program-adapter-proof",
+      "purpose": "Expose one Flatpak application as a normal AUZiX program without making root-level compatibility links part of the base image.",
+      "packages": [
+        {
+          "id": "FlatpakFirefoxAdapter",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Flatpak"],
+          "notes": "Prototype /Programs/Firefox/current/Commands/firefox adapter that invokes Flatpak through AUZiX paths. The adapter may use /System/Compatibility only when the receipt marks it as break-fix debt."
+        }
+      ]
+    }
+  ]
+}

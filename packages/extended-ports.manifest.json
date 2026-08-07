@@ -63,6 +63,17 @@
         {"name": "Buildah", "source": {"kind": "debian-source", "package": "golang-github-containers-buildah", "version": "trixie"}, "prefix": "/Programs/Buildah/current", "commands": ["/Programs/Buildah/current/Commands/buildah"], "promotes": []},
         {"name": "Skopeo", "source": {"kind": "debian-source", "package": "skopeo", "version": "trixie"}, "prefix": "/Programs/Skopeo/current", "commands": ["/Programs/Skopeo/current/Commands/skopeo"], "promotes": []}
       ]
+    },
+    {
+      "id": "12-flatpak-desktop",
+      "purpose": "Prove external desktop application providers without promoting /usr, /lib, /bin, or other donor paths into the AUZiX root contract.",
+      "targets": [
+        {"name": "Bubblewrap", "state": "planned", "recipe": "packages/flatpak-desktop.queue.json", "source": {"kind": "debian-source", "package": "bubblewrap", "version": "trixie"}, "prefix": "/Programs/Bubblewrap/current", "commands": ["/Programs/Bubblewrap/current/Commands/bwrap"], "promotes": []},
+        {"name": "OSTree", "state": "planned", "recipe": "packages/flatpak-desktop.queue.json", "source": {"kind": "debian-source", "package": "ostree", "version": "trixie"}, "prefix": "/Programs/OSTree/current", "commands": ["/Programs/OSTree/current/Commands/ostree"], "promotes": ["/System/State/ostree"]},
+        {"name": "XdgDbusProxy", "state": "planned", "recipe": "packages/flatpak-desktop.queue.json", "source": {"kind": "debian-source", "package": "xdg-dbus-proxy", "version": "trixie"}, "prefix": "/Programs/XdgDbusProxy/current", "commands": ["/Programs/XdgDbusProxy/current/Commands/xdg-dbus-proxy"], "promotes": []},
+        {"name": "Flatpak", "state": "planned", "recipe": "packages/flatpak-desktop.queue.json", "source": {"kind": "debian-source", "package": "flatpak", "version": "trixie"}, "prefix": "/Programs/Flatpak/current", "commands": ["/Programs/Flatpak/current/Commands/flatpak"], "promotes": ["/System/State/flatpak", "/System/Settings/flatpak"]},
+        {"name": "FlatpakFirefoxAdapter", "state": "planned", "recipe": "packages/flatpak-desktop.queue.json", "source": {"kind": "local", "package": "flatpak-firefox-adapter", "version": "0.1"}, "prefix": "/Programs/Firefox/current", "commands": ["/Programs/Firefox/current/Commands/firefox"], "promotes": []}
+      ]
     }
   ]
 }
