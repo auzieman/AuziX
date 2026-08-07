@@ -1,0 +1,17 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "E2fsprogs",
+  "version": "auto",
+  "description": "Ext2/3/4 creation, checking, tuning, and resize tools.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "e2fsprogs", "graduation": "upstream-source"},
+  "commands": [
+    {"name": "mke2fs", "host_command": "mke2fs"},
+    {"name": "mkfs.ext2", "host_command": "mke2fs", "fixed_args": ["-t", "ext2"]},
+    {"name": "mkfs.ext3", "host_command": "mke2fs", "fixed_args": ["-t", "ext3"]},
+    {"name": "mkfs.ext4", "host_command": "mke2fs", "fixed_args": ["-t", "ext4"]},
+    {"name": "e2fsck", "host_command": "e2fsck"},
+    {"name": "tune2fs", "host_command": "tune2fs"},
+    {"name": "resize2fs", "host_command": "resize2fs"}
+  ],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/mke2fs.real -V 2>&1 | grep -F mke2fs", "truncate -s 16M /tmp/auzix-ext4-smoke.img && $AUZIX_COMMAND_ROOT/mke2fs.real -q -F -t ext4 -L AUZIXTEST /tmp/auzix-ext4-smoke.img", "$AUZIX_COMMAND_ROOT/e2fsck.real -fn /tmp/auzix-ext4-smoke.img", "test -x $AUZIX_COMMAND_ROOT/resize2fs.real"]}
+}

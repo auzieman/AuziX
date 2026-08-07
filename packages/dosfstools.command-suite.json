@@ -1,0 +1,13 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Dosfstools",
+  "version": "auto",
+  "description": "FAT filesystem creation and checking tools for EFI and removable media.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "dosfstools", "graduation": "upstream-source"},
+  "commands": [
+    {"name": "mkfs.fat", "host_command": "mkfs.fat"},
+    {"name": "fsck.fat", "host_command": "fsck.fat"},
+    {"name": "fatlabel", "host_command": "fatlabel"}
+  ],
+  "validation": {"smoke_commands": ["truncate -s 4M /tmp/auzix-fat-smoke.img && $AUZIX_COMMAND_ROOT/mkfs.fat.real -I -n AUZIXTEST /tmp/auzix-fat-smoke.img", "$AUZIX_COMMAND_ROOT/fsck.fat.real -n /tmp/auzix-fat-smoke.img", "$AUZIX_COMMAND_ROOT/fatlabel.real /tmp/auzix-fat-smoke.img | grep -F AUZIXTEST"]}
+}

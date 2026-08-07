@@ -33,6 +33,10 @@ auzix-base-ports-plan:
 auzix-extended-ports-plan:
 	AUZIX_BASE_PORTS_OUT=out/source-workbench/extended-ports ./scripts/generate-base-ports-plan.sh packages/extended-ports.manifest.json
 
+.PHONY: auzix-extended-filesystem-build
+auzix-extended-filesystem-build:
+	./scripts/run-auzix-extended-port-slice.sh filesystem-tools
+
 auzix-package-bot-test:
 	./scripts/test-auzix-package-bot.sh
 	./scripts/test-auzix-package-publish.sh

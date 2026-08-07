@@ -278,6 +278,18 @@ make auzix-extended-workbench-worker
 The worker remains plan-only. Ollama may receive a bounded failure packet once
 a phase runner exists, but it cannot publish packages or advance target state.
 
+The first executable extended slice builds E2fsprogs and Dosfstools as honest
+`first-pass-debian-repack` packages:
+
+```sh
+make auzix-extended-filesystem-build
+```
+
+It creates disposable ext4 and FAT images, checks both filesystems, and writes
+`out/source-workbench/extended-ports/filesystem-tools.report.json`. A failed
+slice writes a bounded packet below `extended-ports/failures/` and requests an
+advisory-only contract adjustment from the configured Ollama worker.
+
 Every target must install under `/Programs/<Name>/current` and promote shared
 runtime libraries only into `/System/Libraries`. The report lists the tools
 still inherited from Debian so each phase can shrink that list.
