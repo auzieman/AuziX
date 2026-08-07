@@ -32,6 +32,8 @@ fi
 if [[ -x "${COMMAND_PATH}" && -L "${AUZIX_ROOT}/System/Compatibility/bin/sh" ]]; then
   log "Reusing existing BusyBox payload at ${COMMAND_PATH}"
   mkdir -p "${AUZIX_ROOT}/System/Compatibility/bin"
+  ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}" \
+    "${AUZIX_ROOT}/Programs/BusyBox/current"
   ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
     "${AUZIX_ROOT}/System/Compatibility/bin/busybox"
   for applet in \
@@ -146,6 +148,8 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Compatibility/bin"
 
 install -m 0755 "${SOURCE_DIR}/busybox" "${COMMAND_PATH}"
+ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}" \
+  "${AUZIX_ROOT}/Programs/BusyBox/current"
 ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
   "${AUZIX_ROOT}/System/Compatibility/bin/busybox"
 for applet in \

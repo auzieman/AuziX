@@ -1,0 +1,20 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Nginx",
+  "version": "auto",
+  "description": "Small HTTP service used to prove the first AUZiX-managed container service.",
+  "source": {
+    "type": "debian-binary",
+    "suite": "trixie",
+    "package": "nginx-light",
+    "graduation": "upstream-source"
+  },
+  "commands": [
+    {"name": "nginx", "host_command": "nginx"}
+  ],
+  "validation": {
+    "smoke_commands": [
+      "$AUZIX_COMMAND_ROOT/nginx.real -v 2>&1 | grep -F nginx/"
+    ]
+  }
+}

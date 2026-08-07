@@ -48,7 +48,14 @@
       ]
     },
     {
-      "id": "10-docker-host",
+      "id": "10-first-container-services",
+      "purpose": "Prove the AUZiX service contract with a minimal HTTP workload after the OCI host is usable.",
+      "targets": [
+        {"name": "Nginx", "state": "first-pass", "recipe": "packages/nginx.command-suite.json", "source": {"kind": "debian-source", "package": "nginx", "version": "trixie"}, "prefix": "/Programs/Nginx/current", "commands": ["/Programs/Nginx/current/Commands/nginx"], "promotes": ["/Services/Nginx"]}
+      ]
+    },
+    {
+      "id": "11-docker-host",
       "purpose": "Add Docker and image builders after runtime network, volume, restart, and cgroup checks pass.",
       "targets": [
         {"name": "Docker", "source": {"kind": "debian-source", "package": "docker.io", "version": "trixie"}, "prefix": "/Programs/Docker/current", "commands": ["/Programs/Docker/current/Commands/docker", "/Programs/Docker/current/Commands/dockerd"], "promotes": ["/Services/docker"]},

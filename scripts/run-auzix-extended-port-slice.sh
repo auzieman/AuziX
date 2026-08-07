@@ -16,6 +16,10 @@ case "${SLICE}" in
     service=extended-filesystem-builder
     target=E2fsprogs-Dosfstools
     ;;
+  nginx)
+    service=extended-nginx-builder
+    target=Nginx
+    ;;
   *)
     printf 'Unknown extended-port slice: %s\n' "${SLICE}" >&2
     exit 2
