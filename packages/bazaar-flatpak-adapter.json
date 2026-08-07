@@ -9,6 +9,19 @@
   "commands": [
     {"name": "bazaar", "description": "Launch the Bazaar Flatpak app browser through AUZiX program paths."}
   ],
+  "desktop": {
+    "name": "Bazaar",
+    "generic_name": "App Store",
+    "comment": "Add, remove, or update Flatpak software on this computer",
+    "icon": "io.github.kolunmi.Bazaar",
+    "terminal": false,
+    "categories": ["GTK", "Utility"],
+    "mime_types": [
+      "x-scheme-handler/appstream",
+      "x-scheme-handler/flatpak",
+      "application/vnd.flatpak"
+    ]
+  },
   "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
   "validation": {
     "smoke_commands": ["/Programs/Bazaar/current/Commands/bazaar --help"],

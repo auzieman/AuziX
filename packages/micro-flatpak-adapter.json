@@ -9,6 +9,15 @@
   "commands": [
     {"name": "micro", "description": "Launch the Micro terminal text editor through AUZiX program paths."}
   ],
+  "desktop": {
+    "name": "Micro",
+    "generic_name": "Text Editor",
+    "comment": "Edit text files in a terminal",
+    "icon": "io.github.zyedidia.micro",
+    "terminal": true,
+    "categories": ["Utility", "TextEditor", "Development"],
+    "mime_types": ["text/plain"]
+  },
   "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
   "validation": {
     "smoke_commands": ["/Programs/Micro/current/Commands/micro --version"],
