@@ -104,8 +104,9 @@ install -m 0755 "${LUA_SOURCE}" "${LUA_PROGRAM}/Commands/lua.real"
 copy_runtime_deps "${LUA_SOURCE}" "${LUA_PROGRAM}"
 cat >"${LUA_PROGRAM}/Commands/lua" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
-export LD_LIBRARY_PATH="/Programs/Lua/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-exec /Programs/Lua/current/Commands/lua.real "$@"
+exec /Programs/Lua/current/Libraries/ld-linux-x86-64.so.2 \
+  --library-path /Programs/Lua/current/Libraries \
+  /Programs/Lua/current/Commands/lua.real "$@"
 SCRIPT
 chmod 0755 "${LUA_PROGRAM}/Commands/lua"
 

@@ -78,8 +78,9 @@ install -m 0755 "$(command -v jq)" "${PROGRAM_ROOT}/Commands/jq.real"
 copy_runtime_deps "$(command -v jq)"
 cat >"${PROGRAM_ROOT}/Commands/jq" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
-export LD_LIBRARY_PATH="/Programs/AuzixPackageTools/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-exec /Programs/AuzixPackageTools/current/Commands/jq.real "$@"
+exec /Programs/AuzixPackageTools/current/Libraries/ld-linux-x86-64.so.2 \
+  --library-path /Programs/AuzixPackageTools/current/Libraries \
+  /Programs/AuzixPackageTools/current/Commands/jq.real "$@"
 SCRIPT
 chmod 0755 "${PROGRAM_ROOT}/Commands/jq"
 
