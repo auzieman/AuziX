@@ -21,15 +21,20 @@ build_package Conmon conmon.command-suite.json
 build_package Crun crun.command-suite.json
 build_package Netavark netavark.command-suite.json
 build_package AardvarkDNS aardvark-dns.command-suite.json
+rm -rf "${AUZIX_ROOT}/Programs/ContainersCommon"
+find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
+  -name 'ContainersCommon-*.auzix.json' -delete 2>/dev/null || true
+"${ROOT_DIR}/scripts/build-auzix-containers-common-package.sh" "${AUZIX_ROOT}"
 build_package Podman podman.command-suite.json
 
 mapfile -t receipts < <(find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
   \( -name 'Conmon-*.auzix.json' -o -name 'Crun-*.auzix.json' \
      -o -name 'Netavark-*.auzix.json' -o -name 'AardvarkDNS-*.auzix.json' \
+     -o -name 'ContainersCommon-*.auzix.json' \
      -o -name 'Podman-*.auzix.json' \) | sort)
-[[ "${#receipts[@]}" -eq 5 ]]
+[[ "${#receipts[@]}" -eq 6 ]]
 
 jq -s '{format:"auzix-oci-runtime-slice-v1", status:"passed", packages:.}' \
   "${receipts[@]}" >"${REPORT_DIR}/oci-runtime.report.json"
 
-printf '[oci-runtime] built Conmon, Crun, Netavark, AardvarkDNS, and Podman\n'
+printf '[oci-runtime] built Conmon, Crun, Netavark, AardvarkDNS, ContainersCommon, and Podman\n'

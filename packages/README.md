@@ -8,6 +8,8 @@ published or runtime-ready.
 - `source-workbench.seed.json` defines the first desktop source-build lane.
 - `source-build.sources.json` holds proven or experimental package contracts.
 - `installer-ui.*.json` defines the executable installer UI package batch.
+- `oci-and-python.queue.json` records the executable Podman dependency order
+  and the deliberately scoped Python/Flask/MicroBlog follow-up batch.
 
 The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and

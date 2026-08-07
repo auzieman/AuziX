@@ -79,6 +79,8 @@ prepare_live_runtime_state() {
 mount_runtime() {
   is_mounted /proc || "${BB}" mount -t proc proc /proc 2>/dev/null || true
   is_mounted /sys || "${BB}" mount -t sysfs sysfs /sys 2>/dev/null || true
+  "${BB}" mkdir -p /sys/fs/cgroup
+  is_mounted /sys/fs/cgroup || "${BB}" mount -t cgroup2 cgroup2 /sys/fs/cgroup 2>/dev/null || true
   if [ -w /proc/sys/net/ipv4/ping_group_range ]; then
     echo "0 2147483647" >/proc/sys/net/ipv4/ping_group_range 2>/dev/null || true
   fi

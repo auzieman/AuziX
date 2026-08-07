@@ -195,8 +195,20 @@ else
 fi
 chmod 0700 "${AUZIX_ROOT}/Users/root/.ssh"
 
+cat > "${AUZIX_ROOT}/System/Settings/environment.sh" <<'EOF'
+# Canonical AUZiX interactive command environment.
+AUZIX_COMMAND_PATH=/System/Compatibility/bin:/System/Compatibility/sbin
+for auzix_commands in /Programs/*/current/Commands; do
+  [ -d "${auzix_commands}" ] || continue
+  AUZIX_COMMAND_PATH="${AUZIX_COMMAND_PATH}:${auzix_commands}"
+done
+export PATH="${AUZIX_COMMAND_PATH}"
+unset AUZIX_COMMAND_PATH auzix_commands
+EOF
+chmod 0644 "${AUZIX_ROOT}/System/Settings/environment.sh"
+
 cat > "${AUZIX_ROOT}/Users/root/.bash_profile" <<'EOF'
-export PATH=/System/Compatibility/bin:/System/Compatibility/sbin:/Programs/BusyBox/1.36.1/Commands:/Programs/Bash/5.2-host/Commands:/Programs/OpenSSH/host/Commands
+. /System/Settings/environment.sh
 export HOME=/Users/root
 export LANG=C
 export LC_ALL=C
@@ -204,14 +216,14 @@ cd "${HOME}" 2>/dev/null || cd /
 EOF
 
 cat > "${AUZIX_ROOT}/Users/root/.bashrc" <<'EOF'
-export PATH=/System/Compatibility/bin:/System/Compatibility/sbin:/Programs/BusyBox/1.36.1/Commands:/Programs/Bash/5.2-host/Commands:/Programs/OpenSSH/host/Commands
+. /System/Settings/environment.sh
 export LANG=C
 export LC_ALL=C
 alias ll='ls -l'
 EOF
 
 cat > "${AUZIX_ROOT}/Users/auzix/.bash_profile" <<'EOF'
-export PATH=/System/Compatibility/bin:/System/Compatibility/sbin:/Programs/BusyBox/1.36.1/Commands:/Programs/Bash/5.2-host/Commands:/Programs/OpenSSH/host/Commands
+. /System/Settings/environment.sh
 export HOME=/Users/auzix
 export LANG=C
 export LC_ALL=C
@@ -219,7 +231,7 @@ cd "${HOME}" 2>/dev/null || cd /
 EOF
 
 cat > "${AUZIX_ROOT}/Users/auzix/.bashrc" <<'EOF'
-export PATH=/System/Compatibility/bin:/System/Compatibility/sbin:/Programs/BusyBox/1.36.1/Commands:/Programs/Bash/5.2-host/Commands:/Programs/OpenSSH/host/Commands
+. /System/Settings/environment.sh
 export LANG=C
 export LC_ALL=C
 alias ll='ls -l'
@@ -334,6 +346,13 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Bash-${BASH_VERSION}.auzix.json" <<EOF
   ],
   "compatibility_exports": [
     "/System/Compatibility/bin/bash"
+  ],
+  "settings": [
+    "/System/Settings/environment.sh",
+    "/Users/root/.bash_profile",
+    "/Users/root/.bashrc",
+    "/Users/auzix/.bash_profile",
+    "/Users/auzix/.bashrc"
   ]
 }
 EOF

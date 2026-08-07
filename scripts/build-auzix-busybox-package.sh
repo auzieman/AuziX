@@ -24,6 +24,41 @@ require_cmd() {
   fi
 }
 
+write_receipt() {
+  cat > "${RECEIPT_PATH}" <<JSON
+{
+  "name": "BusyBox",
+  "version": "${BUSYBOX_VERSION}",
+  "kind": "program",
+  "migration_stage": "stage-2-native-paths",
+  "prefix": "/Programs/BusyBox/${BUSYBOX_VERSION}",
+  "paths": {
+    "current": "/Programs/BusyBox/current",
+    "libraries": "/Programs/BusyBox/${BUSYBOX_VERSION}/Libraries"
+  },
+  "commands": [
+    "/Programs/BusyBox/${BUSYBOX_VERSION}/Commands/busybox"
+  ],
+  "compatibility_exports": [
+    "/System/Compatibility/bin/busybox",
+    "/System/Compatibility/bin/sh",
+    "/System/Compatibility/bin/fdisk",
+    "/System/Compatibility/bin/id",
+    "/System/Compatibility/bin/ip",
+    "/System/Compatibility/bin/ping",
+    "/System/Compatibility/bin/udhcpc",
+    "/System/Compatibility/bin/wget",
+    "/System/Compatibility/bin/mkfs.ext2",
+    "/System/Compatibility/bin/ls",
+    "/System/Compatibility/bin/mount",
+    "/System/Compatibility/bin/readlink",
+    "/System/Compatibility/bin/sed",
+    "/System/Compatibility/bin/which"
+  ]
+}
+JSON
+}
+
 if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
   printf 'Auzix strict root is missing. Run scaffold-auzix-strict-root.sh first: %s\n' "${AUZIX_ROOT}" >&2
   exit 1
@@ -101,6 +136,7 @@ if [[ -x "${COMMAND_PATH}" && -L "${AUZIX_ROOT}/System/Compatibility/bin/sh" ]];
     ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
       "${AUZIX_ROOT}/System/Compatibility/bin/${applet}"
   done
+  write_receipt
   "${COMMAND_PATH}" sh -c 'echo busybox-shell-ok' > "${AUZIX_ROOT}/System/Logs/busybox/install-check.log"
   file "${COMMAND_PATH}"
   if command -v ldd >/dev/null 2>&1; then
@@ -220,32 +256,7 @@ do
     "${AUZIX_ROOT}/System/Compatibility/bin/${applet}"
 done
 
-cat > "${RECEIPT_PATH}" <<JSON
-{
-  "name": "BusyBox",
-  "version": "${BUSYBOX_VERSION}",
-  "kind": "program",
-  "migration_stage": "stage-2-native-paths",
-  "prefix": "/Programs/BusyBox/${BUSYBOX_VERSION}",
-  "commands": [
-    "/Programs/BusyBox/${BUSYBOX_VERSION}/Commands/busybox"
-  ],
-  "compatibility_exports": [
-    "/System/Compatibility/bin/busybox",
-    "/System/Compatibility/bin/sh",
-    "/System/Compatibility/bin/fdisk",
-    "/System/Compatibility/bin/ip",
-    "/System/Compatibility/bin/ping",
-    "/System/Compatibility/bin/udhcpc",
-    "/System/Compatibility/bin/mkfs.ext2",
-    "/System/Compatibility/bin/ls",
-    "/System/Compatibility/bin/mount",
-    "/System/Compatibility/bin/readlink",
-    "/System/Compatibility/bin/sed",
-    "/System/Compatibility/bin/which"
-  ]
-}
-JSON
+write_receipt
 
 "${COMMAND_PATH}" sh -c 'echo busybox-shell-ok' > "${AUZIX_ROOT}/System/Logs/busybox/install-check.log"
 file "${COMMAND_PATH}"

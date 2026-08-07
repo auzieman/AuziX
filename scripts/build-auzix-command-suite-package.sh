@@ -4,7 +4,7 @@ set -euo pipefail
 AUZIX_ROOT="${1:?usage: build-auzix-command-suite-package.sh ROOT RECIPE}"
 RECIPE="${2:?usage: build-auzix-command-suite-package.sh ROOT RECIPE}"
 
-for command_name in jq install ldd readlink; do
+for command_name in jq install ldd patchelf readlink; do
   command -v "${command_name}" >/dev/null 2>&1 || {
     printf 'Missing required command: %s\n' "${command_name}" >&2
     exit 1
@@ -29,7 +29,9 @@ libraries="${program}/Libraries"
 package_db="${AUZIX_ROOT}/System/PackageDB"
 
 mkdir -p "${program}/Commands" "${libraries}" "${package_db}" \
+  "${AUZIX_ROOT}/System/Compatibility/bin" \
   "${AUZIX_ROOT}/System/Compatibility/sbin" \
+  "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
   "${AUZIX_ROOT}/System/Compatibility/usr/sbin"
 
 copy_libraries() {
@@ -56,15 +58,23 @@ while IFS=$'\t' read -r export_name host_command; do
   fixed_args="$(jq -r --arg name "${export_name}" '
     .commands[] | select(.name == $name) | (.fixed_args // []) | map(@sh) | join(" ")
   ' "${RECIPE}")"
+  environment="$(jq -r --arg name "${export_name}" '
+    .commands[] | select(.name == $name) | (.environment // {})
+    | to_entries[] | "export " + .key + "=" + (.value | @sh)
+  ' "${RECIPE}")"
 cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
-exec "/Programs/${name}/current/Libraries/ld-linux-x86-64.so.2" \
-  --library-path "/Programs/${name}/current/Libraries" \
-  "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
+${environment}
+export LD_LIBRARY_PATH="/Programs/${name}/current/Libraries"
+exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
   chmod 0755 "${program}/Commands/${export_name}"
   ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
+    "${AUZIX_ROOT}/System/Compatibility/bin/${export_name}"
+  ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
     "${AUZIX_ROOT}/System/Compatibility/sbin/${export_name}"
+  ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
+    "${AUZIX_ROOT}/System/Compatibility/usr/bin/${export_name}"
   ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
     "${AUZIX_ROOT}/System/Compatibility/usr/sbin/${export_name}"
 done < <(jq -r '.commands[] | [.name, .host_command] | @tsv' "${RECIPE}")
@@ -86,7 +96,9 @@ jq \
     paths: {current: $current, libraries: $libraries},
     commands: [.commands[] | $prefix + "/Commands/" + .name],
     compatibility_exports: ([.commands[].name] | map(
+      "/System/Compatibility/bin/" + .,
       "/System/Compatibility/sbin/" + .,
+      "/System/Compatibility/usr/bin/" + .,
       "/System/Compatibility/usr/sbin/" + .
     )),
     validation,
@@ -100,5 +112,14 @@ while IFS= read -r smoke_command; do
   LD_LIBRARY_PATH="${libraries}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
     bash -o pipefail -ec "${smoke_command}"
 done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
+
+while IFS= read -r export_name; do
+  real_command="${program}/Commands/${export_name}.real"
+  if interpreter="$(patchelf --print-interpreter "${real_command}" 2>/dev/null)"; then
+    patchelf \
+      --set-interpreter "/Programs/${name}/current/Libraries/$(basename "${interpreter}")" \
+      "${real_command}"
+  fi
+done < <(jq -r '.commands[].name' "${RECIPE}")
 
 printf '[command-suite] built %s %s\n' "${name}" "${version}"

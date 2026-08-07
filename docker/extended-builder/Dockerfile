@@ -15,7 +15,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       netavark \
       aardvark-dns \
       podman \
-      nginx-light && \
+      nginx-light \
+      patchelf && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

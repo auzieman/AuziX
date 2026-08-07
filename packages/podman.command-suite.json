@@ -5,6 +5,14 @@
   "description": "Daemonless OCI container engine for AUZiX services and development workloads.",
   "source": {"type": "debian-binary", "suite": "trixie", "package": "podman", "graduation": "upstream-source"},
   "depends": ["BusyBox", "Conmon", "Crun", "ContainersCommon", "Netavark", "AardvarkDNS"],
-  "commands": [{"name": "podman", "host_command": "podman"}],
+  "commands": [{
+    "name": "podman",
+    "host_command": "podman",
+    "environment": {
+      "CONTAINERS_CONF": "/System/Settings/containers/containers.conf",
+      "CONTAINERS_STORAGE_CONF": "/System/Settings/containers/storage.conf",
+      "CONTAINERS_REGISTRIES_CONF": "/System/Settings/containers/registries.conf"
+    }
+  }],
   "validation": {"smoke_commands": ["HOME=/tmp XDG_CONFIG_HOME=/tmp $AUZIX_COMMAND_ROOT/podman.real --version 2>&1 | grep -i podman"]}
 }
