@@ -1,0 +1,10 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Crun",
+  "version": "auto",
+  "description": "Compact OCI runtime selected as the first AUZiX Podman runtime.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "crun", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [{"name": "crun", "host_command": "crun"}],
+  "validation": {"smoke_commands": ["XDG_RUNTIME_DIR=/tmp $AUZIX_COMMAND_ROOT/crun.real --version 2>&1 | grep -i crun"]}
+}

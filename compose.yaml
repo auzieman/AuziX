@@ -135,5 +135,17 @@ services:
     command: ["./scripts/build-auzix-nginx-package.sh"]
     profiles: ["extended-build"]
 
+  extended-oci-runtime-builder:
+    build:
+      context: .
+      dockerfile: docker/extended-builder/Dockerfile
+    image: auzix/extended-builder:local
+    user: "${AUZIX_BUILD_UID:-1000}:${AUZIX_BUILD_GID:-1000}"
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command: ["./scripts/build-auzix-oci-runtime-slice.sh"]
+    profiles: ["extended-build"]
+
 volumes:
   auzix-cache:

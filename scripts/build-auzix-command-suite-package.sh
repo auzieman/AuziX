@@ -57,7 +57,7 @@ while IFS=$'\t' read -r export_name host_command; do
     .commands[] | select(.name == $name) | (.fixed_args // []) | map(@sh) | join(" ")
   ' "${RECIPE}")"
 cat >"${program}/Commands/${export_name}" <<EOF
-#!/bin/sh
+#!/Programs/BusyBox/current/Commands/busybox sh
 exec "/Programs/${name}/current/Libraries/ld-linux-x86-64.so.2" \
   --library-path "/Programs/${name}/current/Libraries" \
   "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
@@ -91,6 +91,7 @@ jq \
     )),
     validation,
     source,
+    depends: (.depends // ["BusyBox"]),
     notes: "First-pass command-suite repack. Graduate to an upstream source build before declaring the port native."
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 

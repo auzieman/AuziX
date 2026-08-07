@@ -29,8 +29,8 @@
       "purpose": "Prove OCI execution, storage, cgroups, and networking before a high-level runtime.",
       "targets": [
         {"name": "Runc", "source": {"kind": "debian-source", "package": "runc", "version": "trixie"}, "prefix": "/Programs/Runc/current", "commands": ["/Programs/Runc/current/Commands/runc"], "promotes": []},
-        {"name": "Crun", "source": {"kind": "debian-source", "package": "crun", "version": "trixie"}, "prefix": "/Programs/Crun/current", "commands": ["/Programs/Crun/current/Commands/crun"], "promotes": ["/System/Libraries"]},
-        {"name": "Conmon", "source": {"kind": "debian-source", "package": "conmon", "version": "trixie"}, "prefix": "/Programs/Conmon/current", "commands": ["/Programs/Conmon/current/Commands/conmon"], "promotes": []},
+        {"name": "Crun", "state": "first-pass", "recipe": "packages/crun.command-suite.json", "depends": ["BusyBox"], "source": {"kind": "debian-source", "package": "crun", "version": "trixie"}, "prefix": "/Programs/Crun/current", "commands": ["/Programs/Crun/current/Commands/crun"], "promotes": ["/System/Libraries"]},
+        {"name": "Conmon", "state": "first-pass", "recipe": "packages/conmon.command-suite.json", "depends": ["BusyBox"], "source": {"kind": "debian-source", "package": "conmon", "version": "trixie"}, "prefix": "/Programs/Conmon/current", "commands": ["/Programs/Conmon/current/Commands/conmon"], "promotes": []},
         {"name": "Containerd", "source": {"kind": "debian-source", "package": "containerd", "version": "trixie"}, "prefix": "/Programs/Containerd/current", "commands": ["/Programs/Containerd/current/Commands/containerd", "/Programs/Containerd/current/Commands/ctr"], "promotes": ["/Services/containerd"]},
         {"name": "CNIPlugins", "source": {"kind": "debian-source", "package": "containernetworking-plugins", "version": "trixie"}, "prefix": "/Programs/CNIPlugins/current", "commands": [], "promotes": []},
         {"name": "FuseOverlayfs", "source": {"kind": "debian-source", "package": "fuse-overlayfs", "version": "trixie"}, "prefix": "/Programs/FuseOverlayfs/current", "commands": ["/Programs/FuseOverlayfs/current/Commands/fuse-overlayfs"], "promotes": []},
@@ -42,9 +42,9 @@
       "purpose": "Add the rootless-first Podman lane after the OCI substrate passes.",
       "targets": [
         {"name": "ContainersCommon", "source": {"kind": "debian-source", "package": "libpod", "version": "trixie"}, "prefix": "/Programs/ContainersCommon/current", "commands": [], "promotes": ["/System/Settings/containers"]},
-        {"name": "Netavark", "source": {"kind": "debian-source", "package": "netavark", "version": "trixie"}, "prefix": "/Programs/Netavark/current", "commands": ["/Programs/Netavark/current/Commands/netavark"], "promotes": []},
-        {"name": "AardvarkDNS", "source": {"kind": "debian-source", "package": "aardvark-dns", "version": "trixie"}, "prefix": "/Programs/AardvarkDNS/current", "commands": ["/Programs/AardvarkDNS/current/Commands/aardvark-dns"], "promotes": []},
-        {"name": "Podman", "source": {"kind": "debian-source", "package": "libpod", "version": "trixie"}, "prefix": "/Programs/Podman/current", "commands": ["/Programs/Podman/current/Commands/podman"], "promotes": []}
+        {"name": "Netavark", "state": "first-pass", "recipe": "packages/netavark.command-suite.json", "depends": ["BusyBox"], "source": {"kind": "debian-source", "package": "netavark", "version": "trixie"}, "prefix": "/Programs/Netavark/current", "commands": ["/Programs/Netavark/current/Commands/netavark"], "promotes": []},
+        {"name": "AardvarkDNS", "state": "first-pass", "recipe": "packages/aardvark-dns.command-suite.json", "depends": ["BusyBox", "Netavark"], "source": {"kind": "debian-source", "package": "aardvark-dns", "version": "trixie"}, "prefix": "/Programs/AardvarkDNS/current", "commands": ["/Programs/AardvarkDNS/current/Commands/aardvark-dns"], "promotes": []},
+        {"name": "Podman", "state": "first-pass", "recipe": "packages/podman.command-suite.json", "depends": ["BusyBox", "Conmon", "Crun", "ContainersCommon", "Netavark", "AardvarkDNS"], "source": {"kind": "debian-source", "package": "libpod", "version": "trixie"}, "prefix": "/Programs/Podman/current", "commands": ["/Programs/Podman/current/Commands/podman"], "promotes": []}
       ]
     },
     {

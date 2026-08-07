@@ -20,6 +20,10 @@ case "${SLICE}" in
     service=extended-nginx-builder
     target=Nginx
     ;;
+  oci-runtime)
+    service=extended-oci-runtime-builder
+    target=Conmon-Crun-Netavark-AardvarkDNS
+    ;;
   *)
     printf 'Unknown extended-port slice: %s\n' "${SLICE}" >&2
     exit 2

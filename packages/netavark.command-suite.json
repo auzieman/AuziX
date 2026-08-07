@@ -1,0 +1,10 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Netavark",
+  "version": "auto",
+  "description": "Podman network configuration engine.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "netavark", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [{"name": "netavark", "host_command": "/usr/lib/podman/netavark"}],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/netavark.real --version 2>&1 | grep -i netavark"]}
+}

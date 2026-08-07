@@ -1,0 +1,10 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "AardvarkDNS",
+  "version": "auto",
+  "description": "DNS companion for Netavark-managed Podman networks.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "aardvark-dns", "graduation": "upstream-source"},
+  "depends": ["BusyBox", "Netavark"],
+  "commands": [{"name": "aardvark-dns", "host_command": "/usr/lib/podman/aardvark-dns"}],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/aardvark-dns.real --version 2>&1 | grep -i aardvark"]}
+}

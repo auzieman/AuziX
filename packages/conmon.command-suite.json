@@ -1,0 +1,10 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Conmon",
+  "version": "auto",
+  "description": "OCI container monitor used by Podman.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "conmon", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [{"name": "conmon", "host_command": "conmon"}],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/conmon.real --version 2>&1 | grep -i conmon"]}
+}
