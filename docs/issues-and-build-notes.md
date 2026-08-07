@@ -75,6 +75,52 @@ Next evidence:
 - confirm the next installed image can power off from both the guest command
   path and Proxmox `qm shutdown` before filming or unattended lab operation.
 
+### VM135 Flatpak App Proof And Shortcut Contract
+
+Validated August 7, 2026:
+
+- `CACerts` ports Debian `ca-certificates` into the AUZiX trust-store
+  contract and fixes Flatpak/Flathub TLS.
+- `GnuPG` provides `gpg`, `gpgconf`, `gpg-agent`, `gpgsm`, and `gpgv` through
+  `/Programs/GnuPG/current/Commands`, fixing Flatpak's GPGME engine setup.
+- VM135 can search Flathub, install Flatpak runtimes, and install apps from
+  Flathub.
+- Installed proof apps:
+  - `io.github.zyedidia.micro` / Micro Text Editor `2.0.15`
+  - `io.github.kolunmi.Bazaar` / Bazaar `0.9.2`
+- `MicroFlatpakAdapter` and `BazaarFlatpakAdapter` expose short AUZiX commands:
+  - `/Programs/Micro/current/Commands/micro`
+  - `/Programs/Bazaar/current/Commands/bazaar`
+- `FlatpakRuntimeSupport` changes `/var` from a top-level symlink into a real
+  alias directory with children such as `/var/lib -> /System/State/lib`.
+  Bubblewrap refuses a top-level `/var` symlink, but accepts the alias-directory
+  shape.
+
+Evidence:
+
+```sh
+sudo auzix-pkg install CACerts GnuPG FlatpakRuntimeSupport \
+  MicroFlatpakAdapter BazaarFlatpakAdapter
+/Programs/Micro/current/Commands/micro --version
+/Programs/Bazaar/current/Commands/bazaar --help
+```
+
+Observed:
+
+- `micro --version` works over SSH after `FlatpakRuntimeSupport`.
+- Bazaar gets past Bubblewrap and stops only at the expected SSH-session GUI
+  boundary: no active display.
+
+Next package-factory rule:
+
+- Add a scanner that reads installed Flatpak refs and exports them as AUZiX
+  adapter recipes/packages. Users should get `/Programs/<App>/current/Commands`
+  launchers and optional `/System/Compatibility/bin` links, not reverse-DNS
+  commands like `flatpak run io.github.zyedidia.micro`.
+- The scanner should read Flatpak metadata (`command=...`, app id, version,
+  runtime, desktop file/appdata when present), produce
+  `auzix-flatpak-adapter-v1` recipes, and rebuild the package repository.
+
 ### Package Runtime Audit Is Noisy
 
 The first local audit-only `make auzix-core-validation` run produced:
