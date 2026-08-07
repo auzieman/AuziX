@@ -1,0 +1,39 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Clementine",
+  "package_name": "ClementineFlatpakAdapter",
+  "version": "1.4.0rc2",
+  "description": "Expose Flathub Clementine as a normal AUZiX music-player launcher.",
+  "flatpak_ref": "org.clementine_player.Clementine",
+  "flatpak_command": "clementine",
+  "commands": [
+    {"name": "clementine", "description": "Launch the Clementine music player through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Clementine",
+    "generic_name": "Clementine Music Player",
+    "comment": "Plays music files and Internet radio",
+    "icon": "org.clementine_player.Clementine",
+    "terminal": false,
+    "categories": ["AudioVideo", "Player", "Qt", "Audio"],
+    "mime_types": [
+      "audio/mpeg",
+      "audio/ogg",
+      "audio/x-flac",
+      "audio/x-wav",
+      "audio/x-mpegurl",
+      "application/ogg"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Clementine/current/Commands/clementine --version"],
+    "known_blockers": [
+      {
+        "id": "desktop-audio-session",
+        "status": "open",
+        "message": "Clementine expects a graphical/audio session for full runtime validation."
+      }
+    ]
+  }
+}

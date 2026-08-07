@@ -161,6 +161,7 @@ auzix-strict-flatpak-runtime-support:
 auzix-strict-flatpak-adapters:
 	./scripts/build-auzix-flatpak-adapter-package.sh out/auzix-strict/AuzixRoot packages/micro-flatpak-adapter.json
 	./scripts/build-auzix-flatpak-adapter-package.sh out/auzix-strict/AuzixRoot packages/bazaar-flatpak-adapter.json
+	./scripts/build-auzix-flatpak-adapter-package.sh out/auzix-strict/AuzixRoot packages/clementine-flatpak-adapter.json
 
 auzix-strict-host-e:
 	./scripts/build-auzix-host-enlightenment-package.sh
