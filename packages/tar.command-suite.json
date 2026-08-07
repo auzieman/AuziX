@@ -1,0 +1,12 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Tar",
+  "version": "auto",
+  "description": "GNU tar for package inspection, handoff archives, and compatibility with non-BusyBox tar flags.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "tar", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [
+    {"name": "tar", "host_command": "tar"}
+  ],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/tar.real --version 2>&1 | grep -i tar"]}
+}

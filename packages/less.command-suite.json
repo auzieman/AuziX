@@ -1,0 +1,12 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Less",
+  "version": "auto",
+  "description": "Pager for reading logs, notes, package receipts, and command output.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "less", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [
+    {"name": "less", "host_command": "less"}
+  ],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/less.real --version 2>&1 | grep -i less"]}
+}

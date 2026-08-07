@@ -1,0 +1,12 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Gzip",
+  "version": "auto",
+  "description": "GNU gzip/gunzip/zcat tools for archives, logs, and package repository workflows.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "gzip", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [
+    {"name": "gzip", "host_command": "gzip"}
+  ],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/gzip.real --version 2>&1 | grep -i gzip"]}
+}

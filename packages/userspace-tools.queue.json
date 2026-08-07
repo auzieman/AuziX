@@ -1,0 +1,53 @@
+{
+  "$schema": "package-build-queue.schema.json",
+  "format": "auzix-package-build-queue-v1",
+  "batches": [
+    {
+      "id": "userspace-terminal-tools",
+      "purpose": "Grow the installed AUZiX userland with small terminal tools that fit the /Programs command-suite pattern before heavier native packages.",
+      "packages": [
+        {
+          "id": "Less",
+          "tier": "userland",
+          "state": "first-pass",
+          "recipe": "packages/less.command-suite.json",
+          "depends": ["BusyBox"],
+          "notes": "Pager for logs, receipts, docs, and long command output."
+        },
+        {
+          "id": "Tar",
+          "tier": "userland",
+          "state": "first-pass",
+          "recipe": "packages/tar.command-suite.json",
+          "depends": ["BusyBox"],
+          "notes": "GNU tar compatibility package; BusyBox tar remains base fallback."
+        },
+        {
+          "id": "Gzip",
+          "tier": "userland",
+          "state": "first-pass",
+          "recipe": "packages/gzip.command-suite.json",
+          "depends": ["BusyBox"],
+          "notes": "GNU gzip/gunzip/zcat compatibility package for logs and package workflows."
+        },
+        {
+          "id": "Git",
+          "tier": "developer",
+          "state": "planned-full-package",
+          "depends": ["CACerts", "OpenSSH", "Curl", "GnuPG"],
+          "notes": "Do not ship as a plain command-suite binary only; Git also needs git-core helpers, templates, exec-path, and CA/SSH integration."
+        }
+      ]
+    },
+    {
+      "id": "flatpak-user-app-adapters",
+      "purpose": "Expose installed Flatpak apps as AUZiX commands and menu entries.",
+      "packages": [
+        {"id": "MicroFlatpakAdapter", "state": "first-pass", "depends": ["FlatpakRuntimeSupport"]},
+        {"id": "BazaarFlatpakAdapter", "state": "first-pass", "depends": ["FlatpakRuntimeSupport"]},
+        {"id": "ClementineFlatpakAdapter", "state": "first-pass", "depends": ["FlatpakRuntimeSupport"]}
+      ],
+      "next": "Replace hand-authored adapter recipes with a scanner that reads installed Flatpak refs and emits auzix-flatpak-adapter-v1 recipes."
+    }
+  ]
+}
