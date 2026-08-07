@@ -58,6 +58,7 @@ if [[ -x "${COMMAND_PATH}" && -L "${AUZIX_ROOT}/System/Compatibility/bin/sh" ]];
     grep \
     head \
     hostname \
+    id \
     ifconfig \
     ip \
     ls \
@@ -93,6 +94,7 @@ if [[ -x "${COMMAND_PATH}" && -L "${AUZIX_ROOT}/System/Compatibility/bin/sh" ]];
     uname \
     vi \
     wc \
+    wget \
     which \
     xargs
   do
@@ -174,6 +176,7 @@ for applet in \
   grep \
   head \
   hostname \
+  id \
   ifconfig \
   ip \
   ls \
@@ -209,6 +212,7 @@ for applet in \
   uname \
   vi \
   wc \
+  wget \
   which \
   xargs
 do
