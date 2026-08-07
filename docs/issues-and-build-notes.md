@@ -95,6 +95,9 @@ Validated August 7, 2026:
   alias directory with children such as `/var/lib -> /System/State/lib`.
   Bubblewrap refuses a top-level `/var` symlink, but accepts the alias-directory
   shape.
+- `FlatpakRuntimeSupport` also exposes
+  `/var/lib/flatpak -> /System/State/flatpak`; Bazaar requests the conventional
+  system Flatpak path inside its sandbox.
 
 Evidence:
 
@@ -110,6 +113,10 @@ Observed:
 - `micro --version` works over SSH after `FlatpakRuntimeSupport`.
 - Bazaar gets past Bubblewrap and stops only at the expected SSH-session GUI
   boundary: no active display.
+- If Bazaar prompts for login in a graphical session, treat that as a
+  Flatpak-system-helper/Polkit/portal package boundary, not an adapter or
+  `/var` path failure. Bazaar requests `org.freedesktop.Flatpak.SystemHelper`
+  on the system bus.
 
 Next package-factory rule:
 

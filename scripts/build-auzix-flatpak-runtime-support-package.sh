@@ -54,6 +54,8 @@ for name in tmp lib cache log run; do
   "${BB}" ln -sfn "${STATE}/${name}" "/var/${name}"
 done
 
+"${BB}" ln -sfn "${STATE}/flatpak" "${STATE}/lib/flatpak"
+
 echo "FlatpakRuntimeSupport: /var is a real alias directory for ${STATE}"
 EOF
 chmod 0755 "${PROGRAM}/Commands/repair-var-alias"
@@ -84,10 +86,11 @@ cat >"${PACKAGE_DB}/FlatpakRuntimeSupport-${VERSION}.auzix.json" <<EOF
       "test -d /var",
       "test ! -L /var",
       "test -L /var/lib",
+      "test -L /var/lib/flatpak",
       "/Programs/Micro/current/Commands/micro --version"
     ]
   },
-  "notes": "AUZiX still owns state under /System/State. /var is not an authority root; it is a compatibility alias directory because Bubblewrap refuses a top-level /var symlink during Flatpak app execution."
+  "notes": "AUZiX still owns state under /System/State. /var is not an authority root; it is a compatibility alias directory because Bubblewrap refuses a top-level /var symlink during Flatpak app execution. /var/lib/flatpak aliases /System/State/flatpak for Flatpak apps that request the conventional system installation path."
 }
 EOF
 
