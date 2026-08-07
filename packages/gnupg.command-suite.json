@@ -1,0 +1,40 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "GnuPG",
+  "version": "auto",
+  "description": "OpenPGP engine used by GPGME-backed package and Flatpak signature verification.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "gpg", "graduation": "upstream-source"},
+  "depends": ["BusyBox", "CACerts"],
+  "commands": [
+    {
+      "name": "gpg",
+      "host_command": "gpg",
+      "environment": {"GNUPGHOME": "/System/State/gnupg"}
+    },
+    {
+      "name": "gpgconf",
+      "host_command": "gpgconf",
+      "environment": {"GNUPGHOME": "/System/State/gnupg"}
+    },
+    {
+      "name": "gpg-agent",
+      "host_command": "gpg-agent",
+      "environment": {"GNUPGHOME": "/System/State/gnupg"}
+    },
+    {
+      "name": "gpgsm",
+      "host_command": "gpgsm",
+      "environment": {"GNUPGHOME": "/System/State/gnupg"}
+    },
+    {
+      "name": "gpgv",
+      "host_command": "gpgv"
+    }
+  ],
+  "validation": {
+    "smoke_commands": [
+      "$AUZIX_COMMAND_ROOT/gpg.real --version 2>&1 | grep -i gnupg",
+      "$AUZIX_COMMAND_ROOT/gpgconf.real --version 2>&1 | grep -i gpgconf"
+    ]
+  }
+}

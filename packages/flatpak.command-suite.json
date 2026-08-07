@@ -1,17 +1,22 @@
 {
   "format": "auzix-command-suite-v1",
   "name": "Flatpak",
-  "version": "1.16.1",
+  "version": "auto",
   "description": "Desktop application distribution and sandbox substrate exposed through AUZiX program paths.",
   "source": {"type": "host-binary", "suite": "lab", "package": "flatpak", "graduation": "upstream-source"},
-  "depends": ["BusyBox", "Bubblewrap", "OSTree", "XdgDbusProxy", "DBus"],
+  "depends": ["BusyBox", "Bubblewrap", "OSTree", "XdgDbusProxy", "DBus", "CACerts", "GnuPG"],
   "commands": [{
     "name": "flatpak",
     "host_command": "flatpak",
     "environment": {
       "FLATPAK_SYSTEM_DIR": "/System/State/flatpak",
       "OSTREE_REPO": "/System/State/ostree/repo"
-    }
+    },
+    "shell_prelude": [
+      "export PATH=/Programs/GnuPG/current/Commands:/Programs/OSTree/current/Commands:/Programs/Bubblewrap/current/Commands:/Programs/XdgDbusProxy/current/Commands:${PATH}",
+      "/Programs/BusyBox/current/Commands/busybox mkdir -p /System/State/gnupg 2>/dev/null || true",
+      "/Programs/BusyBox/current/Commands/busybox chmod 0700 /System/State/gnupg 2>/dev/null || true"
+    ]
   }],
   "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/flatpak.real --version 2>&1 | grep -i flatpak"]}
 }

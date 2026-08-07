@@ -20,11 +20,13 @@ build_package() {
 build_package Bubblewrap bubblewrap.command-suite.json
 build_package OSTree ostree.command-suite.json
 build_package XdgDbusProxy xdg-dbus-proxy.command-suite.json
+build_package GnuPG gnupg.command-suite.json
 build_package Flatpak flatpak.command-suite.json
 
 mkdir -p \
   "${AUZIX_ROOT}/System/State/flatpak" \
   "${AUZIX_ROOT}/System/State/ostree/repo" \
+  "${AUZIX_ROOT}/System/State/gnupg" \
   "${AUZIX_ROOT}/System/Settings/flatpak"
 
 flatpak_receipt="$(find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name 'Flatpak-*.auzix.json' | sort | tail -1)"
@@ -40,10 +42,11 @@ mv "${ostree_receipt}.tmp" "${ostree_receipt}"
 
 mapfile -t receipts < <(find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
   \( -name 'Bubblewrap-*.auzix.json' -o -name 'OSTree-*.auzix.json' \
-     -o -name 'XdgDbusProxy-*.auzix.json' -o -name 'Flatpak-*.auzix.json' \) | sort)
-[[ "${#receipts[@]}" -eq 4 ]]
+     -o -name 'XdgDbusProxy-*.auzix.json' -o -name 'GnuPG-*.auzix.json' \
+     -o -name 'Flatpak-*.auzix.json' \) | sort)
+[[ "${#receipts[@]}" -eq 5 ]]
 
 jq -s '{format:"auzix-flatpak-runtime-slice-v1", status:"passed", packages:.}' \
   "${receipts[@]}" >"${REPORT_DIR}/flatpak-runtime.report.json"
 
-printf '[flatpak-runtime] built Bubblewrap, OSTree, XdgDbusProxy, and Flatpak\n'
+printf '[flatpak-runtime] built Bubblewrap, OSTree, XdgDbusProxy, GnuPG, and Flatpak\n'

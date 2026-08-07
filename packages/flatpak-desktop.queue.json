@@ -28,11 +28,18 @@
           "notes": "Portal/dbus boundary helper. Keep runtime sockets under /run and AUZiX service state, not donor /var paths."
         },
         {
+          "id": "GnuPG",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "CACerts"],
+          "notes": "Provides gpg/gpgconf/gpg-agent/gpgsm/gpgv through /Programs/GnuPG/current/Commands so Flatpak/GPGME can verify signed remote summaries without donor /usr/bin paths."
+        },
+        {
           "id": "Flatpak",
           "tier": "runtime",
           "state": "planned",
-          "depends": ["Bubblewrap", "OSTree", "XdgDbusProxy", "DBus", "GLib"],
-          "notes": "System installation state belongs under /System/State/flatpak and settings under /System/Settings/flatpak. No app is considered integrated until it has a /Programs/<App>/current adapter."
+          "depends": ["Bubblewrap", "OSTree", "XdgDbusProxy", "DBus", "GLib", "CACerts", "GnuPG"],
+          "notes": "System installation state belongs under /System/State/flatpak and settings under /System/Settings/flatpak. Remote metadata reads must validate Flathub TLS and GPGME/GnuPG engine setup before an app is considered pullable. No app is considered integrated until it has a /Programs/<App>/current adapter."
         }
       ]
     },
