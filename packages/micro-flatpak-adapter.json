@@ -1,0 +1,23 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Micro",
+  "package_name": "MicroFlatpakAdapter",
+  "version": "2.0.15",
+  "description": "Expose Flathub Micro as a normal AUZiX editor command.",
+  "flatpak_ref": "io.github.zyedidia.micro",
+  "flatpak_command": "micro",
+  "commands": [
+    {"name": "micro", "description": "Launch the Micro terminal text editor through AUZiX program paths."}
+  ],
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
+  "validation": {
+    "smoke_commands": ["/Programs/Micro/current/Commands/micro --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-bwrap-var-symlink",
+        "status": "open",
+        "message": "Flatpak app execution currently fails when bubblewrap tries to create sandbox /var while AUZiX exposes /var -> /System/State."
+      }
+    ]
+  }
+}

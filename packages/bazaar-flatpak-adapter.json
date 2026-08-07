@@ -1,0 +1,23 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Bazaar",
+  "package_name": "BazaarFlatpakAdapter",
+  "version": "0.9.2",
+  "description": "Expose Flathub Bazaar as a normal AUZiX app-discovery launcher.",
+  "flatpak_ref": "io.github.kolunmi.Bazaar",
+  "flatpak_command": "bazaar",
+  "commands": [
+    {"name": "bazaar", "description": "Launch the Bazaar Flatpak app browser through AUZiX program paths."}
+  ],
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
+  "validation": {
+    "smoke_commands": ["/Programs/Bazaar/current/Commands/bazaar --help"],
+    "known_blockers": [
+      {
+        "id": "flatpak-bwrap-var-symlink",
+        "status": "open",
+        "message": "Flatpak app execution currently fails when bubblewrap tries to create sandbox /var while AUZiX exposes /var -> /System/State."
+      }
+    ]
+  }
+}
