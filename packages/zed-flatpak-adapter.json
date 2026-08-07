@@ -1,0 +1,35 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Zed",
+  "package_name": "ZedFlatpakAdapter",
+  "version": "1.14.2",
+  "description": "Expose Flathub Zed as a normal AUZiX code-editor launcher.",
+  "flatpak_ref": "dev.zed.Zed",
+  "flatpak_command": "zed",
+  "commands": [
+    {"name": "zed", "description": "Launch the Zed code editor through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Zed",
+    "generic_name": "Code Editor",
+    "comment": "High-performance code editor",
+    "icon": "dev.zed.Zed",
+    "terminal": false,
+    "categories": ["Development", "TextEditor", "IDE"],
+    "mime_types": [
+      "text/plain",
+      "inode/directory"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Zed/current/Commands/zed --version"],
+    "known_blockers": [
+      {
+        "id": "desktop-session-integration",
+        "status": "open",
+        "message": "Zed expects a graphical desktop session, GPU stack, and user portal/secrets services for full validation."
+      }
+    ]
+  }
+}

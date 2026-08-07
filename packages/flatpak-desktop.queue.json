@@ -45,14 +45,46 @@
     },
     {
       "id": "flatpak-program-adapter-proof",
-      "purpose": "Expose one Flatpak application as a normal AUZiX program without making root-level compatibility links part of the base image.",
+      "purpose": "Expose Flatpak applications as normal AUZiX programs without making root-level compatibility links part of the base image.",
       "packages": [
         {
-          "id": "FlatpakFirefoxAdapter",
+          "id": "MicroFlatpakAdapter",
           "tier": "frontend",
+          "state": "built",
+          "recipe": "packages/micro-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
+          "notes": "Terminal editor proof. Provides /Programs/Micro/current/Commands/micro and exported desktop metadata."
+        },
+        {
+          "id": "BazaarFlatpakAdapter",
+          "tier": "frontend",
+          "state": "built",
+          "recipe": "packages/bazaar-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts"],
+          "notes": "Flatpak app-browser proof. CLI launch works; full app-store behavior still wants desktop portal/system-helper/session services."
+        },
+        {
+          "id": "ClementineFlatpakAdapter",
+          "tier": "frontend",
+          "state": "built",
+          "recipe": "packages/clementine-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+          "notes": "Music-player proof. Confirms AUZiX can expose heavier GUI apps while audio/session validation remains a desktop lane."
+        },
+        {
+          "id": "ZedFlatpakAdapter",
+          "tier": "frontend",
+          "state": "built",
+          "recipe": "packages/zed-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+          "notes": "Modern code-editor proof for dev workstation testing. Zed payload is Flathub-managed under /System/State/flatpak; AUZiX owns the /Programs/Zed launcher and desktop entry."
+        },
+        {
+          "id": "GnomeSettingsDesktopControl",
+          "tier": "desktop-control",
           "state": "planned",
-          "depends": ["Flatpak"],
-          "notes": "Prototype /Programs/Firefox/current/Commands/firefox adapter that invokes Flatpak through AUZiX paths. The adapter may use /System/Compatibility only when the receipt marks it as break-fix debt."
+          "depends": ["DBus", "FlatpakRuntimeSupport", "XdgDesktopPortal", "AccountsService", "PolicyKit"],
+          "notes": "Control-panel lane. Package GNOME Settings/control-center dependencies as desktop/session infrastructure, not as a simple Flatpak shortcut."
         }
       ]
     }
