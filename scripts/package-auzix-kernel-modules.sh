@@ -13,6 +13,7 @@ HOST_MODULE_DIR="/lib/modules/${KERNEL_RELEASE}"
 TARGET_MODULE_DIR="${AUZIX_ROOT}/System/Drivers/${KERNEL_RELEASE}"
 INCLUDE_GRAPHICS="${AUZIX_INCLUDE_GRAPHICS_MODULES:-1}"
 INCLUDE_AUDIO="${AUZIX_INCLUDE_AUDIO_MODULES:-0}"
+INCLUDE_CONTAINER_HOST="${AUZIX_INCLUDE_CONTAINER_HOST_MODULES:-1}"
 declare -A COPIED_MODULES=()
 declare -A COPIED_PATHS=()
 
@@ -192,6 +193,30 @@ audio_module_names=(
   snd-hda-intel
 )
 
+container_host_module_names=(
+  bridge
+  br_netfilter
+  veth
+  tun
+  nfnetlink
+  nf_tables
+  nft_chain_nat
+  nft_compat
+  nft_counter
+  nft_ct
+  nf_conntrack
+  nf_defrag_ipv4
+  nf_nat
+  x_tables
+  ip_tables
+  iptable_filter
+  iptable_nat
+  xt_MASQUERADE
+  xt_addrtype
+  xt_comment
+  xt_conntrack
+)
+
 for module in "${module_names[@]}"; do
   copy_module_name "${module}"
 done
@@ -212,6 +237,17 @@ fi
 if [[ "${INCLUDE_AUDIO}" == "1" ]]; then
   for module in "${audio_module_names[@]}"; do
     copy_module_name "${module}"
+  done
+fi
+if [[ "${INCLUDE_CONTAINER_HOST}" == "1" ]]; then
+  for module in "${container_host_module_names[@]}"; do
+    copy_module_name "${module}"
+  done
+  for required_container_module in bridge veth nf_tables; do
+    if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_container_module}.ko" -print -quit | grep -q .; then
+      printf 'Required container-host module was not packaged: %s\n' "${required_container_module}" >&2
+      exit 1
+    fi
   done
 fi
 
@@ -242,9 +278,9 @@ cat > "${AUZIX_ROOT}/System/PackageDB/KernelModules-${KERNEL_RELEASE}.auzix.json
   "kind": "system",
   "migration_stage": "stage-1-compat-install",
   "prefix": "/System/Drivers/${KERNEL_RELEASE}",
-  "notes": "Minimal host kernel modules needed for VM disk, network, ISO, and ext filesystems. Optional early DRM/input and Intel HDA audio modules are gated by AUZIX_INCLUDE_GRAPHICS_MODULES=1 and AUZIX_INCLUDE_AUDIO_MODULES=1."
+  "notes": "Minimal host kernel modules needed for VM disk, network, ISO, ext filesystems, and the rootful container-host bridge. Optional early DRM/input and Intel HDA audio modules are gated separately."
 }
 JSON
 
 log "Packaged modules into ${TARGET_MODULE_DIR}"
-log "Optional module gates: graphics=${INCLUDE_GRAPHICS} audio=${INCLUDE_AUDIO}"
+log "Module gates: graphics=${INCLUDE_GRAPHICS} audio=${INCLUDE_AUDIO} container_host=${INCLUDE_CONTAINER_HOST}"

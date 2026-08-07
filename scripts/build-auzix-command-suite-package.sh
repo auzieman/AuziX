@@ -62,9 +62,13 @@ while IFS=$'\t' read -r export_name host_command; do
     .commands[] | select(.name == $name) | (.environment // {})
     | to_entries[] | "export " + .key + "=" + (.value | @sh)
   ' "${RECIPE}")"
+  shell_prelude="$(jq -r --arg name "${export_name}" '
+    .commands[] | select(.name == $name) | (.shell_prelude // [])[]
+  ' "${RECIPE}")"
 cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 ${environment}
+${shell_prelude}
 export LD_LIBRARY_PATH="/Programs/${name}/current/Libraries"
 exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF

@@ -269,6 +269,13 @@ render:x:105:root,auzix
 audio:x:29:root,auzix
 EOF
 
+cat > "${AUZIX_ROOT}/System/Settings/subuid" <<'EOF'
+auzix:100000:65536
+EOF
+cat > "${AUZIX_ROOT}/System/Settings/subgid" <<'EOF'
+auzix:100000:65536
+EOF
+
 cat > "${AUZIX_ROOT}/System/Settings/shadow" <<EOF
 root:${ROOT_SHADOW}:19700:0:99999:7:::
 auzix:\$6\$KWazk/HqqlvaI6Ea\$vkl9YiHeS22wtMLINxyZMO6PnbMea1YYMXM5c0Osgf2AiQCDQc.ThzmQgl.21MBekV0Oi/PoVoFB6wzxzGnUT0:19700:0:99999:7:::
@@ -349,6 +356,8 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Bash-${BASH_VERSION}.auzix.json" <<EOF
   ],
   "settings": [
     "/System/Settings/environment.sh",
+    "/System/Settings/subuid",
+    "/System/Settings/subgid",
     "/Users/root/.bash_profile",
     "/Users/root/.bashrc",
     "/Users/auzix/.bash_profile",

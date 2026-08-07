@@ -12,6 +12,7 @@ RECEIPT="${AUZIX_ROOT}/System/PackageDB/ContainersCommon-${VERSION}.auzix.json"
 mkdir -p \
   "${PROGRAM}/Resources" \
   "${SETTINGS}/registries.conf.d" \
+  "${SETTINGS}/rootless/auzix" \
   "${AUZIX_ROOT}/System/PackageDB"
 
 install -m 0644 /usr/share/containers/containers.conf \
@@ -65,6 +66,40 @@ graphroot = "/Work/Containers/storage"
 mountopt = "nodev"
 EOF
 
+cat >"${SETTINGS}/rootless/auzix/containers.conf" <<'EOF'
+[containers]
+default_sysctls = ["net.ipv4.ping_group_range=0 0"]
+seccomp_profile = "/System/Settings/containers/seccomp.json"
+
+[engine]
+conmon_path = ["/Programs/Conmon/current/Commands/conmon"]
+helper_binaries_dir = [
+  "/Programs/Netavark/current/Commands",
+  "/Programs/AardvarkDNS/current/Commands"
+]
+runtime = "crun"
+events_logger = "file"
+events_logfile_path = "/Users/auzix/.local/state/containers/events/events.log"
+volume_path = "/Users/auzix/.local/share/containers/volumes"
+
+[engine.runtimes]
+crun = ["/Programs/Crun/current/Commands/crun"]
+
+[network]
+network_backend = "netavark"
+network_config_dir = "/Users/auzix/.local/state/containers/networks"
+EOF
+
+cat >"${SETTINGS}/rootless/auzix/storage.conf" <<'EOF'
+[storage]
+driver = "overlay"
+runroot = "/Users/auzix/.local/state/containers/runroot"
+graphroot = "/Users/auzix/.local/share/containers/storage"
+
+[storage.options.overlay]
+mountopt = "nodev"
+EOF
+
 ln -sfn "/Programs/ContainersCommon/${VERSION}" \
   "${AUZIX_ROOT}/Programs/ContainersCommon/current"
 
@@ -93,6 +128,8 @@ jq -n \
       files: [
         "/System/Settings/containers/containers.conf",
         "/System/Settings/containers/storage.conf",
+        "/System/Settings/containers/rootless/auzix/containers.conf",
+        "/System/Settings/containers/rootless/auzix/storage.conf",
         "/System/Settings/containers/seccomp.json",
         "/System/Settings/containers/policy.json",
         "/System/Settings/containers/registries.conf"

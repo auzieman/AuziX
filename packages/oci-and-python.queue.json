@@ -6,12 +6,13 @@
       "id": "oci-runtime-first-pass",
       "purpose": "Build the minimal rootful Podman dependency closure before storage and container execution validation.",
       "packages": [
+        {"id": "Uidmap", "tier": "rootless-runtime", "state": "planned", "depends": ["BusyBox"], "notes": "Port newuidmap/newgidmap and install subordinate ID ranges before promoting rootless image execution."},
         {"id": "Conmon", "tier": "runtime", "state": "first-pass", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox"], "notes": "Container monitor; first-pass Debian repack."},
         {"id": "Crun", "tier": "runtime", "state": "first-pass", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox"], "notes": "Selected initial OCI runtime; runc remains optional."},
         {"id": "Netavark", "tier": "runtime", "state": "first-pass", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox"], "notes": "Podman network engine; CNI bundle omitted from the initial lane."},
         {"id": "AardvarkDNS", "tier": "runtime", "state": "first-pass", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox", "Netavark"], "notes": "DNS companion for Netavark."},
         {"id": "ContainersCommon", "tier": "runtime", "state": "first-pass", "script": "scripts/build-auzix-containers-common-package.sh", "depends": [], "notes": "Registry, policy, seccomp, and containers.conf resources."},
-        {"id": "Podman", "tier": "runtime", "state": "vm135-validated", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox", "Conmon", "Crun", "ContainersCommon", "Netavark", "AardvarkDNS"], "notes": "VM135 passed info, Docker archive import, AUZiX BusyBox and Nginx execution, registry pull, and Alpine execution. Boot must mount proc, sysfs, devtmpfs/devpts, and cgroup2 before container services."}
+        {"id": "Podman", "tier": "runtime", "state": "vm135-rootful-validated", "script": "scripts/build-auzix-oci-runtime-slice.sh", "depends": ["BusyBox", "Conmon", "Crun", "ContainersCommon", "Netavark", "AardvarkDNS"], "notes": "VM135 passed rootful info, Docker archive import, AUZiX BusyBox and Nginx execution, registry pull, and Alpine execution. Rootless info passes with isolated state; image execution awaits Uidmap. Boot must mount proc, sysfs, devtmpfs/devpts, and cgroup2 before container services."}
       ]
     },
     {

@@ -12,7 +12,18 @@
       "CONTAINERS_CONF": "/System/Settings/containers/containers.conf",
       "CONTAINERS_STORAGE_CONF": "/System/Settings/containers/storage.conf",
       "CONTAINERS_REGISTRIES_CONF": "/System/Settings/containers/registries.conf"
-    }
+    },
+    "shell_prelude": [
+      "AUZIX_UID=$(/Programs/BusyBox/current/Commands/busybox id -u)",
+      "if [ \"${AUZIX_UID}\" != 0 ]; then",
+      "  export CONTAINERS_CONF=/System/Settings/containers/rootless/auzix/containers.conf",
+      "  export CONTAINERS_STORAGE_CONF=/System/Settings/containers/rootless/auzix/storage.conf",
+      "  export XDG_RUNTIME_DIR=/Users/auzix/.local/state/run",
+      "  /Programs/BusyBox/current/Commands/busybox mkdir -p \"${XDG_RUNTIME_DIR}\" /Users/auzix/.local/state/containers/events /Users/auzix/.local/state/containers/networks /Users/auzix/.local/share/containers/storage /Users/auzix/.local/share/containers/volumes",
+      "  /Programs/BusyBox/current/Commands/busybox chmod 0700 \"${XDG_RUNTIME_DIR}\"",
+      "fi",
+      "unset AUZIX_UID"
+    ]
   }],
   "validation": {"smoke_commands": ["HOME=/tmp XDG_CONFIG_HOME=/tmp $AUZIX_COMMAND_ROOT/podman.real --version 2>&1 | grep -i podman"]}
 }
