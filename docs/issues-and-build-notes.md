@@ -46,31 +46,20 @@ Do not return to a bulk `strict-all` rebuild to repair one package. Advance
 one package receipt at a time through: source/build contract -> runtime audit
 -> strict root -> container smoke -> ISO -> disposable VM.
 
-### VM135 Live ISO Appears Hung
+### VM135 Installed-System Validation (Supersedes Prior Hang Note)
 
-Observed on June 21, 2026:
+Validated August 6/7, 2026:
 
-- Proxmox reports VM135 as `running`.
-- Boot order is ISO first: `ide2;scsi0;net0`.
-- VM135 MAC is `56:81:B6:4E:FD:36`.
-- Proxmox neighbor table only shows IPv6 link-local for that MAC:
-  `fe80::5481:b6ff:fe4e:fd36`.
-- No confirmed DHCP IPv4 address was observed.
-- QEMU process was alive with low CPU usage and no disk writes.
+- VM135 boots the installed AUZiX root and is reachable at `192.168.1.60`.
+- `auzix-pkg refresh` reads 110 packages from the public repository.
+- ext4 tooling and the rootful Podman runtime pass functional tests.
+- AUZiX BusyBox and Nginx images plus upstream Alpine execute successfully.
+- Rootless initialization passes; rootless unpack awaits Uidmap.
+- Netavark bridge creation fails because the active module tree omits bridge,
+  veth, and netfilter modules.
 
-Interpretation: the guest booted far enough to initialize the virtual NIC, but
-this is not a healthy installer validation state.
-
-Next useful evidence:
-
-```sh
-qm status 135 --verbose
-qm config 135
-ip neigh show | grep -i 56:81:B6:4E:FD:36
-```
-
-If graphical console access is available, capture whether the hang is before
-Enlightenment, during the first-run/config path, or after installer autostart.
+See `docs/2026-08-06-vm135-podman-proving-ground.md` for commands, decisions,
+and remaining release gates.
 
 ### Package Runtime Audit Is Noisy
 

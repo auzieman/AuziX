@@ -57,6 +57,8 @@ The foundational bootstrap stack includes:
 - **Terminals:** Terminology and XTerm
 - **Network Browsers:** NetSurf (minimal), Midori (pragmatic)
 - **Package Management:** Explicit `/System/PackageDB` receipts, `.auzix.tar.gz` artifacts with `index.json` manifests
+- **Container Host:** AUZiX-packaged Podman, Conmon, Crun, Netavark, and AardvarkDNS with strict program, configuration, state, and storage paths
+- **Service Images:** 2.31 MB BusyBox container zero and 15.5 MB non-root Nginx container one
 - **Boot & Install:** GRUB-backed installer for standalone BIOS/UEFI VM boot; Live ISO with complete root mounted directly
 
 ![Midori](docs/images/auzix-midori.jpg)
@@ -95,6 +97,7 @@ docs/build-flow-notes.md
 docs/source-workbench.md
 docs/issues-and-build-notes.md
 docs/core-validation-loop.md
+docs/2026-08-06-vm135-podman-proving-ground.md
 ```
 
 **Direct host build flow:**
