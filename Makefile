@@ -1,4 +1,4 @@
-.PHONY: compose-build compose-run kustomize-base kustomize-nfs auzix-installer-builder auzix-source-workbench auzix-source-workbench-review auzix-native-workbench auzix-native-workbench-review auzix-native-workbench-worker auzix-base-ports-plan auzix-strict-all auzix-core-validation auzix-image auzix-vdi auzix-vbox-create auzix-run auzix-gui auzix-vagrant-up auzix-vagrant-up-vbox auzix-vagrant-ssh auzix-vagrant-destroy auzix-strict-root auzix-strict-probe auzix-strict-dynprobe auzix-strict-busybox auzix-strict-live-tools auzix-strict-access auzix-strict-iputils auzix-strict-package-tools auzix-strict-installer auzix-strict-installer-test auzix-strict-grub auzix-strict-sudo auzix-strict-dbus auzix-strict-udev auzix-strict-acpid auzix-strict-pulseaudio auzix-strict-alsa auzix-strict-strace auzix-strict-curl auzix-strict-midori auzix-strict-host-e auzix-strict-host-xorg auzix-strict-host-terminology auzix-strict-host-xterm auzix-strict-netsurf auzix-strict-lightdm auzix-strict-display-templates auzix-strict-e-assets auzix-strict-desktop-assets-package auzix-strict-desktop-repo-packages auzix-strict-user-defaults auzix-strict-kernel-modules auzix-strict-package-repo auzix-strict-container auzix-strict-pruned-test auzix-strict-audit auzix-strict-iso clean
+.PHONY: compose-build compose-run kustomize-base kustomize-nfs auzix-installer-builder auzix-source-workbench auzix-source-workbench-review auzix-native-workbench auzix-native-workbench-review auzix-native-workbench-worker auzix-base-ports-plan auzix-strict-all auzix-core-validation auzix-image auzix-vdi auzix-vbox-create auzix-run auzix-gui auzix-vagrant-up auzix-vagrant-up-vbox auzix-vagrant-ssh auzix-vagrant-destroy auzix-strict-root auzix-strict-probe auzix-strict-dynprobe auzix-strict-busybox auzix-strict-live-tools auzix-strict-access auzix-strict-iputils auzix-strict-package-tools auzix-strict-installer auzix-strict-installer-test auzix-strict-grub auzix-strict-sudo auzix-strict-dbus auzix-strict-udev auzix-strict-acpid auzix-strict-pulseaudio auzix-strict-alsa auzix-strict-strace auzix-strict-curl auzix-strict-midori auzix-strict-host-e auzix-strict-host-xorg auzix-strict-host-terminology auzix-strict-host-xterm auzix-strict-netsurf auzix-strict-lightdm auzix-strict-display-templates auzix-strict-e-assets auzix-strict-desktop-assets-package auzix-strict-desktop-repo-packages auzix-strict-flatpak-runtime auzix-strict-user-defaults auzix-strict-kernel-modules auzix-strict-package-repo auzix-strict-container auzix-strict-pruned-test auzix-strict-audit auzix-strict-iso clean
 
 compose-build:
 	docker compose build builder
@@ -181,6 +181,9 @@ auzix-strict-desktop-assets-package:
 
 auzix-strict-desktop-repo-packages:
 	./scripts/build-auzix-desktop-repo-packages.sh
+
+auzix-strict-flatpak-runtime:
+	./scripts/build-auzix-flatpak-runtime-slice.sh out/auzix-strict/AuzixRoot
 
 auzix-strict-user-defaults:
 	./scripts/stage-auzix-user-defaults.sh

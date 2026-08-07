@@ -1,0 +1,10 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Bubblewrap",
+  "version": "0.10.0",
+  "description": "Unprivileged sandbox helper used by Flatpak.",
+  "source": {"type": "host-binary", "suite": "lab", "package": "bubblewrap", "graduation": "upstream-source"},
+  "depends": ["BusyBox"],
+  "commands": [{"name": "bwrap", "host_command": "bwrap"}],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/bwrap.real --version 2>&1 | grep -i bubblewrap"]}
+}

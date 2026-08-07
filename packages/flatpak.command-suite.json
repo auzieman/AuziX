@@ -1,0 +1,17 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Flatpak",
+  "version": "1.16.1",
+  "description": "Desktop application distribution and sandbox substrate exposed through AUZiX program paths.",
+  "source": {"type": "host-binary", "suite": "lab", "package": "flatpak", "graduation": "upstream-source"},
+  "depends": ["BusyBox", "Bubblewrap", "OSTree", "XdgDbusProxy", "DBus"],
+  "commands": [{
+    "name": "flatpak",
+    "host_command": "flatpak",
+    "environment": {
+      "FLATPAK_SYSTEM_DIR": "/System/State/flatpak",
+      "OSTREE_REPO": "/System/State/ostree/repo"
+    }
+  }],
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/flatpak.real --version 2>&1 | grep -i flatpak"]}
+}
