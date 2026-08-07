@@ -56,11 +56,11 @@ while IFS=$'\t' read -r export_name host_command; do
   fixed_args="$(jq -r --arg name "${export_name}" '
     .commands[] | select(.name == $name) | (.fixed_args // []) | map(@sh) | join(" ")
   ' "${RECIPE}")"
-  cat >"${program}/Commands/${export_name}" <<EOF
+cat >"${program}/Commands/${export_name}" <<EOF
 #!/bin/sh
-LD_LIBRARY_PATH="/Programs/${name}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
-export LD_LIBRARY_PATH
-exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
+exec "/Programs/${name}/current/Libraries/ld-linux-x86-64.so.2" \
+  --library-path "/Programs/${name}/current/Libraries" \
+  "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
   chmod 0755 "${program}/Commands/${export_name}"
   ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
