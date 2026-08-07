@@ -128,9 +128,9 @@ export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
-export LD_LIBRARY_PATH="/Programs/Curl/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-
-exec /Programs/Curl/current/Commands/curl.real "$@"
+exec /Programs/Curl/current/Libraries/ld-linux-x86-64.so.2 \
+  --library-path /Programs/Curl/current/Libraries \
+  /Programs/Curl/current/Commands/curl.real "$@"
 EOF
 chmod 0755 "${CURL_PROGRAM}/Commands/curl"
 
