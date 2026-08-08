@@ -181,11 +181,25 @@ rm -rf "${program_root}" "${legacy_program_root}"
 rm -f "${receipt_path}" "${legacy_receipt_path}"
 mkdir -p "${program_root}/RootFS" "${program_root}/Metadata" "${program_root}/Commands"
 rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
+if [[ "${native_name}" == LibreOffice* ]]; then
+  while IFS= read -r libreoffice_text; do
+    sed -i \
+      -e 's#file:///usr/lib/libreoffice#file:///System/State/libreoffice#g' \
+      -e 's#/usr/lib/libreoffice/program#/System/State/libreoffice/program#g' \
+      -e 's#/usr/lib/libreoffice#/System/State/libreoffice#g' \
+      "${libreoffice_text}"
+  done < <(
+    find "${program_root}/RootFS" -type f \
+      \( -path '*/usr/bin/*' -o -path '*/usr/lib/libreoffice/program/*' -o -path '*/usr/share/libreoffice/*' \) \
+      -exec grep -Il '/usr/lib/libreoffice' {} + 2>/dev/null
+  )
+fi
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
 ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
 commands_json='[]'
 compatibility_exports_json='[]'
+mkdir -p "${AUZIX_ROOT}/System/Compatibility/usr/share/applications"
 while IFS= read -r rel_command; do
   command_base="$(basename "${rel_command}")"
   command_name_allowed "${command_base}" || continue
@@ -195,16 +209,45 @@ while IFS= read -r rel_command; do
     cat >"${program_root}/Commands/${command_base}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 set -eu
+BB="/Programs/BusyBox/current/Commands/busybox"
 prefix="/Programs/${native_name}/current"
 rootfs="\${prefix}/RootFS"
 common="/Programs/LibreOfficeCommon/current/RootFS"
 core="/Programs/LibreOfficeCore/current/RootFS"
+state="/System/State/libreoffice"
+program="\${state}/program"
+share="\${state}/share"
+"\${BB}" mkdir -p "\${program}" "\${share}"
+for source_dir in \\
+  "\${common}/usr/lib/libreoffice/program" \\
+  "\${core}/usr/lib/libreoffice/program" \\
+  "\${rootfs}/usr/lib/libreoffice/program" \\
+  "/Programs/Ure/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/UnoLibsPrivate/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/LibunoSal3t64/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/LibunoCppu3t64/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/LibunoCppuhelpergcc33t64/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/LibunoSalhelpergcc33t64/current/RootFS/usr/lib/libreoffice/program" \\
+  "/Programs/LibunoPurpenvhelpergcc33t64/current/RootFS/usr/lib/libreoffice/program"; do
+  [ -d "\${source_dir}" ] || continue
+  for item in "\${source_dir}"/*; do
+    [ -e "\${item}" ] || continue
+    "\${BB}" ln -sfn "\${item}" "\${program}/\$("${BB}" basename "\${item}")"
+  done
+done
+for source_dir in "\${common}/usr/lib/libreoffice/share" "\${common}/usr/share/libreoffice" "\${rootfs}/usr/lib/libreoffice/share" "\${rootfs}/usr/share/libreoffice"; do
+  [ -d "\${source_dir}" ] || continue
+  for item in "\${source_dir}"/*; do
+    [ -e "\${item}" ] || continue
+    "\${BB}" ln -sfn "\${item}" "\${share}/\$("${BB}" basename "\${item}")"
+  done
+done
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
-export URE_BOOTSTRAP="vnd.sun.star.pathname:\${common}/usr/lib/libreoffice/program/fundamentalrc"
-export UNO_PATH="\${common}/usr/lib/libreoffice/program"
-export LD_LIBRARY_PATH="\${rootfs}/usr/lib/libreoffice/program:\${common}/usr/lib/libreoffice/program:\${core}/usr/lib/libreoffice/program:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib:/Programs/Ure/current/RootFS/usr/lib/libreoffice/program:/Programs/UnoLibsPrivate/current/RootFS/usr/lib/libreoffice/program:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
-exec "\${common}/usr/lib/libreoffice/program/soffice" ${libreoffice_mode} "\$@"
+export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
+export UNO_PATH="\${program}"
+export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+exec "\${program}/soffice" ${libreoffice_mode} "\$@"
 EOF
   else
     cat >"${program_root}/Commands/${command_base}" <<EOF
@@ -241,6 +284,26 @@ done < <(
     \( -path '*/bin/*' -o -path '*/sbin/*' \) \
     -perm /111 \
     -printf '%P\n' |
+    sort
+)
+while IFS= read -r rel_desktop; do
+  desktop_base="$(basename "${rel_desktop}")"
+  command_name_allowed "${desktop_base}" || continue
+  desktop_target="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}"
+  sed -E \
+    -e "s#^(TryExec=)([^[:space:]/]+).*#\\1/System/Compatibility/bin/\\2#" \
+    -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1/System/Compatibility/bin/\\2\\3#" \
+    "${program_root}/RootFS/${rel_desktop}" >"${desktop_target}"
+  chmod 0644 "${desktop_target}"
+  compatibility_exports_json="$(
+    jq -cn --argjson current "${compatibility_exports_json}" \
+      --arg desktop "/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}" \
+      '$current + [$desktop]'
+  )"
+done < <(
+  find "${program_root}/RootFS/usr/share/applications" -maxdepth 1 \
+    -type f -name '*.desktop' -printf '%P\n' 2>/dev/null |
+    sed 's#^#usr/share/applications/#' |
     sort
 )
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
