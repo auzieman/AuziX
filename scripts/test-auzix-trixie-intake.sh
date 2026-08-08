@@ -12,6 +12,12 @@ test -x "${ROOT_DIR}/scripts/test-auzix-office-smoke.sh"
 test -s "${ROOT_DIR}/docker/trixie-builder/Dockerfile"
 grep -F "Description | sed -n '1p'" \
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'Commands/${command_base}' \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'compatibility_exports' \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'kind: $kind' \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
 
 package_count="$(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u | wc -l)"
 (( package_count >= 70 ))

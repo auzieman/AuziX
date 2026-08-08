@@ -74,6 +74,10 @@ debian_depends_to_native_json() {
   } | jq -R -s 'split("\n") | map(select(length > 0))'
 }
 
+command_name_allowed() {
+  [[ "$1" =~ ^[A-Za-z0-9._+-]+$ ]]
+}
+
 [[ "${DEBIAN_PACKAGE}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || {
   log "invalid Debian package name: ${DEBIAN_PACKAGE}"
   exit 1
@@ -118,21 +122,68 @@ legacy_receipt_path="${AUZIX_ROOT}/System/PackageDB/Debian.${package_name}-${saf
 dpkg-deb -x "${deb_path}" "${WORK_DIR}/extract"
 rm -rf "${program_root}" "${legacy_program_root}"
 rm -f "${receipt_path}" "${legacy_receipt_path}"
-mkdir -p "${program_root}/RootFS" "${program_root}/Metadata"
+mkdir -p "${program_root}/RootFS" "${program_root}/Metadata" "${program_root}/Commands"
 rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
 ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
+commands_json='[]'
+compatibility_exports_json='[]'
+while IFS= read -r rel_command; do
+  command_base="$(basename "${rel_command}")"
+  command_name_allowed "${command_base}" || continue
+  [[ -x "${program_root}/RootFS/${rel_command}" ]] || continue
+  cat >"${program_root}/Commands/${command_base}" <<EOF
+#!/Programs/BusyBox/current/Commands/busybox sh
+set -eu
+prefix="/Programs/${native_name}/current"
+rootfs="\${prefix}/RootFS"
+export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
+export XDG_DATA_DIRS="\${rootfs}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
+export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+exec "\${rootfs}/${rel_command}" "\$@"
+EOF
+  chmod 0755 "${program_root}/Commands/${command_base}"
+  mkdir -p "${AUZIX_ROOT}/System/Compatibility/bin" "${AUZIX_ROOT}/System/Compatibility/usr/bin"
+  ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
+    "${AUZIX_ROOT}/System/Compatibility/bin/${command_base}"
+  ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
+    "${AUZIX_ROOT}/System/Compatibility/usr/bin/${command_base}"
+  commands_json="$(
+    jq -cn --argjson current "${commands_json}" \
+      --arg command "/Programs/${native_name}/${safe_version}/Commands/${command_base}" \
+      '$current + [$command]'
+  )"
+  compatibility_exports_json="$(
+    jq -cn --argjson current "${compatibility_exports_json}" \
+      --arg bin "/System/Compatibility/bin/${command_base}" \
+      --arg usrbin "/System/Compatibility/usr/bin/${command_base}" \
+      '$current + [$bin, $usrbin]'
+  )"
+done < <(
+  find "${program_root}/RootFS" -type f \
+    \( -path '*/bin/*' -o -path '*/sbin/*' \) \
+    -perm /111 \
+    -printf '%P\n' |
+    sort
+)
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
+command_count="$(jq 'length' <<<"${commands_json}")"
 repack_class="payload"
 if [[ "${payload_file_count}" -lt 25 && -n "${package_depends}" ]]; then
   repack_class="dependency-bundle"
+fi
+package_kind="program"
+if [[ "${command_count}" -eq 0 ]]; then
+  package_kind="staging"
 fi
 
 jq -n \
   --arg name "${native_name}" \
   --arg version "${safe_version}" \
+  --arg kind "${package_kind}" \
   --arg source_package "${package_name}" \
   --arg source_version "${package_version}" \
   --arg source_architecture "${package_arch}" \
@@ -143,16 +194,20 @@ jq -n \
   --arg current "/Programs/${native_name}/current" \
   --arg repack_class "${repack_class}" \
   --argjson depends "${native_depends_json}" \
+  --argjson commands "${commands_json}" \
+  --argjson compatibility_exports "${compatibility_exports_json}" \
   --argjson payload_file_count "${payload_file_count}" \
   --argjson payload_size_bytes "${payload_size_bytes}" \
   '{
     name: $name,
     version: $version,
-    kind: "program",
+    kind: $kind,
     migration_stage: "stage-1-auzix-native-repack",
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
     depends: $depends,
+    commands: $commands,
+    compatibility_exports: $compatibility_exports,
     description: $description,
     source: {
       type: "debian-binary-package",
@@ -167,7 +222,7 @@ jq -n \
       payload_size_bytes: $payload_size_bytes,
       repack_class: $repack_class
     },
-    notes: "Experimental Trixie intake package. The source is Debian, but the package identity and install prefix are AUZiX-native."
+    notes: "Experimental Trixie intake package. Debian payloads are staged under RootFS; detected executable payloads are exposed through AUZiX command wrappers. Packages without commands remain staging metadata until promoted."
   }' >"${receipt_path}"
 
-log "built ${native_name} ${package_version} from ${package_name} (${repack_class}, ${payload_file_count} files)"
+log "built ${native_name} ${package_version} from ${package_name} (${repack_class}, ${payload_file_count} files, ${command_count} commands)"
