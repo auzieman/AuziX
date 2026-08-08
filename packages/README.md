@@ -22,6 +22,9 @@ published or runtime-ready.
 - `auzix-control-panel.intent.json` defines the read-only probe/report contract
   for making hardware, package, service, container, and session state visible
   from the AUZiX desktop.
+- `package-validation.contract.md` defines the "real duck" gate: packages must
+  install into an AUZiX validation root/container and pass stat/file/readelf/ldd,
+  strings, launch smoke, and desktop-entry checks before desktop promotion.
 
 The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and
@@ -50,6 +53,8 @@ bootstrap path.
 `planned` means ordered intent only, `first-pass` means a build script exists
 but has not graduated, `seed` means enough detail exists to start a port, and
 `ready` means a prior pattern exists but fresh evidence is still required.
+`desktop-ready` means the package is installable, link-clean, launch-clean, and
+menu-clean under the package validation contract.
 Ollama receives only a failed target's manifest entry, command, log
 tail, linker evidence, and receipt. It may propose a bounded contract change;
 it never publishes packages or advances their state.
