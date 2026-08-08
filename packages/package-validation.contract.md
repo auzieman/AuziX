@@ -20,6 +20,37 @@ The validator records:
 
 ## Required checks
 
+## Runtime stack ladder
+
+Packages should not rely on each individual app wrapper to manually rediscover
+every dependency package. AUZiX needs a runtime stack ladder: each package can
+declare the package layers it expects, and the generated launcher falls through
+those layers in order when building `PATH`, `LD_LIBRARY_PATH`,
+`XDG_DATA_DIRS`, schema paths, plugin paths, and other runtime search paths.
+
+Initial ladder:
+
+1. package-local `RootFS`;
+2. declared dependency package `RootFS`/`Libraries`, in dependency order;
+3. named shared stacks such as `gtk3`, `gtk4`, `gnome-runtime`, `qt6`,
+   `kde-frameworks`, `libreoffice-runtime`, `office-filters`,
+   `graphics-runtime`, `network-runtime`, and `debug-runtime`;
+4. AUZiX system surfaces: `/System/Libraries`, `/System/Compatibility`, and
+   `/System/Settings`.
+
+The ladder must be visible in receipts so validation can answer: "this package
+failed because its dependency is missing" versus "the dependency is installed
+but not on the runtime path."
+
+Examples from vmid135:
+
+- `Galculator` installed after `Libquadmath0`, but still could not see
+  `libquadmath.so.0`; that is a runtime ladder failure.
+- `Baobab` needs the GTK4/GNOME runtime stack.
+- `GnomeDiskUtility` needs storage/media libraries such as `libdvdread`.
+- `LibreOffice` wants a LibreOffice runtime stack rather than per-command
+  bespoke path hacks.
+
 For each declared command:
 
 1. `stat` the wrapper and resolved executable target.
