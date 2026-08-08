@@ -53,6 +53,16 @@ hexchat
 imagemagick
 inkscape
 libreoffice
+libreoffice-base
+libreoffice-calc
+libreoffice-common
+libreoffice-core
+libreoffice-draw
+libreoffice-impress
+libreoffice-math
+libreoffice-report-builder-bin
+libreoffice-writer
+python3-uno
 mpv
 pcmanfm
 strawberry
