@@ -34,5 +34,10 @@ if awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" |
   echo "Trixie profile contains an invalid package name." >&2
   exit 1
 fi
+if awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" |
+  grep -Fxq 'policykit-1'; then
+  echo "Trixie removed policykit-1; use pkexec/polkitd/libpolkit-* split packages." >&2
+  exit 1
+fi
 
 echo "AuziX Trixie intake contract: PASS (${package_count} packages)"

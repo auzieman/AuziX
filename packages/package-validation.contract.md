@@ -106,6 +106,9 @@ such.
 The following failures must be caught before publication or before promotion to
 desktop-ready:
 
+- a profile names a Debian package with no candidate in the selected suite
+  (for example, Trixie removed `policykit-1`; use the split `pkexec`,
+  `polkitd`, and `libpolkit-*` packages instead);
 - a package installs but `ldd` reports a missing library;
 - a package installs but needs a newer GLIBC/GLib symbol than AUZiX provides;
 - a wrapper calls a path that the base package does not actually ship;

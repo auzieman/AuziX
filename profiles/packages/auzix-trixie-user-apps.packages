@@ -115,7 +115,10 @@ nfs-common
 openssh-client
 openssh-server
 parted
-policykit-1
+pkexec
+polkitd
+libpolkit-agent-1-0
+libpolkit-gobject-1-0
 procps
 ripgrep
 rsync
