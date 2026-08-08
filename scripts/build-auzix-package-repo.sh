@@ -136,14 +136,20 @@ package_receipt() {
       size: $size,
       sha256: $sha256,
       depends: ($receipt_json[0].depends // []),
+      recommends: ($receipt_json[0].recommends // []),
       description: ($receipt_json[0].description // $receipt_json[0].notes // ""),
       migration_stage: ($receipt_json[0].migration_stage // null),
       receipt: $receipt_path,
       prefix: ($receipt_json[0].prefix // $receipt_json[0].paths.prefix // null),
       commands: ($receipt_json[0].commands // []),
+      desktop_entries: ($receipt_json[0].desktop_entries // []),
       service: ($receipt_json[0].service // null),
       hooks: ($receipt_json[0].hooks // {}),
       compatibility_exports: ($receipt_json[0].compatibility_exports // []),
+      runtime_ladder: ($receipt_json[0].runtime_ladder // null),
+      runtime_environment: ($receipt_json[0].runtime_environment // null),
+      permissions: ($receipt_json[0].permissions // null),
+      validation: ($receipt_json[0].validation // null),
       source: ($receipt_json[0].source // {})
     }'
 

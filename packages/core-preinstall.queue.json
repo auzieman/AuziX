@@ -176,6 +176,102 @@
           "notes": "Already visible on vmid135; keep it in the clean-install proof set."
         }
       ]
+    },
+    {
+      "id": "installer-media-builder",
+      "purpose": "Make AUZiX installer/live media generation a package-built lane instead of a one-off shell artifact.",
+      "packages": [
+        {
+          "id": "LiveBuild",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "live-build"},
+          "depends": ["Xorriso", "SquashfsTools", "GrubPcBin", "GrubEfiAmd64Bin", "SyslinuxCommon"],
+          "commands": ["lb"],
+          "notes": "Debian/Trixie package that creates live system images. Use as the first reference for AUZiX package-group-driven ISO assembly."
+        },
+        {
+          "id": "Xorriso",
+          "tier": "installer-media-builder",
+          "state": "ready",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "xorriso"},
+          "depends": ["BusyBox"],
+          "commands": ["xorriso"],
+          "notes": "Already used by current ISO patch scripts; promote to an explicit AUZiX package/receipt before the next media-builder pipeline."
+        },
+        {
+          "id": "SquashfsTools",
+          "tier": "installer-media-builder",
+          "state": "ready",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "squashfs-tools"},
+          "depends": ["BusyBox"],
+          "commands": ["mksquashfs", "unsquashfs"],
+          "notes": "Required for live root creation and validation."
+        },
+        {
+          "id": "SyslinuxCommon",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "syslinux-common"},
+          "depends": ["BusyBox"],
+          "commands": [],
+          "notes": "BIOS boot asset package used by live media builders."
+        },
+        {
+          "id": "Isolinux",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "isolinux"},
+          "depends": ["SyslinuxCommon"],
+          "commands": [],
+          "notes": "ISOLINUX boot files for legacy BIOS ISO paths."
+        },
+        {
+          "id": "GrubPcBin",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "grub-pc-bin"},
+          "depends": ["BusyBox"],
+          "commands": ["grub-mkimage"],
+          "notes": "BIOS GRUB image tooling for installer/live media."
+        },
+        {
+          "id": "GrubEfiAmd64Bin",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "grub-efi-amd64-bin"},
+          "depends": ["BusyBox", "Mtools"],
+          "commands": ["grub-mkstandalone"],
+          "notes": "EFI boot image tooling for amd64 installer/live media."
+        },
+        {
+          "id": "Mtools",
+          "tier": "installer-media-builder",
+          "state": "planned",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "mtools"},
+          "depends": ["BusyBox"],
+          "commands": ["mcopy", "mdir", "mformat"],
+          "notes": "Needed for FAT/EFI image assembly without loop-mount side effects."
+        },
+        {
+          "id": "DebianCd",
+          "tier": "installer-media-builder",
+          "state": "evaluate-reference",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "debian-cd"},
+          "depends": ["Xorriso"],
+          "commands": [],
+          "notes": "Reference package for Debian installer media construction; evaluate patterns but do not let it own AUZiX layout."
+        },
+        {
+          "id": "SimpleCdd",
+          "tier": "installer-media-builder",
+          "state": "evaluate-reference",
+          "source": {"distribution": "debian", "suite": "trixie", "package": "simple-cdd"},
+          "depends": ["DebianCd"],
+          "commands": ["simple-cdd"],
+          "notes": "Reference package for custom Debian installer media/profile ideas."
+        }
+      ]
     }
   ],
   "acceptance": {
@@ -184,7 +280,8 @@
       "A clean vmid135 install can refresh packages, install E2fsprogs, and create an ext4 test image.",
       "auzix-install-disk either finds mkfs.ext4 in the live root or has a documented bootstrap path before formatting.",
       "Pipeline rejects packages listed as installable when their dependency closure is absent from the repo index.",
-      "WifiRuntime has at least a package-level plan and command presence test, even if GUI connection management waits."
+      "WifiRuntime has at least a package-level plan and command presence test, even if GUI connection management waits.",
+      "Installer media generation has a package group and can identify live-build/xorriso/squashfs/bootloader tooling as AUZiX package targets."
     ]
   }
 }

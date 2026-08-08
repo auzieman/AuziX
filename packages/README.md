@@ -42,6 +42,10 @@ The intended model is:
 - `installer-optional`: packages the installer can offer or fetch early, such
   as NFS/CIFS clients, LVM, ZFS evaluation bits, additional filesystems, and
   hardware/firmware-specific network support.
+- `installer-media-builder`: packages used to produce live/installer media
+  from AUZiX package groups, including the Debian/Trixie `live-build` pattern,
+  ISO creation, SquashFS, BIOS/EFI boot assets, and optional Debian installer
+  media references.
 - `desktop-proof`: demo/workstation packages installed by selection or post
   install, not automatically bloating the base ISO.
 

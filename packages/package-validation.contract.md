@@ -18,6 +18,39 @@ The validator records:
 - desktop entries and menu `Exec=` targets;
 - dependency, ABI, and hardwired-path evidence.
 
+## Package query parity
+
+AUZiX packages should be observable with the same kinds of questions Debian
+answers through `dpkg`, `apt`, and package metadata. AUZiX may use different
+path values, mount layouts, wrappers, or future bind/mount patterns, but the
+rules are the same: every built or installed package must expose enough state
+to explain how it should run.
+
+At minimum, a package receipt/index entry must allow tools to query:
+
+- installed state and version;
+- source/origin package, suite, architecture, and upstream version when known;
+- installed files and promoted/exported paths;
+- command entry points and their wrapper/runtime target;
+- dependency and recommendation surfaces;
+- service, desktop, Polkit, group, and permission expectations;
+- runtime environment values such as `PATH`, `LD_LIBRARY_PATH`,
+  `XDG_DATA_DIRS`, `GSETTINGS_SCHEMA_DIR`, `GI_TYPELIB_PATH`, and package
+  stack names;
+- validation state such as `installable`, `link-clean`, `front-door-clean`,
+  `menu-clean`, and `desktop-ready`.
+
+The AUZiX equivalent of Debian package inspection should be able to answer:
+
+- "What package owns this command or file?"
+- "What source package did this come from?"
+- "What files did this install?"
+- "What runtime paths does this wrapper add?"
+- "What groups, services, or Polkit actions does this app expect?"
+- "Why is this package not desktop-ready?"
+
+Different values are expected; missing answers are package-contract bugs.
+
 ## Required checks
 
 ## Runtime stack ladder
@@ -84,6 +117,28 @@ For each desktop package:
    available. A package can be `installable` without this, but not
    `desktop-ready`.
 
+## Reference desktop guidebook
+
+Use `vmid132` (`trixie-smoke-132`, observed at `10.20.0.117`) as the
+reference workstation when AUZiX desktop behavior is ambiguous. It is a
+Debian/Trixie LightDM workstation with a working `auzieman` graphical login,
+reasonable Enlightenment/MATE menus, and representative GUI applications such
+as GIMP launching from the menu.
+
+The desktop proof loop is:
+
+1. Log in through LightDM.
+2. Confirm the menu tree and app list are sensible.
+3. Launch representative apps from the menu and from their command entry
+   points.
+4. Log out to the display manager.
+5. Log back in and confirm the menu/app surface is equivalent.
+
+AUZiX does not copy Debian paths blindly, but failures should be compared
+against vmid132 for package ownership, dependencies, `.desktop` entries,
+LightDM/session wiring, Polkit permissions, and user groups before inventing a
+one-off AUZiX fix.
+
 ## Graduation states
 
 - `built`: archive and receipt exist.
@@ -93,8 +148,10 @@ For each desktop package:
 - `launch-clean`: bounded command smoke passes in an AUZiX root/container.
 - `front-door-clean`: the exact user/menu-facing wrapper launches with the
   generated runtime ladder.
-- `menu-clean`: desktop entry exists and points to the owning AUZiX wrapper.
-- `desktop-ready`: installable, link-clean, launch-clean, and menu-clean.
+- `menu-clean`: desktop entry exists, points to the owning AUZiX wrapper, and
+  remains visible after a LightDM logout/login cycle.
+- `desktop-ready`: installable, link-clean, launch-clean, front-door-clean,
+  and menu-clean.
 
 Only `desktop-ready` packages should be included in default workstation or
 desktop-proof package groups. Packages that are merely `built` or `installable`

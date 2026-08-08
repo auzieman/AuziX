@@ -106,6 +106,10 @@ Usage:
   auzix-pkg refresh [REPOSITORY_URL]
   auzix-pkg list [all|available|installed|long]
   auzix-pkg info PACKAGE
+  auzix-pkg status PACKAGE
+  auzix-pkg files PACKAGE
+  auzix-pkg owner PATH
+  auzix-pkg env PACKAGE
   auzix-pkg bootstrap [PACKAGE ...]
   auzix-pkg install PACKAGE
 
@@ -169,6 +173,109 @@ package_query() {
   ' "${CACHE_INDEX}"
 }
 
+installed_query() {
+  package_name="$1"
+  "${JQ}" -c --arg name "${package_name}" '
+    [
+      .installed[]
+      | select((.name | ascii_downcase) == ($name | ascii_downcase))
+    ]
+    | last // empty
+  ' "${INSTALLED}"
+}
+
+package_receipt_path() {
+  package_json="$1"
+  receipt_path="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.receipt // empty')"
+  [ -n "${receipt_path}" ] || return 1
+  printf '%s\n' "${receipt_path}"
+}
+
+package_file_list() {
+  package_json="$1"
+  receipt_path="$(package_receipt_path "${package_json}" || true)"
+  if [ -n "${receipt_path}" ] && [ -s "${receipt_path}" ]; then
+    "${JQ}" -r '
+      [
+        .prefix?,
+        .paths?.prefix?,
+        .paths?.current?,
+        (.commands[]?),
+        (.desktop_entries[]?),
+        (.compatibility_exports[]?),
+        .service?,
+        .hooks?.post_install?,
+        .runtime_state?,
+        .runtime_logs?
+      ]
+      | map(select(type == "string" and length > 0))
+      | unique[]
+    ' "${receipt_path}"
+    prefix="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.prefix // empty')"
+    if [ -n "${prefix}" ] && [ -d "${prefix}" ]; then
+      "${BB}" find "${prefix}" -mindepth 1 -print 2>/dev/null || true
+    fi
+  else
+    printf '%s\n' "${package_json}" | "${JQ}" -r '
+      [
+        .prefix?,
+        (.commands[]?),
+        (.desktop_entries[]?),
+        (.compatibility_exports[]?),
+        .service?,
+        .hooks?.post_install?
+      ]
+      | map(select(type == "string" and length > 0))
+      | unique[]
+    '
+  fi
+}
+
+package_runtime_env() {
+  package_json="$1"
+  printf '%s\n' "${package_json}" | "${JQ}" '
+    def rootfs_paths($root):
+      {
+        PATH: [
+          ($root + "/usr/bin"),
+          ($root + "/usr/sbin"),
+          ($root + "/bin"),
+          ($root + "/sbin")
+        ],
+        LD_LIBRARY_PATH: [
+          ($root + "/usr/lib/x86_64-linux-gnu"),
+          ($root + "/usr/lib"),
+          ($root + "/lib/x86_64-linux-gnu"),
+          ($root + "/lib")
+        ],
+        XDG_DATA_DIRS: [($root + "/usr/share")],
+        GSETTINGS_SCHEMA_DIR: [($root + "/usr/share/glib-2.0/schemas")],
+        GI_TYPELIB_PATH: [
+          ($root + "/usr/lib/x86_64-linux-gnu/girepository-1.0"),
+          ($root + "/usr/lib/girepository-1.0")
+        ]
+      };
+    . as $package
+    | ($package.prefix // "") as $prefix
+    | ($prefix + "/RootFS") as $root
+    | {
+        package: $package.name,
+        prefix: $prefix,
+        commands: ($package.commands // []),
+        runtime_ladder: ($package.runtime_ladder // null),
+        dependency_roots: (($package.runtime_ladder.dependency_packages // $package.depends // []) | map("/Programs/" + . + "/current/RootFS")),
+        values: (
+          rootfs_paths($root)
+          + {
+              PATH: ([($prefix + "/Commands")] + rootfs_paths($root).PATH + ["/Programs/BusyBox/current/Commands", "/System/Compatibility/bin", "/System/Compatibility/usr/bin"]),
+              LD_LIBRARY_PATH: (rootfs_paths($root).LD_LIBRARY_PATH + ["/System/Compatibility/usr/lib/x86_64-linux-gnu", "/System/Compatibility/lib/x86_64-linux-gnu", "/System/Compatibility/lib64", "/System/Libraries"]),
+              XDG_DATA_DIRS: (rootfs_paths($root).XDG_DATA_DIRS + ["/System/Compatibility/usr/share"])
+            }
+        )
+      }
+  '
+}
+
 is_installed() {
   package_name="$1"
   "${JQ}" -e --arg name "${package_name}" '
@@ -193,6 +300,19 @@ record_install() {
             kind: $package.kind,
             package: $package.package,
             sha256: $package.sha256,
+            description: ($package.description // ""),
+            receipt: $package.receipt,
+            prefix: $package.prefix,
+            commands: ($package.commands // []),
+            desktop_entries: ($package.desktop_entries // []),
+            compatibility_exports: ($package.compatibility_exports // []),
+            depends: ($package.depends // []),
+            recommends: ($package.recommends // []),
+            source_metadata: ($package.source // {}),
+            runtime_ladder: ($package.runtime_ladder // null),
+            runtime_environment: ($package.runtime_environment // null),
+            permissions: ($package.permissions // null),
+            validation: ($package.validation // null),
             source: $source,
             installed_at: $installed_at
           }]
@@ -350,6 +470,49 @@ case "${command_name}" in
     package_json="$(package_query "$1")"
     [ -n "${package_json}" ] || die "package not found: $1"
     printf '%s\n' "${package_json}" | "${JQ}" .
+    ;;
+  status)
+    require_index
+    [ "$#" -eq 1 ] || die "status requires a package name"
+    package_json="$(package_query "$1")"
+    installed_json="$(installed_query "$1")"
+    [ -n "${package_json}" ] || package_json='{}'
+    [ -n "${installed_json}" ] || installed_json='{}'
+    "${JQ}" -n --arg name "$1" --argjson available "${package_json}" --argjson installed "${installed_json}" '
+      {
+        name: ($available.name // $installed.name // $name),
+        state: (if ($installed | length) > 0 then "installed" elif ($available | length) > 0 then "available" else "missing" end),
+        installed: $installed,
+        available: $available
+      }
+    '
+    ;;
+  files)
+    require_index
+    [ "$#" -eq 1 ] || die "files requires a package name"
+    package_json="$(package_query "$1")"
+    [ -n "${package_json}" ] || die "package not found: $1"
+    package_file_list "${package_json}" | "${BB}" sort -u
+    ;;
+  owner)
+    require_index
+    [ "$#" -eq 1 ] || die "owner requires a path"
+    query_path="$1"
+    found=0
+    "${JQ}" -c '.packages[]' "${CACHE_INDEX}" |
+      while IFS= read -r package_json; do
+        if package_file_list "${package_json}" | "${BB}" grep -Fx -- "${query_path}" >/dev/null 2>&1; then
+          printf '%s\n' "${package_json}" | "${JQ}" -r '[.name, .version, .kind, .prefix // ""] | @tsv'
+          found=1
+        fi
+      done
+    ;;
+  env)
+    require_index
+    [ "$#" -eq 1 ] || die "env requires a package name"
+    package_json="$(package_query "$1")"
+    [ -n "${package_json}" ] || die "package not found: $1"
+    package_runtime_env "${package_json}"
     ;;
   bootstrap)
     require_index

@@ -180,7 +180,9 @@ package_version="$(dpkg-deb -f "${deb_path}" Version)"
 package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"
 package_description="$(dpkg-deb -f "${deb_path}" Description | sed -n '1p')"
 package_depends="$(dpkg-deb -f "${deb_path}" Depends 2>/dev/null || true)"
+package_recommends="$(dpkg-deb -f "${deb_path}" Recommends 2>/dev/null || true)"
 native_depends_json="$(debian_depends_to_native_json "${package_depends}")"
+native_recommends_json="$(debian_depends_to_native_json "${package_recommends}")"
 native_depends_words="$(jq -r 'join(" ")' <<<"${native_depends_json}")"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
 native_name="$(auzix_native_name "${package_name}")"
@@ -413,11 +415,13 @@ jq -n \
   --arg source_architecture "${package_arch}" \
   --arg source_suite "trixie" \
   --arg upstream_depends "${package_depends}" \
+  --arg upstream_recommends "${package_recommends}" \
   --arg description "${package_description}" \
   --arg prefix "/Programs/${native_name}/${safe_version}" \
   --arg current "/Programs/${native_name}/current" \
   --arg repack_class "${repack_class}" \
   --argjson depends "${native_depends_json}" \
+  --argjson recommends "${native_recommends_json}" \
   --argjson commands "${commands_json}" \
   --argjson compatibility_exports "${compatibility_exports_json}" \
   --argjson payload_file_count "${payload_file_count}" \
@@ -430,6 +434,7 @@ jq -n \
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
     depends: $depends,
+    recommends: $recommends,
     commands: $commands,
     compatibility_exports: $compatibility_exports,
     runtime_ladder: {
@@ -445,8 +450,11 @@ jq -n \
       package: $source_package,
       version: $source_version,
       architecture: $source_architecture,
+      control_file: ($prefix + "/Metadata/debian-control.txt"),
       upstream_depends: $upstream_depends,
+      upstream_recommends: $upstream_recommends,
       upstream_depends_native: $depends,
+      upstream_recommends_native: $recommends,
       payload_file_count: $payload_file_count,
       payload_size_bytes: $payload_size_bytes,
       repack_class: $repack_class
