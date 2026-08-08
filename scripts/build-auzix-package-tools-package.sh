@@ -291,7 +291,7 @@ case "${command_name}" in
     fi
     url="$(repo_url)"
     [ -n "${url}" ] || die "no repository configured"
-    curl -L --fail --show-error -o "${CACHE_INDEX}.tmp" "${url%/}/index.json"
+    fetch_url "${url%/}/index.json" "${CACHE_INDEX}.tmp"
     "${JQ}" -e '.format == "auzix-repo-v1" and (.packages | type == "array")' "${CACHE_INDEX}.tmp" >/dev/null ||
       die "downloaded repository index is invalid"
     "${BB}" mv "${CACHE_INDEX}.tmp" "${CACHE_INDEX}"
@@ -307,6 +307,7 @@ case "${command_name}" in
       available)
         "${JQ}" -r --slurpfile state "${INSTALLED}" '
           .packages[]
+          | select(((.commands // []) | length) > 0 or (.migration_stage // "") != "stage-1-auzix-native-repack")
           | select(.name as $name | any($state[0].installed[]; .name == $name) | not)
           | [.name, .version, .kind, ((.size / 1048576 * 10 | floor) / 10 | tostring) + " MiB"]
           | @tsv
