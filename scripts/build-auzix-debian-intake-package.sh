@@ -90,6 +90,35 @@ command_name_allowed() {
   [[ "$1" =~ ^[A-Za-z0-9._+-]+$ ]]
 }
 
+libreoffice_mode_for_command() {
+  case "$1" in
+    libreoffice|loffice|soffice)
+      printf '%s\n' ""
+      ;;
+    localc|scalc)
+      printf '%s\n' "--calc"
+      ;;
+    lowriter|swriter)
+      printf '%s\n' "--writer"
+      ;;
+    loimpress|simpress)
+      printf '%s\n' "--impress"
+      ;;
+    lodraw|sdraw)
+      printf '%s\n' "--draw"
+      ;;
+    lomath|smath)
+      printf '%s\n' "--math"
+      ;;
+    lobase|sbase)
+      printf '%s\n' "--base"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 [[ "${DEBIAN_PACKAGE}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || {
   log "invalid Debian package name: ${DEBIAN_PACKAGE}"
   exit 1
@@ -161,7 +190,24 @@ while IFS= read -r rel_command; do
   command_base="$(basename "${rel_command}")"
   command_name_allowed "${command_base}" || continue
   [[ -x "${program_root}/RootFS/${rel_command}" ]] || continue
-  cat >"${program_root}/Commands/${command_base}" <<EOF
+  if [[ "${native_name}" == LibreOffice* ]] &&
+    libreoffice_mode="$(libreoffice_mode_for_command "${command_base}")"; then
+    cat >"${program_root}/Commands/${command_base}" <<EOF
+#!/Programs/BusyBox/current/Commands/busybox sh
+set -eu
+prefix="/Programs/${native_name}/current"
+rootfs="\${prefix}/RootFS"
+common="/Programs/LibreOfficeCommon/current/RootFS"
+core="/Programs/LibreOfficeCore/current/RootFS"
+export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
+export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export URE_BOOTSTRAP="vnd.sun.star.pathname:\${common}/usr/lib/libreoffice/program/fundamentalrc"
+export UNO_PATH="\${common}/usr/lib/libreoffice/program"
+export LD_LIBRARY_PATH="\${rootfs}/usr/lib/libreoffice/program:\${common}/usr/lib/libreoffice/program:\${core}/usr/lib/libreoffice/program:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib:/Programs/Ure/current/RootFS/usr/lib/libreoffice/program:/Programs/UnoLibsPrivate/current/RootFS/usr/lib/libreoffice/program:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+exec "\${common}/usr/lib/libreoffice/program/soffice" ${libreoffice_mode} "\$@"
+EOF
+  else
+    cat >"${program_root}/Commands/${command_base}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 set -eu
 prefix="/Programs/${native_name}/current"
@@ -172,6 +218,7 @@ export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${GSETTINGS_S
 export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 exec "\${rootfs}/${rel_command}" "\$@"
 EOF
+  fi
   chmod 0755 "${program_root}/Commands/${command_base}"
   mkdir -p "${AUZIX_ROOT}/System/Compatibility/bin" "${AUZIX_ROOT}/System/Compatibility/usr/bin"
   ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
