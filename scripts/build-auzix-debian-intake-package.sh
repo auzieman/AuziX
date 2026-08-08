@@ -90,6 +90,34 @@ command_name_allowed() {
   [[ "$1" =~ ^[A-Za-z0-9._+-]+$ ]]
 }
 
+rewrite_common_payload_paths() {
+  local payload_root="$1"
+  while IFS= read -r text_path; do
+    sed -i \
+      -e '1s@^#!/bin/sh@#!/Programs/BusyBox/current/Commands/busybox sh@' \
+      -e '1s@^#!/usr/bin/env sh@#!/Programs/BusyBox/current/Commands/busybox sh@' \
+      -e '1s@^#!/bin/bash@#!/Programs/Bash/current/Commands/bash@' \
+      -e '1s@^#!/usr/bin/env bash@#!/Programs/Bash/current/Commands/bash@' \
+      -e 's#^\(Exec=\)/usr/bin/#\1/System/Compatibility/bin/#' \
+      -e 's#^\(Exec=\)/usr/sbin/#\1/System/Compatibility/sbin/#' \
+      -e 's#^\(Exec=\)/bin/#\1/System/Compatibility/bin/#' \
+      -e 's#^\(Exec=\)/sbin/#\1/System/Compatibility/sbin/#' \
+      -e 's#\([[:space:]]\)/usr/bin/#\1/System/Compatibility/bin/#g' \
+      -e 's#\([[:space:]]\)/usr/sbin/#\1/System/Compatibility/sbin/#g' \
+      -e 's#\([[:space:]]\)/bin/#\1/System/Compatibility/bin/#g' \
+      -e 's#\([[:space:]]\)/sbin/#\1/System/Compatibility/sbin/#g' \
+      "${text_path}"
+  done < <(
+    find "${payload_root}" -type f \
+      \( -path '*/usr/share/dbus-1/services/*.service' \
+        -o -path '*/usr/lib/systemd/system/*.service' \
+        -o -path '*/usr/lib/systemd/user/*.service' \
+        -o -path '*/usr/share/applications/*.desktop' \
+        -o -perm /111 \) \
+      -exec grep -IlE '/usr/bin|/usr/sbin|/bin/|/sbin/|^#!/bin/sh|^#!/bin/bash|^#!/usr/bin/env (ba)?sh' {} + 2>/dev/null
+  )
+}
+
 libreoffice_mode_for_command() {
   case "$1" in
     libreoffice|loffice|soffice)
@@ -181,7 +209,9 @@ rm -rf "${program_root}" "${legacy_program_root}"
 rm -f "${receipt_path}" "${legacy_receipt_path}"
 mkdir -p "${program_root}/RootFS" "${program_root}/Metadata" "${program_root}/Commands"
 rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
+rewrite_common_payload_paths "${program_root}/RootFS"
 if [[ "${native_name}" == LibreOffice* ]]; then
+  rm -rf "${program_root}/RootFS/etc/apparmor.d"
   while IFS= read -r libreoffice_text; do
     sed -i \
       -e 's#file:///usr/lib/libreoffice#file:///System/State/libreoffice#g' \
@@ -232,14 +262,14 @@ for source_dir in \\
   [ -d "\${source_dir}" ] || continue
   for item in "\${source_dir}"/*; do
     [ -e "\${item}" ] || continue
-    "\${BB}" ln -sfn "\${item}" "\${program}/\$("${BB}" basename "\${item}")"
+    "\${BB}" ln -sfn "\${item}" "\${program}/\$(\"\${BB}\" basename \"\${item}\")"
   done
 done
 for source_dir in "\${common}/usr/lib/libreoffice/share" "\${common}/usr/share/libreoffice" "\${rootfs}/usr/lib/libreoffice/share" "\${rootfs}/usr/share/libreoffice"; do
   [ -d "\${source_dir}" ] || continue
   for item in "\${source_dir}"/*; do
     [ -e "\${item}" ] || continue
-    "\${BB}" ln -sfn "\${item}" "\${share}/\$("${BB}" basename "\${item}")"
+    "\${BB}" ln -sfn "\${item}" "\${share}/\$(\"\${BB}\" basename \"\${item}\")"
   done
 done
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
