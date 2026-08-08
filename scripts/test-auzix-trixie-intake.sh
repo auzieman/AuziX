@@ -18,6 +18,12 @@ grep -F 'compatibility_exports' \
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
 grep -F 'kind: $kind' \
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'AUZIX_TRIXIE_OVERWRITE_NATIVE' \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'higher-trust receipt' \
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
+grep -F 'status="skipped"' \
+  "${ROOT_DIR}/scripts/run-auzix-trixie-intake.sh" >/dev/null
 
 package_count="$(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u | wc -l)"
 (( package_count >= 70 ))

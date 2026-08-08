@@ -10,6 +10,11 @@ log() {
   printf '[auzix-trixie-package] %s\n' "$*" >&2
 }
 
+skip() {
+  log "skipping ${DEBIAN_PACKAGE}: $*"
+  exit 2
+}
+
 auzix_native_name() {
   local raw="$1"
   local part native=""
@@ -118,6 +123,22 @@ program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
 receipt_path="${AUZIX_ROOT}/System/PackageDB/${native_name}-${safe_version}.auzix.json"
 legacy_program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
 legacy_receipt_path="${AUZIX_ROOT}/System/PackageDB/Debian.${package_name}-${safe_version}.auzix.json"
+
+if [[ "${AUZIX_TRIXIE_OVERWRITE_NATIVE:-0}" != "1" ]]; then
+  while IFS= read -r existing_receipt; do
+    existing_stage="$(jq -r '.migration_stage // empty' "${existing_receipt}")"
+    existing_source_type="$(jq -r '.source.type // empty' "${existing_receipt}")"
+    existing_source_package="$(jq -r '.source.package // empty' "${existing_receipt}")"
+    if [[ "${existing_stage}" != "stage-1-auzix-native-repack" ||
+      "${existing_source_type}" != "debian-binary-package" ||
+      "${existing_source_package}" != "${package_name}" ]]; then
+      skip "${native_name} already has a higher-trust receipt: ${existing_receipt#${AUZIX_ROOT}/}"
+    fi
+  done < <(
+    find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
+      -name "${native_name}-*.auzix.json" -print 2>/dev/null
+  )
+fi
 
 dpkg-deb -x "${deb_path}" "${WORK_DIR}/extract"
 rm -rf "${program_root}" "${legacy_program_root}"

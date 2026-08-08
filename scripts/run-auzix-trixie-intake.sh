@@ -39,11 +39,17 @@ results='[]'
 for package_name in "${packages[@]}"; do
   package_started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   log "building ${package_name}"
+  status="failed"
   if "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" \
     "${AUZIX_ROOT}" "${package_name}"; then
     status="complete"
   else
-    status="failed"
+    rc=$?
+    if [[ "${rc}" -eq 2 ]]; then
+      status="skipped"
+    else
+      status="failed"
+    fi
   fi
   package_finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   results="$(
@@ -69,6 +75,7 @@ jq -n \
     started_at: $started_at,
     finished_at: $finished_at,
     complete: ([$results[] | select(.status == "complete")] | length),
+    skipped: ([$results[] | select(.status == "skipped")] | length),
     failed: ([$results[] | select(.status == "failed")] | length),
     results: $results
   }' >"${REPORT_FILE}"
