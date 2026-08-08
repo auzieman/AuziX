@@ -9,7 +9,9 @@ test -x "${ROOT_DIR}/scripts/run-auzix-trixie-intake.sh"
 test -x "${ROOT_DIR}/scripts/run-auzix-office-smoke.sh"
 test -x "${ROOT_DIR}/scripts/build-auzix-office-package.sh"
 test -x "${ROOT_DIR}/scripts/test-auzix-office-smoke.sh"
+test -x "${ROOT_DIR}/scripts/audit-auzix-hardwired-paths.sh"
 test -s "${ROOT_DIR}/docker/trixie-builder/Dockerfile"
+test -s "${ROOT_DIR}/packages/hardwired-path-audit.ollama-prompt.md"
 grep -F "Description | sed -n '1p'" \
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" >/dev/null
 grep -F 'Commands/${command_base}' \

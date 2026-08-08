@@ -306,6 +306,40 @@ done < <(
     sed 's#^#usr/share/applications/#' |
     sort
 )
+while IFS= read -r rel_service; do
+  service_base="$(basename "${rel_service}")"
+  command_name_allowed "${service_base}" || continue
+  service_target="${AUZIX_ROOT}/System/Compatibility/${rel_service}"
+  mkdir -p "$(dirname "${service_target}")"
+  sed -E \
+    -e 's#(^Exec=)/usr/bin/([^[:space:]]+)#\1/System/Compatibility/bin/\2#' \
+    -e 's#(^Exec=)/usr/sbin/([^[:space:]]+)#\1/System/Compatibility/sbin/\2#' \
+    -e 's#(^Exec=)/bin/([^[:space:]]+)#\1/System/Compatibility/bin/\2#' \
+    -e 's#(^Exec=)/sbin/([^[:space:]]+)#\1/System/Compatibility/sbin/\2#' \
+    -e 's#([[:space:]])/usr/bin/([^[:space:]]+)#\1/System/Compatibility/bin/\2#g' \
+    -e 's#([[:space:]])/usr/sbin/([^[:space:]]+)#\1/System/Compatibility/sbin/\2#g' \
+    -e 's#([[:space:]])/bin/([^[:space:]]+)#\1/System/Compatibility/bin/\2#g' \
+    -e 's#([[:space:]])/sbin/([^[:space:]]+)#\1/System/Compatibility/sbin/\2#g' \
+    "${program_root}/RootFS/${rel_service}" >"${service_target}"
+  chmod 0644 "${service_target}"
+  compatibility_exports_json="$(
+    jq -cn --argjson current "${compatibility_exports_json}" \
+      --arg service "/System/Compatibility/${rel_service}" \
+      '$current + [$service]'
+  )"
+done < <(
+  {
+    find "${program_root}/RootFS/usr/share/dbus-1/services" -maxdepth 1 \
+      -type f -name '*.service' -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/share/dbus-1/services/#'
+    find "${program_root}/RootFS/usr/lib/systemd/system" -maxdepth 1 \
+      -type f -name '*.service' -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/lib/systemd/system/#'
+    find "${program_root}/RootFS/usr/lib/systemd/user" -maxdepth 1 \
+      -type f -name '*.service' -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/lib/systemd/user/#'
+  } | sort
+)
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
 command_count="$(jq 'length' <<<"${commands_json}")"
