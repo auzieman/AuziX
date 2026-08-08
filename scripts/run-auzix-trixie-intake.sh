@@ -27,6 +27,8 @@ log() {
 }
 
 mkdir -p "${REPORT_DIR}"
+find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name 'Debian.*.auzix.json' -delete 2>/dev/null || true
+rm -rf "${AUZIX_ROOT}/Programs/DebianPackages"
 mapfile -t packages < <(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u)
 if (( LIMIT > 0 && LIMIT < ${#packages[@]} )); then
   packages=("${packages[@]:0:LIMIT}")

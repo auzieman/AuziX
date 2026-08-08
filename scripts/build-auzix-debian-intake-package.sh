@@ -10,6 +10,54 @@ log() {
   printf '[auzix-trixie-package] %s\n' "$*" >&2
 }
 
+auzix_native_name() {
+  local raw="$1"
+  local part native=""
+  IFS='-+.' read -ra parts <<<"${raw}"
+  for part in "${parts[@]}"; do
+    [[ -n "${part}" ]] || continue
+    case "${part}" in
+      api|dbus|dns|gcc|gimp|gtk|html|http|ip|pdf|pip|ssh|ssl|ui|vim|vlc|x11|xcb|xfce|xml)
+        native+="${part^^}"
+        ;;
+      cmake)
+        native+="CMake"
+        ;;
+      gnumeric)
+        native+="Gnumeric"
+        ;;
+      imagemagick)
+        native+="ImageMagick"
+        ;;
+      libreoffice)
+        native+="LibreOffice"
+        ;;
+      librewolf)
+        native+="LibreWolf"
+        ;;
+      lightdm)
+        native+="LightDM"
+        ;;
+      net|tools)
+        native+="${part^}"
+        ;;
+      pcmanfm)
+        native+="PCManFM"
+        ;;
+      xorg)
+        native+="Xorg"
+        ;;
+      zathura)
+        native+="Zathura"
+        ;;
+      *)
+        native+="${part^}"
+        ;;
+    esac
+  done
+  printf '%s\n' "${native}"
+}
+
 [[ "${DEBIAN_PACKAGE}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || {
   log "invalid Debian package name: ${DEBIAN_PACKAGE}"
   exit 1
@@ -44,19 +92,23 @@ package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"
 package_description="$(dpkg-deb -f "${deb_path}" Description | sed -n '1p')"
 package_depends="$(dpkg-deb -f "${deb_path}" Depends 2>/dev/null || true)"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
-program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
-receipt_path="${AUZIX_ROOT}/System/PackageDB/Debian.${package_name}-${safe_version}.auzix.json"
+native_name="$(auzix_native_name "${package_name}")"
+program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
+receipt_path="${AUZIX_ROOT}/System/PackageDB/${native_name}-${safe_version}.auzix.json"
+legacy_program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
+legacy_receipt_path="${AUZIX_ROOT}/System/PackageDB/Debian.${package_name}-${safe_version}.auzix.json"
 
 dpkg-deb -x "${deb_path}" "${WORK_DIR}/extract"
-rm -rf "${program_root}"
+rm -rf "${program_root}" "${legacy_program_root}"
+rm -f "${receipt_path}" "${legacy_receipt_path}"
 mkdir -p "${program_root}/RootFS" "${program_root}/Metadata"
 rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
-ln -sfn "/Programs/DebianPackages/${package_name}/${safe_version}" \
-  "${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/current"
+ln -sfn "/Programs/${native_name}/${safe_version}" \
+  "${AUZIX_ROOT}/Programs/${native_name}/current"
 
 jq -n \
-  --arg name "Debian.${package_name}" \
+  --arg name "${native_name}" \
   --arg version "${safe_version}" \
   --arg source_package "${package_name}" \
   --arg source_version "${package_version}" \
@@ -64,13 +116,13 @@ jq -n \
   --arg source_suite "trixie" \
   --arg upstream_depends "${package_depends}" \
   --arg description "${package_description}" \
-  --arg prefix "/Programs/DebianPackages/${package_name}/${safe_version}" \
-  --arg current "/Programs/DebianPackages/${package_name}/current" \
+  --arg prefix "/Programs/${native_name}/${safe_version}" \
+  --arg current "/Programs/${native_name}/current" \
   '{
     name: $name,
     version: $version,
     kind: "program",
-    migration_stage: "stage-0-fhs-build",
+    migration_stage: "stage-1-auzix-native-repack",
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
     depends: [],
@@ -84,7 +136,7 @@ jq -n \
       architecture: $source_architecture,
       upstream_depends: $upstream_depends
     },
-    notes: "Experimental Trixie intake package. The Debian payload is preserved under RootFS for later AuziX path-rule refinement."
+    notes: "Experimental Trixie intake package. The source is Debian, but the package identity and install prefix are AUZiX-native."
   }' >"${receipt_path}"
 
-log "built ${package_name} ${package_version}"
+log "built ${native_name} ${package_version} from ${package_name}"

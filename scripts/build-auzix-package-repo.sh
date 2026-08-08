@@ -143,7 +143,8 @@ package_receipt() {
       commands: ($receipt_json[0].commands // []),
       service: ($receipt_json[0].service // null),
       hooks: ($receipt_json[0].hooks // {}),
-      compatibility_exports: ($receipt_json[0].compatibility_exports // [])
+      compatibility_exports: ($receipt_json[0].compatibility_exports // []),
+      source: ($receipt_json[0].source // {})
     }'
 
   rm -f "${tmp_list}"
@@ -198,11 +199,22 @@ jq -s '
   .[0] as $previous
   | .[1] as $incoming
   | ($incoming.packages | map(.name)) as $incoming_names
+  | ($incoming.packages
+      | map(select(.source.package? != null) | .source.package)
+      | unique) as $incoming_source_packages
   | $incoming + {
       packages: (
         ([
           $previous.packages[]?
           | select(.name as $name | ($incoming_names | index($name) | not))
+          | select(
+              if (.name | startswith("Debian.")) then
+                ((.name | sub("^Debian[.]"; "")) as $source_name
+                  | ($incoming_source_packages | index($source_name) | not))
+              else
+                true
+              end
+            )
         ] + $incoming.packages)
         | sort_by(.name)
       )
