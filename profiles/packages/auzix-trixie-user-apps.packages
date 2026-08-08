@@ -22,12 +22,12 @@ cargo
 
 # Editors and terminals
 alacritty
-atom-ng
 geany
 kitty
 l3afpad
 micro
 nano
+pluma
 vim-gtk3
 weechat
 xfce4-terminal
@@ -53,7 +53,6 @@ hexchat
 imagemagick
 inkscape
 libreoffice
-librewolf
 mpv
 pcmanfm
 strawberry
@@ -91,8 +90,14 @@ xinit
 xorg
 
 # Control panel and desktop plumbing
+baobab
+firewall-config
+gnome-disk-utility
+gparted
 gnome-control-center
 gnome-settings-daemon
+gufw
+mate-control-center
 network-manager
 cups
 system-config-printer
