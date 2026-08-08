@@ -1,0 +1,190 @@
+{
+  "$schema": "package-build-queue.schema.json",
+  "format": "auzix-package-build-queue-v1",
+  "description": "Core AUZiX packages that should be validated before the next ISO rebuild. These are installer/runtime spine packages, not desktop demo extras.",
+  "batches": [
+    {
+      "id": "installer-storage-spine",
+      "purpose": "Make disk discovery, partitioning, formatting, repair, and resizing native enough that the installer does not fall back to BusyBox ext2.",
+      "packages": [
+        {
+          "id": "E2fsprogs",
+          "tier": "installer-core",
+          "state": "must-publish",
+          "recipe": "packages/e2fsprogs.command-suite.json",
+          "depends": ["BusyBox"],
+          "commands": ["mke2fs", "mkfs.ext2", "mkfs.ext3", "mkfs.ext4", "e2fsck", "tune2fs", "resize2fs"],
+          "notes": "Source recipe exists but was missing from the repo seen by vmid135. This must be present before partition/format so fresh installs use ext4."
+        },
+        {
+          "id": "Dosfstools",
+          "tier": "installer-core",
+          "state": "must-publish",
+          "recipe": "packages/dosfstools.command-suite.json",
+          "depends": ["BusyBox"],
+          "commands": ["mkfs.fat", "fsck.fat", "fatlabel"],
+          "notes": "Needed for EFI/system partitions and removable media repair."
+        },
+        {
+          "id": "UtilLinux",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["BusyBox", "LibMount", "LibBlkid"],
+          "commands": ["lsblk", "blkid", "findmnt", "fdisk", "sfdisk", "mount", "umount", "swapon", "swapoff"],
+          "notes": "Installer and control panel need real block-device and mount introspection, not only BusyBox fallbacks."
+        },
+        {
+          "id": "Parted",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["BusyBox", "UtilLinux"],
+          "commands": ["parted", "partprobe"],
+          "notes": "Prefer GPT-aware partitioning for future EFI, LVM, ZFS, and larger disk layouts."
+        },
+        {
+          "id": "Gparted",
+          "tier": "installer-desktop",
+          "state": "dependency-closure-required",
+          "depends": ["Parted", "UtilLinux", "E2fsprogs", "Dosfstools", "Xfsprogs", "BtrfsProgs"],
+          "notes": "Desktop proof tool after the storage CLI spine is real."
+        }
+      ]
+    },
+    {
+      "id": "installer-network-spine",
+      "purpose": "Make the installer able to bring up wired or wifi networking, verify TLS, and fetch repo updates before or during install.",
+      "packages": [
+        {
+          "id": "Iproute2",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["BusyBox"],
+          "commands": ["ip", "ss", "bridge", "tc"],
+          "notes": "Required for reliable route/interface inspection and future bridge/container networking diagnostics."
+        },
+        {
+          "id": "DhcpClient",
+          "tier": "installer-core",
+          "state": "planned",
+          "depends": ["BusyBox", "Iproute2"],
+          "commands": ["udhcpc"],
+          "notes": "BusyBox udhcpc is acceptable initially, but AUZiX should own the DHCP service contract and receipts."
+        },
+        {
+          "id": "WifiRuntime",
+          "tier": "installer-core",
+          "state": "planned",
+          "depends": ["Iproute2", "CACerts"],
+          "commands": ["iw", "wpa_supplicant", "wpa_cli", "rfkill"],
+          "notes": "If the install target is wifi-only, the live installer needs scan/connect flows before package refresh or updates can work."
+        },
+        {
+          "id": "NetworkManagerOrConnman",
+          "tier": "installer-desktop",
+          "state": "evaluate",
+          "depends": ["WifiRuntime", "DBus"],
+          "notes": "Pick one higher-level network manager later. For now, define the low-level wifi/runtime packages first."
+        },
+        {
+          "id": "CACerts",
+          "tier": "installer-core",
+          "state": "must-publish",
+          "depends": ["BusyBox"],
+          "notes": "Required before HTTPS repo refresh, Git, Flatpak, curl, browser, and package validation."
+        },
+        {
+          "id": "Curl",
+          "tier": "installer-core",
+          "state": "ready",
+          "depends": ["CACerts"],
+          "commands": ["curl"],
+          "notes": "Installer update probes should prefer AUZiX curl and fall back to BusyBox wget only for recovery."
+        }
+      ]
+    },
+    {
+      "id": "installer-filesharing-and-advanced-storage",
+      "purpose": "Prepare network-backed install/update paths and future advanced disk layouts without forcing all of it into the first minimal ISO.",
+      "packages": [
+        {
+          "id": "NFSUtils",
+          "tier": "installer-optional",
+          "state": "planned",
+          "depends": ["UtilLinux", "Iproute2"],
+          "commands": ["mount.nfs", "showmount", "rpcinfo"],
+          "notes": "Needed for lab-build/ns1 package mirrors, rescue installs, and mounted build assets."
+        },
+        {
+          "id": "CifsUtils",
+          "tier": "installer-optional",
+          "state": "planned",
+          "depends": ["UtilLinux", "Iproute2"],
+          "commands": ["mount.cifs"],
+          "notes": "SMB client mount support for office/lab shares."
+        },
+        {
+          "id": "Lvm2",
+          "tier": "installer-optional",
+          "state": "planned",
+          "depends": ["UtilLinux", "E2fsprogs"],
+          "commands": ["pvcreate", "vgcreate", "lvcreate", "lvs", "vgs", "pvs"],
+          "notes": "Optional first, but common enough that installer partition logic should account for it."
+        },
+        {
+          "id": "ZfsUtils",
+          "tier": "installer-optional",
+          "state": "evaluate",
+          "depends": ["KernelModules", "Iproute2"],
+          "notes": "Potentially useful but license/kernel-module implications make this an explicit evaluation lane, not a hidden dependency."
+        }
+      ]
+    },
+    {
+      "id": "core-diagnostics-and-package-health",
+      "purpose": "Stop smoke tests from lying by ensuring clean installs have enough native diagnostics to explain failures.",
+      "packages": [
+        {
+          "id": "Coreutils",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["BusyBox"],
+          "commands": ["df", "du", "stat", "install", "env", "timeout", "ln", "chmod", "chown"],
+          "notes": "Clean vmid135 lacked enough standalone utilities; package scripts should not assume host-like /usr tools."
+        },
+        {
+          "id": "Procps",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["Ncurses"],
+          "commands": ["ps", "top", "free", "uptime", "sysctl"],
+          "notes": "Needed for memory/swap/process diagnostics and control panel health reports."
+        },
+        {
+          "id": "File",
+          "tier": "installer-core",
+          "state": "planned-native",
+          "depends": ["Zlib"],
+          "commands": ["file"],
+          "notes": "Used by package validation to classify ELF/script/text payloads."
+        },
+        {
+          "id": "Strace",
+          "tier": "installer-core",
+          "state": "ready",
+          "depends": ["BusyBox"],
+          "commands": ["strace"],
+          "notes": "Already visible on vmid135; keep it in the clean-install proof set."
+        }
+      ]
+    }
+  ],
+  "acceptance": {
+    "before_next_iso": [
+      "Published repo contains all installer-core packages marked must-publish.",
+      "A clean vmid135 install can refresh packages, install E2fsprogs, and create an ext4 test image.",
+      "auzix-install-disk either finds mkfs.ext4 in the live root or has a documented bootstrap path before formatting.",
+      "Pipeline rejects packages listed as installable when their dependency closure is absent from the repo index.",
+      "WifiRuntime has at least a package-level plan and command presence test, even if GUI connection management waits."
+    ]
+  }
+}
