@@ -120,6 +120,18 @@ die() {
   exit 1
 }
 
+fetch_url() {
+  url="$1"
+  output="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -L --fail --show-error -o "${output}" "${url}"
+  elif [ -x /Programs/Curl/current/Commands/curl ]; then
+    /Programs/Curl/current/Commands/curl -L --fail --show-error -o "${output}" "${url}"
+  else
+    "${BB}" wget -O "${output}" "${url}"
+  fi
+}
+
 prepare_state() {
   "${BB}" mkdir -p "${SETTINGS}" "${STATE}" "${LOGS}" "${WORK}"
   if [ ! -s "${REPO_CONF}" ]; then
@@ -251,7 +263,7 @@ install_one() {
   source_url="${base_url%/}/packages/${archive_name}"
 
   echo "Fetching ${name} ${source_url}"
-  curl -L --fail --show-error -o "${archive}.part" "${source_url}"
+  fetch_url "${source_url}" "${archive}.part"
   "${BB}" mv "${archive}.part" "${archive}"
 
   actual_sha="$("${BB}" sha256sum "${archive}" | "${BB}" awk '{print $1}')"

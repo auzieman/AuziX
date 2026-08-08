@@ -1,5 +1,6 @@
 #include <Elementary.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +32,15 @@ struct Package_Row {
 
 static void status_set(Package_Manager *ui, const char *text) {
   elm_object_text_set(ui->status, text);
+}
+
+static void write_last_log(Package_Manager *ui) {
+  FILE *log = fopen("/Users/auzix/.local/state/auzix/package-manager-last-action.log", "w");
+  if (!log) log = fopen("/tmp/auzix-package-manager-last-action.log", "w");
+  if (!log) return;
+  if (ui->output && ui->output[0]) fputs(ui->output, log);
+  else fputs("(no command output captured)\n", log);
+  fclose(log);
 }
 
 static void output_reset(Package_Manager *ui) {
@@ -161,13 +171,15 @@ static Eina_Bool done_cb(void *data, int type, void *event_info) {
   ui->runner = NULL;
   ui->action = ACTION_NONE;
   if (event->exit_code != 0) {
-    status_set(ui, "<color=#ff6b6b>auzix-pkg failed. Review the package log.</color>");
+    write_last_log(ui);
+    status_set(ui, "<color=#ff6b6b>auzix-pkg failed. Review ~/.local/state/auzix/package-manager-last-action.log.</color>");
     return ECORE_CALLBACK_RENEW;
   }
   if (finished == ACTION_REFRESH) list_start(ui);
   else if (finished == ACTION_LIST) list_populate(ui);
   else if (finished == ACTION_INSTALL) {
-    status_set(ui, "<color=#82d4bb>Package installed successfully.</color>");
+    write_last_log(ui);
+    status_set(ui, "<color=#82d4bb>Package transaction finished. Review package-manager-last-action.log for per-package results.</color>");
     list_start(ui);
   }
   return ECORE_CALLBACK_RENEW;
@@ -189,18 +201,18 @@ static void install_cb(void *data, Evas_Object *obj, void *event_info) {
   size_t capacity = 256 + ((size_t)count * 384);
   char *command = calloc(1, capacity);
   if (!command) return;
-  snprintf(command, capacity, "/System/Compatibility/bin/sh -c \"");
+  snprintf(command, capacity, "/System/Compatibility/bin/sh -c \"status=0");
   Eina_List *node;
   Package_Row *row;
   EINA_LIST_FOREACH(ui->rows, node, row) {
     if (!elm_check_state_get(row->check) || !package_name_safe(row->name)) continue;
-    if (strlen(command) > strlen("/System/Compatibility/bin/sh -c \""))
-      strncat(command, " && ", capacity - strlen(command) - 1);
-    strncat(command, "/System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg install '", capacity - strlen(command) - 1);
+    strncat(command, "; echo '--- installing ", capacity - strlen(command) - 1);
     strncat(command, row->name, capacity - strlen(command) - 1);
-    strncat(command, "'", capacity - strlen(command) - 1);
+    strncat(command, " ---'; /System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg install '", capacity - strlen(command) - 1);
+    strncat(command, row->name, capacity - strlen(command) - 1);
+    strncat(command, "' || status=1", capacity - strlen(command) - 1);
   }
-  strncat(command, "\"", capacity - strlen(command) - 1);
+  strncat(command, "; exit $status\"", capacity - strlen(command) - 1);
   status_set(ui, "<color=#84a7b8>Installing selected packages…</color>");
   if (!run_action(ui, ACTION_INSTALL, command))
     status_set(ui, "<color=#ffb86c>A package operation is already running.</color>");

@@ -58,6 +58,22 @@ auzix_native_name() {
   printf '%s\n' "${native}"
 }
 
+debian_depends_to_native_json() {
+  local depends_text="$1"
+  local dep clean native
+  {
+    tr ',' '\n' <<<"${depends_text}" |
+      while IFS= read -r dep; do
+        clean="${dep%%|*}"
+        clean="$(sed -E 's/[[:space:]]*\\([^)]*\\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${clean}")"
+        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || continue
+        native="$(auzix_native_name "${clean}")"
+        [[ -n "${native}" ]] || continue
+        printf '%s\n' "${native}"
+      done | awk '!seen[$0]++'
+  } | jq -R -s 'split("\n") | map(select(length > 0))'
+}
+
 [[ "${DEBIAN_PACKAGE}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || {
   log "invalid Debian package name: ${DEBIAN_PACKAGE}"
   exit 1
@@ -91,6 +107,7 @@ package_version="$(dpkg-deb -f "${deb_path}" Version)"
 package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"
 package_description="$(dpkg-deb -f "${deb_path}" Description | sed -n '1p')"
 package_depends="$(dpkg-deb -f "${deb_path}" Depends 2>/dev/null || true)"
+native_depends_json="$(debian_depends_to_native_json "${package_depends}")"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
 native_name="$(auzix_native_name "${package_name}")"
 program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
@@ -106,6 +123,12 @@ rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
 ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
+payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
+payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
+repack_class="payload"
+if [[ "${payload_file_count}" -lt 25 && -n "${package_depends}" ]]; then
+  repack_class="dependency-bundle"
+fi
 
 jq -n \
   --arg name "${native_name}" \
@@ -118,6 +141,10 @@ jq -n \
   --arg description "${package_description}" \
   --arg prefix "/Programs/${native_name}/${safe_version}" \
   --arg current "/Programs/${native_name}/current" \
+  --arg repack_class "${repack_class}" \
+  --argjson depends "${native_depends_json}" \
+  --argjson payload_file_count "${payload_file_count}" \
+  --argjson payload_size_bytes "${payload_size_bytes}" \
   '{
     name: $name,
     version: $version,
@@ -125,7 +152,7 @@ jq -n \
     migration_stage: "stage-1-auzix-native-repack",
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
-    depends: [],
+    depends: $depends,
     description: $description,
     source: {
       type: "debian-binary-package",
@@ -134,9 +161,13 @@ jq -n \
       package: $source_package,
       version: $source_version,
       architecture: $source_architecture,
-      upstream_depends: $upstream_depends
+      upstream_depends: $upstream_depends,
+      upstream_depends_native: $depends,
+      payload_file_count: $payload_file_count,
+      payload_size_bytes: $payload_size_bytes,
+      repack_class: $repack_class
     },
     notes: "Experimental Trixie intake package. The source is Debian, but the package identity and install prefix are AUZiX-native."
   }' >"${receipt_path}"
 
-log "built ${native_name} ${package_version} from ${package_name}"
+log "built ${native_name} ${package_version} from ${package_name} (${repack_class}, ${payload_file_count} files)"
