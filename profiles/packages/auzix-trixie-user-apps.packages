@@ -87,3 +87,14 @@ lightdm-gtk-greeter
 terminology
 xinit
 xorg
+
+# Control panel and desktop plumbing
+gnome-control-center
+gnome-settings-daemon
+network-manager
+cups
+system-config-printer
+samba
+pipewire
+wireplumber
+pavucontrol
