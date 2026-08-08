@@ -97,19 +97,39 @@ zathura-pdf-poppler
 
 # Network and diagnostics
 curl
+coreutils
+e2fsprogs
 file
 htop
 iproute2
 iputils-ping
-net-tools
+iw
+less
+libunwind8
 ncurses-base
 ncurses-term
+net-tools
+nfs-common
 openssh-client
 openssh-server
+parted
+policykit-1
+procps
 ripgrep
 rsync
+rfkill
 strace
+util-linux
 wget
+wpasupplicant
+
+# Filesystems, install media, and network mounts
+btrfs-progs
+cifs-utils
+dosfstools
+exfatprogs
+lvm2
+xfsprogs
 
 # Server and container-image substrate
 nginx
@@ -125,7 +145,14 @@ xorg
 
 # Control panel and desktop plumbing
 baobab
+colord
+cups
+dconf-gsettings-backend
 firewall-config
+fonts-dejavu-core
+gir1.2-glib-2.0
+gir1.2-gtk-3.0
+gir1.2-peas-1.0
 gnome-disk-utility
 gparted
 gnome-control-center
@@ -133,7 +160,6 @@ gnome-settings-daemon
 gufw
 mate-control-center
 network-manager
-cups
 system-config-printer
 samba
 pipewire
