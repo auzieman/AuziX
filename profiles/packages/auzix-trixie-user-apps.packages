@@ -69,6 +69,8 @@ htop
 iproute2
 iputils-ping
 net-tools
+ncurses-base
+ncurses-term
 openssh-client
 openssh-server
 ripgrep
