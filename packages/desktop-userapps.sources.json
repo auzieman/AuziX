@@ -1,0 +1,55 @@
+{
+  "format": "auzix-package-source-catalog-v1",
+  "defaults": {
+    "distribution": "debian",
+    "suite": "trixie",
+    "architecture": "amd64"
+  },
+  "packages": [
+    {
+      "id": "Strace",
+      "source": {"type": "host-binary", "packages": ["strace"]},
+      "recipe": {"receipt_glob": "Strace-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-strace-package.sh",
+        "prerequisites": ["strace", "ldd", "install"]
+      }
+    },
+    {
+      "id": "NetSurf",
+      "source": {"type": "debian-packages", "packages": ["netsurf-gtk", "netsurf-common"]},
+      "recipe": {"receipt_glob": "NetSurf-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-netsurf-package.sh",
+        "prerequisites": ["netsurf-gtk", "netsurf-common"]
+      }
+    },
+    {
+      "id": "Midori",
+      "source": {"type": "upstream-archive", "reference": "AUZIX_MIDORI_URL or default Midori release URL"},
+      "recipe": {"receipt_glob": "Midori-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-midori-package.sh",
+        "prerequisites": ["curl", "tar", "file", "ldd"]
+      }
+    },
+    {
+      "id": "AbiWord",
+      "source": {"type": "debian-packages", "packages": ["abiword"]},
+      "recipe": {"receipt_glob": "AbiWord-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-abiword-package.sh",
+        "prerequisites": ["abiword", "file", "jq", "ldd", "rsync"]
+      }
+    },
+    {
+      "id": "Gnumeric",
+      "source": {"type": "debian-packages", "packages": ["gnumeric"]},
+      "recipe": {"receipt_glob": "Gnumeric-*.auzix.json"},
+      "build": {
+        "script": "scripts/build-auzix-gnumeric-package.sh",
+        "prerequisites": ["gnumeric", "file", "jq", "ldd", "rsync"]
+      }
+    }
+  ]
+}

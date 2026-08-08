@@ -6,6 +6,8 @@ AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 REPO_DIR="${AUZIX_REPO_DIR:-${ROOT_DIR}/artifacts/auzix/repo}"
 PACKAGE_DIR="${REPO_DIR}/packages"
 INDEX_PATH="${REPO_DIR}/index.json"
+PREVIOUS_INDEX="${REPO_DIR}/index.json"
+PREVIOUS_PACKAGE_DIR="${REPO_DIR}/packages"
 MANIFEST_DIR="${AUZIX_ROOT}/System/Settings/packages"
 STACK_DIR="${AUZIX_ROOT}/Stacks/desktop-core"
 
@@ -157,8 +159,21 @@ if [[ ! -d "${AUZIX_ROOT}/System/PackageDB" ]]; then
   exit 1
 fi
 
+previous_repo="$(mktemp -d)"
+trap 'rm -rf "${previous_repo}"' EXIT
+if [[ -f "${PREVIOUS_INDEX}" && -d "${PREVIOUS_PACKAGE_DIR}" ]] &&
+  jq -e '.format == "auzix-repo-v1" and (.packages | type == "array")' "${PREVIOUS_INDEX}" >/dev/null 2>&1; then
+  mkdir -p "${previous_repo}/packages"
+  cp -f "${PREVIOUS_INDEX}" "${previous_repo}/index.json"
+  find "${PREVIOUS_PACKAGE_DIR}" -maxdepth 1 -type f -name '*.auzix.tar.gz' -exec cp -f {} "${previous_repo}/packages/" \;
+else
+  jq -n '{format: "auzix-repo-v1", packages: []}' >"${previous_repo}/index.json"
+  mkdir -p "${previous_repo}/packages"
+fi
+
 rm -rf "${REPO_DIR}"
 mkdir -p "${PACKAGE_DIR}" "${MANIFEST_DIR}" "${STACK_DIR}"
+find "${previous_repo}/packages" -maxdepth 1 -type f -name '*.auzix.tar.gz' -exec cp -f {} "${PACKAGE_DIR}/" \;
 
 entries_tmp="$(mktemp)"
 find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print |
@@ -177,6 +192,36 @@ jq -s \
     root_contract: $root_contract,
     packages: .
   }' "${entries_tmp}" >"${INDEX_PATH}"
+
+merged_tmp="$(mktemp)"
+jq -s '
+  .[0] as $previous
+  | .[1] as $incoming
+  | ($incoming.packages | map(.name)) as $incoming_names
+  | $incoming + {
+      packages: (
+        ([
+          $previous.packages[]?
+          | select(.name as $name | ($incoming_names | index($name) | not))
+        ] + $incoming.packages)
+        | sort_by(.name)
+      )
+    }
+' "${previous_repo}/index.json" "${INDEX_PATH}" >"${merged_tmp}"
+mv "${merged_tmp}" "${INDEX_PATH}"
+
+while IFS=$'\t' read -r archive expected_sha; do
+  package_path="${PACKAGE_DIR}/${archive}"
+  [[ -f "${package_path}" ]] || {
+    log "merged index references missing package archive: ${archive}"
+    exit 1
+  }
+  actual_sha="$(sha256sum "${package_path}" | awk '{print $1}')"
+  [[ "${actual_sha}" == "${expected_sha}" ]] || {
+    log "merged package checksum mismatch: ${archive}"
+    exit 1
+  }
+done < <(jq -r '.packages[] | [.package, .sha256] | @tsv' "${INDEX_PATH}")
 
 cp -f "${INDEX_PATH}" "${MANIFEST_DIR}/repo-index.json"
 jq '{format: "auzix-installed-v1", installed: []}' \

@@ -31,6 +31,27 @@
           "notes": "GNU gzip/gunzip/zcat compatibility package for logs and package workflows."
         },
         {
+          "id": "Coreutils",
+          "tier": "userland",
+          "state": "planned",
+          "depends": ["BusyBox"],
+          "notes": "GNU df, du, stat, timeout, install, env and friends. Missing df/du/timeout already makes AUZiX diagnostics and smoke scripts too sparse."
+        },
+        {
+          "id": "Procps",
+          "tier": "userland",
+          "state": "planned",
+          "depends": ["Ncurses"],
+          "notes": "ps/top/free/uptime/sysctl style tooling for Control Panel reports and ordinary shell diagnostics."
+        },
+        {
+          "id": "UtilLinux",
+          "tier": "userland",
+          "state": "planned",
+          "depends": ["BusyBox"],
+          "notes": "lsblk, blkid, findmnt, mount helpers, swapon and disk introspection for storage panels."
+        },
+        {
           "id": "Git",
           "tier": "developer",
           "state": "planned-full-package",

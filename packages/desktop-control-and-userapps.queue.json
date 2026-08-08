@@ -1,0 +1,253 @@
+{
+  "$schema": "package-build-queue.schema.json",
+  "format": "auzix-package-build-queue-v1",
+  "batches": [
+    {
+      "id": "desktop-control-platform",
+      "purpose": "Make AUZiX controllable from the desktop before chasing heavier apps: hardware probes, network settings, printers, file sharing, package health, service state, audio/session status, and container readiness.",
+      "packages": [
+        {
+          "id": "AuzixControlPanel",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["BusyBox", "Lua", "AuzixPackageTools", "Sudo"],
+          "notes": "First pass should be read-only Lua/TUI with JSON report output. EFL frontend follows once the probe contract settles. Panels include system health, network status/settings, packages, services, containers, desktop session, sound, printers, and SMB/NFS file sharing. Intent: packages/auzix-control-panel.intent.json"
+        },
+        {
+          "id": "AuzixControlPanelEfl",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["AuzixControlPanel", "AuzixPackageManagerEfl", "Enlightenment", "DBus"],
+          "notes": "Native desktop face for the control panel; must call the same read-only probe/report backend rather than reimplementing checks."
+        },
+        {
+          "id": "AuzixUserGroups",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Sudo"],
+          "notes": "Own desktop/operator groups for audio, video, input, storage, containers, flatpak, and package operations. This should replace ad-hoc chmod/group fixes."
+        },
+        {
+          "id": "AuzixHardwareRuntime",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["Udev", "Acpid", "AlsaProbe", "PulseAudio"],
+          "notes": "Package the baseline hardware/session probes and service hooks needed for audio, power events, device discovery, and SPICE-oriented desktop validation."
+        },
+        {
+          "id": "AuzixNetworkSettings",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Iproute2", "CACerts"],
+          "notes": "Own /System/Settings/network intent, DNS/default-route probes, and future static/DHCP mutations. First pass is read-only so Control Panel can show current network state safely."
+        },
+        {
+          "id": "AuzixPrinterRuntime",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["CUPS", "DBus", "AuzixUserGroups"],
+          "notes": "Printer service/socket/queue visibility first; add/remove printer actions require explicit privilege policy and receipts."
+        },
+        {
+          "id": "AuzixFileSharingRuntime",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["SambaClient", "NFSUtils", "AuzixUserGroups"],
+          "notes": "SMB/NFS client and share visibility first. Server/export mutations stay disabled until /System/Settings/samba and /System/Settings/nfs contracts exist."
+        },
+        {
+          "id": "AuzixServiceRuntime",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Lua"],
+          "notes": "Pseudo-package for /Services conventions, proc/sys/dev/cgroup mount expectations, service logs, and boot-time sanity checks. Keep as post-install fix until it graduates into the base ISO."
+        }
+      ]
+    },
+    {
+      "id": "native-dev-and-debug-tools",
+      "purpose": "Install practical native tools that improve AUZiX development and pull in core dependency surfaces without jumping straight to enormous GUI stacks.",
+      "packages": [
+        {
+          "id": "Coreutils",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox"],
+          "notes": "Provides df, du, stat, chmod/chown/chgrp, install, env, timeout, and other expected GNU userland utilities. Missing df/du/timeout already hurts diagnostics."
+        },
+        {
+          "id": "UtilLinux",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "LibMount", "LibBlkid"],
+          "notes": "Own lsblk, blkid, findmnt, mount helpers, swapon, fdisk/sfdisk. Pairs with filesystem packages for Control Panel storage views."
+        },
+        {
+          "id": "Procps",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["Ncurses"],
+          "notes": "Provides ps/top/free/uptime/sysctl style process and memory visibility; AUZiX currently lacks simple uptime/free diagnostics."
+        },
+        {
+          "id": "Git",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["CACerts", "Curl", "OpenSSH", "GnuPG", "Less"],
+          "notes": "Needs exec-path helpers, templates, SSL/CA and SSH integration. Do not treat as a single command binary."
+        },
+        {
+          "id": "Strace",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-strace-package.sh",
+          "depends": ["BusyBox"],
+          "notes": "Debugger/probe tool for missing paths, syscalls, and package smoke failures."
+        },
+        {
+          "id": "GDB",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Binutils", "Python", "Ncurses", "Readline", "Zlib", "LibExpat"],
+          "notes": "Heavy but important. Classify dependencies first; Python support may make this a second-pass native debugger."
+        },
+        {
+          "id": "File",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["BusyBox", "Zlib"],
+          "notes": "Small but useful for package scripts that classify ELF, images, and text payloads."
+        },
+        {
+          "id": "Nano",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["Ncurses"],
+          "notes": "Tiny native editor baseline for installed systems without Flatpak."
+        },
+        {
+          "id": "VimTiny",
+          "tier": "runtime",
+          "state": "planned",
+          "depends": ["Ncurses"],
+          "notes": "Optional editor baseline and dependency probe; keep tiny variant first."
+        },
+        {
+          "id": "Gedit",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "GLib", "GSettings", "GtkSourceView", "Fonts", "AuzixDesktopSessionRuntime"],
+          "notes": "Simple GNOME text editor proof. Should force GSettings/schema, GTK source view, MIME/desktop entries, and session portal decisions."
+        }
+      ]
+    },
+    {
+      "id": "native-internet-and-creative-apps",
+      "purpose": "Seed normal desktop use: web, office, art, DTP, chat, and media. Use these as dependency magnets, but graduate only the packages whose receipts and runtime checks are clean.",
+      "packages": [
+        {
+          "id": "NetSurf",
+          "tier": "frontend",
+          "state": "ready",
+          "script": "scripts/build-auzix-netsurf-package.sh",
+          "depends": ["CACerts", "OpenSSL", "Curl", "Gtk3Runtime"],
+          "notes": "Small native browser proof before Firefox/Chromium-sized closures."
+        },
+        {
+          "id": "Midori",
+          "tier": "frontend",
+          "state": "ready",
+          "script": "scripts/build-auzix-midori-package.sh",
+          "depends": ["CACerts", "Gtk3Runtime", "WebKitGtk"],
+          "notes": "Heavier browser smoke; likely reveals WebKitGTK, fonts, NSS, CA, MIME, and desktop file gaps."
+        },
+        {
+          "id": "AbiWord",
+          "tier": "frontend",
+          "state": "ready",
+          "script": "scripts/build-auzix-abiword-package.sh",
+          "depends": ["Gtk3Runtime", "GSettings", "Fonts"],
+          "notes": "Light word processor / office proof. Build script expects package id abiword."
+        },
+        {
+          "id": "Gnumeric",
+          "tier": "frontend",
+          "state": "ready",
+          "script": "scripts/build-auzix-gnumeric-package.sh",
+          "depends": ["Gtk3Runtime", "GSettings", "Fonts"],
+          "notes": "Light spreadsheet proof. Build script expects package id gnumeric."
+        },
+        {
+          "id": "Inkscape",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "Cairo", "Pango", "LibXML2", "Fonts"],
+          "notes": "Vector/art dependency magnet. Consider Flatpak adapter first if native closure is too large."
+        },
+        {
+          "id": "Gimp",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "GEGL", "Babl", "LibPNG", "JPEG", "Fonts"],
+          "notes": "Art/photo dependency magnet. Native package likely second pass after image libraries are owned."
+        },
+        {
+          "id": "Scribus",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["QtRuntime", "CUPS", "Fontconfig", "LittleCMS", "Poppler"],
+          "notes": "DTP proof and font/print/PDF dependency magnet. Keep planned until Qt and font stack are cleaner."
+        },
+        {
+          "id": "LibreOffice",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "Fontconfig", "Cairo", "Pango", "Harfbuzz", "LibXML2", "Zlib", "CUPS", "AuzixDesktopSessionRuntime"],
+          "notes": "Scoped native office proof after Control Panel: Writer/Calc launch, create document, save .odt/.ods, reopen. Java/Base/printing/export can remain second-pass."
+        },
+        {
+          "id": "OpenOffice",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "Fontconfig", "Cairo", "Pango", "Harfbuzz", "LibXML2", "Zlib", "AuzixDesktopSessionRuntime"],
+          "notes": "Alternative office-suite proof if packaging closure is friendlier than LibreOffice. Keep scoped to Writer/Calc local files first."
+        },
+        {
+          "id": "GnomeControlCenter",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "DBus", "GSettings", "AccountsService", "PolicyKit", "NetworkManager", "PulseAudio", "CUPS", "AuzixDesktopSessionRuntime"],
+          "notes": "GNOME Settings/control-panel dependency magnet. Treat as a plumbing probe, not the primary AUZiX Control Panel UX."
+        },
+        {
+          "id": "KeePassXC",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["QtRuntime", "LibGcrypt", "Zlib", "AuzixDesktopSessionRuntime"],
+          "notes": "Password manager proof. Good for Qt runtime, desktop secrets/keyring decisions, and local encrypted-file handling."
+        },
+        {
+          "id": "Ephoto",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["EFL", "JPEG", "LibPNG", "AuzixDesktopSessionRuntime"],
+          "notes": "Native EFL photo viewer/editor seed. Good AUZiX-native visual app after EFL/Enlightenment are already part of the base."
+        },
+        {
+          "id": "Pluma",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["Gtk3Runtime", "GLib", "GSettings", "GtkSourceView", "Fonts", "AuzixDesktopSessionRuntime"],
+          "notes": "MATE text editor proof. Similar dependency pressure to gedit but usually a friendly native desktop app target."
+        },
+        {
+          "id": "DiscordFlatpakAdapter",
+          "tier": "frontend",
+          "state": "planned",
+          "depends": ["FlatpakRuntimeSupport", "AuzixHardwareRuntime"],
+          "notes": "Chat app should start as Flatpak/web wrapper; audio/session readiness must be visible in Control Panel first."
+        }
+      ]
+    }
+  ]
+}

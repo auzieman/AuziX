@@ -12,6 +12,12 @@ published or runtime-ready.
   and the deliberately scoped Python/Flask/MicroBlog follow-up batch.
 - `flatpak-desktop.queue.json` records the post-Podman Flatpak desktop lane:
   Bubblewrap, OSTree, xdg-dbus-proxy, Flatpak, portals, and program adapters.
+- `desktop-control-and-userapps.queue.json` records the next desktop round:
+  AUZiX Control Panel, hardware/session platform packages, native dev/debug
+  tools, and a measured wave of browser/office/art/chat app seeds.
+- `auzix-control-panel.intent.json` defines the read-only probe/report contract
+  for making hardware, package, service, container, and session state visible
+  from the AUZiX desktop.
 
 The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and

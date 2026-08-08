@@ -1,0 +1,181 @@
+{
+  "format": "auzix-control-panel-intent-v1",
+  "name": "AuzixControlPanel",
+  "version": "0.1",
+  "description": "First AUZiX-native desktop control hub for hardware, service, package, network, sharing, printer, sound, and proof-run visibility.",
+  "state": "planned",
+  "source": {
+    "type": "local",
+    "path": "sources/auzix-control-panel",
+    "language": "lua-first",
+    "ui": "terminal-tui-first-efl-next"
+  },
+  "depends": [
+    "BusyBox",
+    "Lua",
+    "AuzixPackageTools",
+    "AuzixPackageManagerEfl",
+    "Sudo",
+    "CACerts",
+    "DBus",
+    "Udev",
+    "Acpid",
+    "AlsaProbe",
+    "PulseAudio",
+    "CUPS",
+    "SambaClient",
+    "NFSUtils",
+    "Podman",
+    "Flatpak"
+  ],
+  "paths": {
+    "prefix": "/Programs/AuzixControlPanel/0.1",
+    "current": "/Programs/AuzixControlPanel/current",
+    "command": "/Programs/AuzixControlPanel/current/Commands/auzix-control-panel",
+    "desktop_entry": "/System/Compatibility/usr/share/applications/auzix-control-panel.desktop",
+    "state": "/System/State/control-panel",
+    "logs": "/System/Logs/control-panel"
+  },
+  "panels": [
+    {
+      "id": "system-health",
+      "label": "System health",
+      "probes": [
+        "uname -a",
+        "mount | grep -E ' /proc | /sys |cgroup2'",
+        "df -h / /System /Users",
+        "free -m"
+      ],
+      "purpose": "Catch missing proc/sys/cgroup mounts, disk pressure, and memory/swap pressure before app tests mislead us."
+    },
+    {
+      "id": "network",
+      "label": "Network status",
+      "probes": [
+        "ip addr",
+        "ip route",
+        "cat /System/Settings/resolv.conf 2>/dev/null || cat /etc/resolv.conf 2>/dev/null",
+        "ping -c 1 1.1.1.1"
+      ],
+      "purpose": "Show address, route, DNS, and basic reachability without opening a shell treasure hunt."
+    },
+    {
+      "id": "network-settings",
+      "label": "Network settings",
+      "probes": [
+        "find /System/Settings/network -maxdepth 2 -type f -print 2>/dev/null",
+        "ip link",
+        "ip -brief addr",
+        "ip route show default",
+        "cat /System/Settings/network/interfaces.json 2>/dev/null || true"
+      ],
+      "purpose": "Expose configured interfaces, default route, DNS intent, and future static/DHCP controls before mutating network state."
+    },
+    {
+      "id": "packages",
+      "label": "Packages",
+      "probes": [
+        "auzix-pkg refresh",
+        "auzix-pkg list",
+        "ls /System/PackageDB"
+      ],
+      "purpose": "Expose package repo health and installed package receipts from the desktop."
+    },
+    {
+      "id": "services",
+      "label": "Services",
+      "probes": [
+        "ls /Services",
+        "find /Services -maxdepth 2 -type f -name service.json -print",
+        "ps"
+      ],
+      "purpose": "Make AUZiX service state visible before a fuller lua init/service manager lands."
+    },
+    {
+      "id": "containers",
+      "label": "Containers",
+      "probes": [
+        "podman info",
+        "podman network ls",
+        "podman ps -a"
+      ],
+      "purpose": "Show rootful/rootless Podman readiness, networking, and proof containers."
+    },
+    {
+      "id": "desktop-session",
+      "label": "Desktop session",
+      "probes": [
+        "echo DISPLAY=$DISPLAY",
+        "echo XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR",
+        "dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply / org.freedesktop.DBus.ListNames",
+        "pactl info"
+      ],
+      "purpose": "Surface the exact DBus/audio/session gaps that currently block richer GUI app validation."
+    },
+    {
+      "id": "sound-settings",
+      "label": "Sound settings",
+      "probes": [
+        "aplay -l 2>/dev/null || true",
+        "arecord -l 2>/dev/null || true",
+        "pactl info 2>/dev/null || true",
+        "pactl list short sinks 2>/dev/null || true",
+        "ls -l /dev/snd 2>/dev/null || true"
+      ],
+      "purpose": "Show audio devices, PulseAudio/session readiness, SPICE/audio gaps, and user permission issues."
+    },
+    {
+      "id": "printers",
+      "label": "Printers",
+      "probes": [
+        "lpstat -r 2>/dev/null || true",
+        "lpstat -v 2>/dev/null || true",
+        "find /System/Settings/cups -maxdepth 2 -type f -print 2>/dev/null",
+        "test -S /run/cups/cups.sock && echo cups-socket-present || true"
+      ],
+      "purpose": "Make printer service, queue, and socket state visible before enabling add/remove printer actions."
+    },
+    {
+      "id": "file-sharing",
+      "label": "File sharing",
+      "probes": [
+        "find /System/Settings/samba -maxdepth 2 -type f -print 2>/dev/null",
+        "find /System/Settings/nfs -maxdepth 2 -type f -print 2>/dev/null",
+        "smbclient -L localhost -N 2>/dev/null || true",
+        "showmount -e localhost 2>/dev/null || true",
+        "mount | grep -E ' type (cifs|nfs|nfs4) ' || true"
+      ],
+      "purpose": "Surface SMB/NFS client and server readiness, configured shares, and mounted network filesystems."
+    }
+  ],
+  "commands": [
+    {
+      "name": "auzix-control-panel",
+      "description": "Open the AUZiX control panel."
+    },
+    {
+      "name": "auzix-control-panel-report",
+      "description": "Write a JSON support snapshot for BKC/Ollama review."
+    }
+  ],
+  "validation": {
+    "smoke_commands": [
+      "/Programs/AuzixControlPanel/current/Commands/auzix-control-panel --version",
+      "/Programs/AuzixControlPanel/current/Commands/auzix-control-panel-report --json > /tmp/auzix-control-panel-report.json",
+      "grep -F system-health /tmp/auzix-control-panel-report.json"
+    ],
+    "known_blockers": [
+      {
+        "id": "desktop-control-ui-choice",
+        "status": "planned",
+        "message": "Start as Lua/TUI for fast proof; add EFL frontend after the probe contract settles."
+      },
+      {
+        "id": "privileged-actions-policy",
+        "status": "planned",
+        "message": "Read-only probes come first. Mutating actions need explicit sudo/polkit rules and receipts."
+      }
+    ]
+  },
+  "ollama_prompt": "Given a control-panel probe failure, classify whether AUZiX is missing a platform package, a service mount, a user/group permission, a compatibility path, or an app-specific runtime expectation. Propose the smallest package-contract fix and do not suggest manual shell-only fixes."
+}
