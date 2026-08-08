@@ -104,7 +104,7 @@ usage() {
   cat <<'USAGE'
 Usage:
   auzix-pkg refresh [REPOSITORY_URL]
-  auzix-pkg list [all|available|installed]
+  auzix-pkg list [all|available|installed|long]
   auzix-pkg info PACKAGE
   auzix-pkg bootstrap [PACKAGE ...]
   auzix-pkg install PACKAGE
@@ -123,12 +123,16 @@ die() {
 fetch_url() {
   url="$1"
   output="$2"
-  if command -v curl >/dev/null 2>&1; then
+  if [ -x "${BB}" ]; then
+    "${BB}" wget -O "${output}" "${url}"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "${output}" "${url}"
+  elif command -v curl >/dev/null 2>&1; then
     curl -L --fail --show-error -o "${output}" "${url}"
   elif [ -x /Programs/Curl/current/Commands/curl ]; then
     /Programs/Curl/current/Commands/curl -L --fail --show-error -o "${output}" "${url}"
   else
-    "${BB}" wget -O "${output}" "${url}"
+    die "no usable downloader found"
   fi
 }
 
@@ -319,6 +323,21 @@ case "${command_name}" in
           | . as $package
           | [$package.name, $package.version, $package.kind,
              (if any($state[0].installed[]; .name == $package.name) then "installed" else "available" end)]
+          | @tsv
+        ' "${CACHE_INDEX}"
+        ;;
+      long|describe|descriptions)
+        "${JQ}" -r --slurpfile state "${INSTALLED}" '
+          .packages[]
+          | . as $package
+          | [
+              $package.name,
+              $package.version,
+              $package.kind,
+              (if any($state[0].installed[]; .name == $package.name) then "installed" else "available" end),
+              (((.size // 0) / 1048576 * 10 | floor) / 10 | tostring) + " MiB",
+              ((.description // .migration_stage // "") | gsub("[\t\r\n]+"; " "))
+            ]
           | @tsv
         ' "${CACHE_INDEX}"
         ;;

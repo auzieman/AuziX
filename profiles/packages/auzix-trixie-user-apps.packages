@@ -65,6 +65,7 @@ libreoffice-writer
 python3-uno
 coinor-libcoinmp0
 libabw-0.1-1
+libcdr-0.1-1
 libe-book-0.1-1
 libepubgen-0.1-1
 libetonyek-0.1-1
@@ -77,6 +78,7 @@ libstaroffice-0.0-0
 libwpd-0.10-10
 libwpg-0.3-3
 libwps-0.4-4
+libquadmath0
 fontconfig
 fontconfig-config
 fonts-opensymbol
@@ -137,6 +139,7 @@ nginx
 # Graphical substrate
 dbus-x11
 enlightenment
+kio6
 lightdm
 lightdm-gtk-greeter
 terminology
