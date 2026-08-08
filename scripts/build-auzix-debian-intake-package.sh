@@ -56,7 +56,14 @@ auzix_native_name() {
         native+="Zathura"
         ;;
       *)
-        native+="${part^}"
+        case "${part}" in
+          abiword)
+            native+="AbiWord"
+            ;;
+          *)
+            native+="${part^}"
+            ;;
+        esac
         ;;
     esac
   done
