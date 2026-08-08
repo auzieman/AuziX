@@ -181,6 +181,7 @@ package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"
 package_description="$(dpkg-deb -f "${deb_path}" Description | sed -n '1p')"
 package_depends="$(dpkg-deb -f "${deb_path}" Depends 2>/dev/null || true)"
 native_depends_json="$(debian_depends_to_native_json "${package_depends}")"
+native_depends_words="$(jq -r 'join(" ")' <<<"${native_depends_json}")"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
 native_name="$(auzix_native_name "${package_name}")"
 program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
@@ -285,10 +286,26 @@ EOF
 set -eu
 prefix="/Programs/${native_name}/current"
 rootfs="\${prefix}/RootFS"
-export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
-export XDG_DATA_DIRS="\${rootfs}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
-export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
-export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+runtime_packages="${native_depends_words}"
+runtime_bin_path=""
+runtime_data_path=""
+runtime_schema_path=""
+runtime_gi_path=""
+runtime_lib_path=""
+for runtime_package in \${runtime_packages}; do
+  runtime_root="/Programs/\${runtime_package}/current/RootFS"
+  [ -d "\${runtime_root}" ] || continue
+  runtime_bin_path="\${runtime_bin_path}:\${runtime_root}/usr/bin:\${runtime_root}/usr/sbin:\${runtime_root}/bin:\${runtime_root}/sbin"
+  runtime_data_path="\${runtime_data_path}:\${runtime_root}/usr/share"
+  runtime_schema_path="\${runtime_schema_path}:\${runtime_root}/usr/share/glib-2.0/schemas"
+  runtime_gi_path="\${runtime_gi_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${runtime_root}/usr/lib/girepository-1.0"
+  runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
+done
+export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin\${runtime_bin_path}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
+export XDG_DATA_DIRS="\${rootfs}/usr/share\${runtime_data_path}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${runtime_schema_path}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
+export GI_TYPELIB_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${rootfs}/usr/lib/girepository-1.0\${runtime_gi_path}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
+export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 exec "\${rootfs}/${rel_command}" "\$@"
 EOF
   fi
@@ -320,9 +337,14 @@ while IFS= read -r rel_desktop; do
   desktop_base="$(basename "${rel_desktop}")"
   command_name_allowed "${desktop_base}" || continue
   desktop_target="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}"
+  desktop_exec_name="$(jq -r '.[0] // empty | split("/")[-1]' <<<"${commands_json}")"
+  if [[ -z "${desktop_exec_name}" ]]; then
+    desktop_exec_name="${desktop_base%.desktop}"
+  fi
+  desktop_exec_target="/Programs/${native_name}/current/Commands/${desktop_exec_name}"
   sed -E \
-    -e "s#^(TryExec=)([^[:space:]/]+).*#\\1/System/Compatibility/bin/\\2#" \
-    -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1/System/Compatibility/bin/\\2\\3#" \
+    -e "s#^(TryExec=)([^[:space:]/]+).*#\\1${desktop_exec_target}#" \
+    -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1${desktop_exec_target}\\3#" \
     "${program_root}/RootFS/${rel_desktop}" >"${desktop_target}"
   chmod 0644 "${desktop_target}"
   compatibility_exports_json="$(
@@ -410,6 +432,11 @@ jq -n \
     depends: $depends,
     commands: $commands,
     compatibility_exports: $compatibility_exports,
+    runtime_ladder: {
+      local_rootfs: true,
+      dependency_packages: $depends,
+      system_surfaces: ["/System/Libraries", "/System/Compatibility", "/System/Settings"]
+    },
     description: $description,
     source: {
       type: "debian-binary-package",

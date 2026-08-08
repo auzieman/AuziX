@@ -26,6 +26,7 @@ root_path() {
 
 package_library_path() {
   local prefix="$1"
+  local receipt="$2"
   local rootfs
   rootfs="$(root_path "${prefix}")/RootFS"
   printf '%s' "$(root_path "${prefix}")/Libraries"
@@ -36,6 +37,20 @@ package_library_path() {
       "${rootfs}/lib/x86_64-linux-gnu" \
       "${rootfs}/lib"
   fi
+  while IFS= read -r dependency_name; do
+    [[ -n "${dependency_name}" ]] || continue
+    dependency_root="${AUZIX_ROOT}/Programs/${dependency_name}/current"
+    dependency_rootfs="${dependency_root}/RootFS"
+    [[ -d "${dependency_root}" || -d "${dependency_rootfs}" ]] || continue
+    printf ':%s' "${dependency_root}/Libraries"
+    if [[ -d "${dependency_rootfs}" ]]; then
+      printf ':%s' \
+        "${dependency_rootfs}/usr/lib/x86_64-linux-gnu" \
+        "${dependency_rootfs}/usr/lib" \
+        "${dependency_rootfs}/lib/x86_64-linux-gnu" \
+        "${dependency_rootfs}/lib"
+    fi
+  done < <(jq -r '.runtime_ladder.dependency_packages[]?, .depends[]?' "${receipt}" 2>/dev/null | awk '!seen[$0]++')
   printf ':%s' \
     "${AUZIX_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu" \
     "${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu" \
@@ -103,7 +118,7 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
         continue
       fi
 
-      library_path="$(package_library_path "${prefix}")"
+      library_path="$(package_library_path "${prefix}" "${receipt}")"
       for elf in "${elfs[@]}"; do
         output="$(LD_LIBRARY_PATH="${library_path}" ldd "${elf}" 2>&1 || true)"
         summary="$(printf '%s\n' "${output}" | tr '\t\r\n' '   ' | cut -c1-300)"

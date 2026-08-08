@@ -63,8 +63,10 @@ For each declared command:
    - legacy interpreter/RPATH/RUNPATH that is not explicitly accepted;
    - unresolved app-specific shared objects.
 6. `strings` each wrapper/ELF/config payload for hardwired donor paths.
-7. Run a bounded command smoke such as `--version`, `--help`, or a package
-   declared smoke command.
+7. Run a bounded command smoke through the AUZiX front-door wrapper itself,
+   such as `/Programs/App/current/Commands/app --version`, `--help`, or a
+   package-declared smoke command. Do not accept a package as launch-clean when
+   only the donor payload path works.
 
 For each desktop package:
 
@@ -72,9 +74,13 @@ For each desktop package:
    marked `terminal-only`, `service`, `library`, or `staging`.
 2. Ensure `Name`, `Comment` or description, `Categories`, and `Exec` are
    sensible for Enlightenment menus.
-3. Ensure `Exec` points to an AUZiX-owned command path, not a donor `/usr/bin`
-   path.
-4. Run a bounded GUI launch smoke under the active X/DBus environment when
+3. Ensure `Exec` points to the owning AUZiX front-door command wrapper,
+   normally `/Programs/App/current/Commands/app`, not a donor `/usr/bin` path
+   and not only a compatibility alias.
+4. Manually test at least one menu/front-door launch for promoted desktop
+   applications. The proof command must exercise the wrapper-generated runtime
+   ladder, not just `ldd` a discovered ELF.
+5. Run a bounded GUI launch smoke under the active X/DBus environment when
    available. A package can be `installable` without this, but not
    `desktop-ready`.
 
@@ -85,7 +91,9 @@ For each desktop package:
   closure.
 - `link-clean`: command ELF targets pass `ldd`/`readelf` validation.
 - `launch-clean`: bounded command smoke passes in an AUZiX root/container.
-- `menu-clean`: desktop entry exists and points to an AUZiX command.
+- `front-door-clean`: the exact user/menu-facing wrapper launches with the
+  generated runtime ladder.
+- `menu-clean`: desktop entry exists and points to the owning AUZiX wrapper.
 - `desktop-ready`: installable, link-clean, launch-clean, and menu-clean.
 
 Only `desktop-ready` packages should be included in default workstation or

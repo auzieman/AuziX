@@ -44,10 +44,10 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
         continue
       }
       desktop_count=$((desktop_count + 1))
-      if grep -Eq '^Exec=/Programs/|^Exec=/System/Tools/|^Exec=/System/Compatibility/' "${desktop_path}"; then
+      if grep -Eq '^Exec=/Programs/[^/]+/current/Commands/' "${desktop_path}"; then
         menu_exec_count=$((menu_exec_count + 1))
       else
-        notes+=("desktop-exec-not-auzix:${desktop_entry}")
+        notes+=("desktop-exec-not-front-door:${desktop_entry}")
       fi
     done
 
