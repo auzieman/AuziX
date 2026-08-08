@@ -30,6 +30,14 @@ The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and
 pass its declared checks before publication.
 
+`profiles/packages/auzix-vmid132-workstation.packages` is different from the
+smaller exploratory lists: it is the guidebook-derived workstation manifest
+captured from vmid132 (`trixie-smoke-132`) with `apt-mark showmanual`. Use
+`scripts/validate-auzix-guidebook-manifest.sh` to compare it against the
+vmid132 package export and classify fall-through gaps. A guidebook metadata
+mismatch is a failure; a missing AUZiX receipt is a package-factory backlog
+warning.
+
 The ISO should be assembled from package groups, not from one-off file copies.
 The intended model is:
 
