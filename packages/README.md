@@ -19,6 +19,9 @@ published or runtime-ready.
 - `desktop-control-and-userapps.queue.json` records the next desktop round:
   AUZiX Control Panel, hardware/session platform packages, native dev/debug
   tools, and a measured wave of browser/office/art/chat app seeds.
+- `vmid132-workstation-clone.profile.json` records the reference workstation
+  clone contract: package manifest, dpkg closure, LightDM/session evidence,
+  permissions, and fall-through gates captured from vmid132.
 - `auzix-control-panel.intent.json` defines the read-only probe/report contract
   for making hardware, package, service, container, and session state visible
   from the AUZiX desktop.

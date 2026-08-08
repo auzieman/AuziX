@@ -1,0 +1,54 @@
+{
+  "format": "auzix-guidebook-clone-profile-v1",
+  "id": "vmid132-workstation-clone",
+  "reference_host": {
+    "name": "trixie-smoke-132",
+    "vmid": 132,
+    "lab_ip": "10.20.0.117",
+    "lan_ip": "192.168.1.169",
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "desktop_login": "LightDM",
+    "known_good_user": "auzieman"
+  },
+  "captured": {
+    "summary": "out/vmid132-guidebook/full-clone/summary.txt",
+    "manual_packages": "out/vmid132-guidebook/full-clone/apt-manual-packages.txt",
+    "installed_packages": "out/vmid132-guidebook/full-clone/dpkg-installed.tsv",
+    "tasksel_tasks": "out/vmid132-guidebook/full-clone/tasksel-tasks.txt",
+    "passwd": "out/vmid132-guidebook/full-clone/passwd.txt",
+    "groups": "out/vmid132-guidebook/full-clone/group.txt",
+    "sudoers": "out/vmid132-guidebook/full-clone/sudoers-combined.txt",
+    "enabled_units": "out/vmid132-guidebook/full-clone/systemd-enabled-units.txt",
+    "display_manager": "out/vmid132-guidebook/full-clone/display-manager.txt",
+    "lightdm_sessions_desktop_polkit_archive": "out/vmid132-guidebook/full-clone/lightdm-and-sessions.tar.gz"
+  },
+  "auzix_manifest": "profiles/packages/auzix-vmid132-workstation.packages",
+  "policy": {
+    "clone_style": "same package semantics, AUZiX path values",
+    "failure_mode": "fall-through classification",
+    "do_not_build_iso_until": [
+      "guidebook manifest validates with zero hard metadata failures",
+      "required installer-core and installer-media-builder packages have AUZiX receipts",
+      "desktop proof packages have command wrappers, menu entries, and runtime ladders",
+      "LightDM logout/login preserves the visible menu/app surface",
+      "permission surfaces for sudo, audio, video, input, storage, network, printers, containers, and Polkit are declared"
+    ]
+  },
+  "fall_through_ladder": [
+    "guidebook package missing from manual manifest",
+    "guidebook package missing from dpkg installed closure",
+    "Debian source/control metadata not preserved in AUZiX receipt",
+    "AUZiX package receipt missing",
+    "dependency or recommendation closure missing",
+    "permission/group/Polkit/service expectation missing",
+    "wrapper/runtime path environment mismatch",
+    "desktop entry/menu mismatch",
+    "LightDM logout/login persistence mismatch",
+    "front-door app launch mismatch"
+  ],
+  "validation": {
+    "manifest_gate": "scripts/validate-auzix-guidebook-manifest.sh",
+    "package_contract": "packages/package-validation.contract.md"
+  },
+  "notes": "This profile is the Tron-style reference clone: vmid132 proves what a normal Trixie workstation expects, while AUZiX rebuilds the same semantics through /Programs, receipts, wrappers, runtime ladders, and package groups."
+}
