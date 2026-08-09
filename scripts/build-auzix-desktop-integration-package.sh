@@ -303,6 +303,8 @@ auzix-libreoffice-impress.desktop
 auzix-libreoffice-draw.desktop
 auzix-libreoffice-math.desktop
 auzix-libreoffice-base.desktop
+auzix-AbiWord-abiword.desktop
+auzix-abiword.desktop
 auzix-Gnumeric-org.gnumeric.gnumeric.desktop
 auzix-gnumeric.desktop
 auzix-Geany-geany.desktop
@@ -326,6 +328,7 @@ done
 auzix-midori.desktop
 auzix-libreoffice-calc.desktop
 auzix-libreoffice-writer.desktop
+auzix-AbiWord-abiword.desktop
 auzix-Geany-geany.desktop
 auzix-Pluma-pluma.desktop
 auzix-Micro-micro.desktop
@@ -337,6 +340,7 @@ auzix-netsurf.desktop
 auzix-libreoffice-startcenter.desktop
 auzix-libreoffice-calc.desktop
 auzix-libreoffice-writer.desktop
+auzix-AbiWord-abiword.desktop
 auzix-Gnumeric-org.gnumeric.gnumeric.desktop
 auzix-Geany-geany.desktop
 auzix-Pluma-pluma.desktop
