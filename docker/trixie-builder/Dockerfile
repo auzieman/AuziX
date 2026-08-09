@@ -14,8 +14,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       file \
       gnumeric \
       jq \
+      python3 \
       rsync \
       tar \
+      unzip \
       xz-utils && \
     rm -rf /var/lib/apt/lists/*
 

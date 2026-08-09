@@ -77,13 +77,35 @@ debian_depends_to_native_json() {
     tr ',' '\n' <<<"${depends_text}" |
       while IFS= read -r dep; do
         clean="${dep%%|*}"
-        clean="$(sed -E 's/[[:space:]]*\\([^)]*\\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${clean}")"
-        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || continue
+        clean="$(sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${clean}")"
+        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
         native="$(auzix_native_name "${clean}")"
         [[ -n "${native}" ]] || continue
         printf '%s\n' "${native}"
       done | awk '!seen[$0]++'
   } | jq -R -s 'split("\n") | map(select(length > 0))'
+}
+
+debian_control_field() {
+  local control_file="$1"
+  local field_name="$2"
+  awk -v field="${field_name}" '
+    BEGIN { in_field = 0 }
+    $0 ~ "^" field ":" {
+      in_field = 1
+      sub("^[^:]+:[[:space:]]*", "")
+      print
+      next
+    }
+    /^[^[:space:]]/ {
+      in_field = 0
+      next
+    }
+    in_field && /^[[:space:]]/ {
+      sub("^[[:space:]]+", "")
+      print
+    }
+  ' "${control_file}" | paste -sd' ' -
 }
 
 command_name_allowed() {
@@ -186,6 +208,17 @@ native_recommends_json="$(debian_depends_to_native_json "${package_recommends}")
 native_depends_words="$(jq -r 'join(" ")' <<<"${native_depends_json}")"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
 native_name="$(auzix_native_name "${package_name}")"
+if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" ]]; then
+  core_control="$(find "${AUZIX_ROOT}/Programs/LibreOfficeCore" -mindepth 3 -maxdepth 3 -path '*/Metadata/debian-control.txt' -print 2>/dev/null | sort | tail -n 1 || true)"
+  if [[ -n "${core_control}" && -s "${core_control}" ]]; then
+    core_depends="$(debian_control_field "${core_control}" Depends)"
+    if [[ -n "${core_depends}" ]]; then
+      core_depends_words="$(debian_depends_to_native_json "${core_depends}" | jq -r 'join(" ")')"
+      native_depends_words="$(tr ' ' '\n' <<<"${native_depends_words} LibreOfficeCore ${core_depends_words}" | awk 'NF && !seen[$0]++' | paste -sd' ' -)"
+      native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+    fi
+  fi
+fi
 program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
 receipt_path="${AUZIX_ROOT}/System/PackageDB/${native_name}-${safe_version}.auzix.json"
 legacy_program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
@@ -250,7 +283,14 @@ core="/Programs/LibreOfficeCore/current/RootFS"
 state="/System/State/libreoffice"
 program="\${state}/program"
 share="\${state}/share"
+runtime_packages="${native_depends_words}"
+runtime_lib_path=""
 "\${BB}" mkdir -p "\${program}" "\${share}"
+for runtime_package in \${runtime_packages}; do
+  runtime_root="/Programs/\${runtime_package}/current/RootFS"
+  [ -d "\${runtime_root}" ] || continue
+  runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
+done
 for source_dir in \\
   "\${common}/usr/lib/libreoffice/program" \\
   "\${core}/usr/lib/libreoffice/program" \\
@@ -265,21 +305,27 @@ for source_dir in \\
   [ -d "\${source_dir}" ] || continue
   for item in "\${source_dir}"/*; do
     [ -e "\${item}" ] || continue
-    "\${BB}" ln -sfn "\${item}" "\${program}/\$(\"\${BB}\" basename \"\${item}\")"
+    item_base="\$("\${BB}" basename "\${item}")"
+    if [ "\${item_base}" = "soffice" ]; then
+      "\${BB}" cp "\${item}" "\${program}/\${item_base}"
+      "\${BB}" chmod 0755 "\${program}/\${item_base}"
+    else
+      "\${BB}" ln -sfn "\${item}" "\${program}/\${item_base}"
+    fi
   done
 done
 for source_dir in "\${common}/usr/lib/libreoffice/share" "\${common}/usr/share/libreoffice" "\${rootfs}/usr/lib/libreoffice/share" "\${rootfs}/usr/share/libreoffice"; do
   [ -d "\${source_dir}" ] || continue
   for item in "\${source_dir}"/*; do
     [ -e "\${item}" ] || continue
-    "\${BB}" ln -sfn "\${item}" "\${share}/\$(\"\${BB}\" basename \"\${item}\")"
+    "\${BB}" ln -sfn "\${item}" "\${share}/\$("\${BB}" basename "\${item}")"
   done
 done
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
-export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 exec "\${program}/soffice" ${libreoffice_mode} "\$@"
 EOF
   else
@@ -294,6 +340,7 @@ runtime_data_path=""
 runtime_schema_path=""
 runtime_gi_path=""
 runtime_lib_path=""
+runtime_loader=""
 for runtime_package in \${runtime_packages}; do
   runtime_root="/Programs/\${runtime_package}/current/RootFS"
   [ -d "\${runtime_root}" ] || continue
@@ -302,12 +349,18 @@ for runtime_package in \${runtime_packages}; do
   runtime_schema_path="\${runtime_schema_path}:\${runtime_root}/usr/share/glib-2.0/schemas"
   runtime_gi_path="\${runtime_gi_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${runtime_root}/usr/lib/girepository-1.0"
   runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
+  if [ -z "\${runtime_loader}" ] && [ -x "\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" ]; then
+    runtime_loader="\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+  fi
 done
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin\${runtime_bin_path}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share\${runtime_data_path}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${runtime_schema_path}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${rootfs}/usr/lib/girepository-1.0\${runtime_gi_path}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
 export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+if [ -n "\${runtime_loader}" ]; then
+  exec "\${runtime_loader}" --library-path "\${LD_LIBRARY_PATH}" "\${rootfs}/${rel_command}" "\$@"
+fi
 exec "\${rootfs}/${rel_command}" "\$@"
 EOF
   fi

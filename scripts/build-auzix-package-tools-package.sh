@@ -369,7 +369,10 @@ install_one() {
   fi
 
   case " ${stack} " in
-    *" ${name} "*) die "dependency cycle detected: ${stack} -> ${name}" ;;
+    *" ${name} "*)
+      echo "Dependency cycle already in progress: ${stack} -> ${name}; continuing current install wave"
+      return 0
+      ;;
   esac
 
   printf '%s\n' "${package_json}" | "${JQ}" -r '.depends[]?' |

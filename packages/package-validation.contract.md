@@ -53,6 +53,45 @@ Different values are expected; missing answers are package-contract bugs.
 
 ## Required checks
 
+## Native source guidebook gate
+
+Binary intake is not the first truth for a port. Before a package can graduate
+past experimental/staging, the builder must prove the native Debian source
+recipe is understood well enough to explain the AUZiX port.
+
+For each Debian-sourced package, the build worker records a guidebook report
+from the source package:
+
+- `debian/control` build dependencies, binary package split, dependencies, and
+  recommendations;
+- `debian/rules`, `debian/*.mk`, and helper scripts for configure, make,
+  install, package split, wrapper movement, and path decisions;
+- `debian/*.install`, `*.links`, `*.dirs`, maintainer scripts, triggers,
+  alternatives, AppArmor, Polkit, DBus, systemd, schemas, icons, MIME, desktop
+  entries, and user/group expectations;
+- `debian/tests/control` and related tests for literal probes we can mirror;
+- upstream configure flags, feature toggles, and any hardwired donor paths that
+  must be replaced by AUZiX paths or explicit compatibility contracts.
+
+If the native source package cannot be fetched, configured, built, or tested in
+the Debian/Trixie builder, the AUZiX package is not allowed to claim more than
+`source-failed` or `planning`. A cached known-good native build/recipe report
+may satisfy this gate for very large packages, but the report must name the
+source revision, builder image, command, result, and reason any full rebuild was
+skipped.
+
+AUZiX does not copy Debian paths blindly. It does copy Debian's semantics:
+package ownership, dependency closure, wrappers, state creation, service hooks,
+desktop/menu behavior, and tests. When AUZiX intentionally changes a path, the
+guidebook report must explain the matching AUZiX path and validation probe.
+
+LibreOffice is the current reference failure. Debian's
+`debian/scripts/gid2pkgdirs.sh` explicitly moves wrappers such as `localc` into
+application packages while moving `.so`, `.bin`, `*.rdb`, `oosplash`, and other
+runtime program payloads into `libreoffice-core`. AUZiX LibreOffice wrappers
+must model that split before `ldd`/launch probes run; rediscovering
+`libXinerama.so.1` and friends one failure at a time is a pipeline bug.
+
 ## Runtime stack ladder
 
 Packages should not rely on each individual app wrapper to manually rediscover
@@ -100,6 +139,64 @@ For each declared command:
    such as `/Programs/App/current/Commands/app --version`, `--help`, or a
    package-declared smoke command. Do not accept a package as launch-clean when
    only the donor payload path works.
+
+## Literal application probes
+
+Complex applications must declare at least one literal probe that exercises the
+same code path a user cares about, not merely `--version`.
+
+The probe should use the application's own non-interactive tools when they
+exist. Examples:
+
+- spreadsheet/editor suites: open a fixture document and convert/export it
+  (`localc --headless --convert-to csv sample.ods`);
+- word processors: open a fixture document and export text/PDF;
+- image tools: open a fixture image and convert/export metadata or a thumbnail;
+- media tools: inspect or transcode a tiny fixture;
+- archive tools: create and extract a small archive;
+- network/services: serve a local fixture and fetch it through the front door.
+
+For command-line-first packages, the CLI probe is not optional. If the AUZiX
+validation container/root cannot use the command for its normal purpose, the
+package is not built in any useful sense. A package can have an archive and a
+receipt while still being contract-failed.
+
+Examples:
+
+- GStreamer: inspect plugins and run a tiny `gst-launch` pipeline against a
+  generated or fixture media stream;
+- FFmpeg: inspect codecs/formats and transcode or probe a tiny media fixture;
+- ImageMagick/graphics tools: identify and convert a tiny image fixture;
+- compilers/interpreters: compile/run or interpret a tiny source fixture;
+- archive/compression tools: create, list, and extract an archive fixture;
+- database/kv tools: start or query a minimal local fixture when safe;
+- service packages: start the service in a bounded container namespace and
+  fetch/query the exposed local endpoint.
+
+If the tool cannot run in the validation container because of missing devices,
+kernel features, permissions, DBus, X11, audio, GPU, or network namespace
+requirements, the package must record that as an explicit environment contract
+and remain below `desktop-ready`/`service-ready` until the required host
+capability is supplied and tested.
+
+Each probe must record:
+
+- the Debian/vmid132 guidebook command and output when available;
+- the AUZiX front-door command and output;
+- fixture paths and checksums;
+- exported artifacts and content checks;
+- whether failure is a missing package, missing runtime path, wrapper/state
+  assembly bug, permission/group/polkit issue, DBus/X/session issue, or
+  application-specific configuration issue.
+
+LibreOffice taught the rule: `localc` was not considered launch-clean until it
+could attempt the same headless ODS-to-CSV conversion that works on vmid132.
+The first useful AUZiX failure was not "LibreOffice broken"; it was a precise
+runtime-path failure after the wrapper reached `oosplash`.
+
+Probe results must fold back into package receipts and the package repository
+index so `auzix-pkg status`, BKC, ai_worker, and Kanboard can explain whether a
+package is merely built, installable, launch-clean, or desktop-ready.
 
 For each desktop package:
 
