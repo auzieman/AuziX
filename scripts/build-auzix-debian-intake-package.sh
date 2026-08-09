@@ -469,6 +469,13 @@ fi
 exec "\${program}/soffice" ${libreoffice_mode} "\$@"
 EOF
   else
+    command_loader_tail='if [ -n "${runtime_loader}" ]; then
+  exec "${runtime_loader}" --library-path "${LD_LIBRARY_PATH}" "${rootfs}/'"${rel_command}"'" "$@"
+fi
+exec "${rootfs}/'"${rel_command}"'" "$@"'
+    if ! head -c 4 "${program_root}/RootFS/${rel_command}" | grep -q "$(printf '\177ELF')" 2>/dev/null; then
+      command_loader_tail='exec "${rootfs}/'"${rel_command}"'" "$@"'
+    fi
     cat >"${program_root}/Commands/${command_base}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 set -eu
@@ -498,10 +505,7 @@ export XDG_DATA_DIRS="\${rootfs}/usr/share\${runtime_data_path}:/System/Compatib
 export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${runtime_schema_path}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${rootfs}/usr/lib/girepository-1.0\${runtime_gi_path}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
 export LD_LIBRARY_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
-if [ -n "\${runtime_loader}" ]; then
-  exec "\${runtime_loader}" --library-path "\${LD_LIBRARY_PATH}" "\${rootfs}/${rel_command}" "\$@"
-fi
-exec "\${rootfs}/${rel_command}" "\$@"
+${command_loader_tail}
 EOF
   fi
   chmod 0755 "${program_root}/Commands/${command_base}"
