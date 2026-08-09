@@ -58,9 +58,10 @@
         {
           "id": "AuzixServiceRuntime",
           "tier": "runtime",
-          "state": "planned",
+          "state": "first-pass",
+          "script": "scripts/build-auzix-service-runtime-package.sh",
           "depends": ["BusyBox", "Lua"],
-          "notes": "Pseudo-package for /Services conventions, proc/sys/dev/cgroup mount expectations, service logs, and boot-time sanity checks. Keep as post-install fix until it graduates into the base ISO."
+          "notes": "Package-owned /Services conventions, proc/sys/dev/cgroup2/run/devpts mount expectations, service logs, and boot-time sanity checks. Carries the vmid135 Podman cgroup fix as an installable AUZiX runtime package."
         }
       ]
     },

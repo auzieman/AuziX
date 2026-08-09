@@ -15,6 +15,7 @@ run_step make auzix-strict-probe
 run_step make auzix-strict-dynprobe
 run_step make auzix-strict-busybox
 run_step make auzix-strict-access
+run_step make auzix-strict-service-runtime
 run_step make auzix-strict-iputils
 run_step make auzix-strict-package-tools
 run_step make auzix-strict-installer

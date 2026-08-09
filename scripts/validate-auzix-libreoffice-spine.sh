@@ -19,6 +19,76 @@ wrapper_report="${OUTPUT_DIR}/wrapper-check.txt"
 sample_report="${OUTPUT_DIR}/sample-document-check.txt"
 headless_report="${OUTPUT_DIR}/headless-convert-check.txt"
 
+mounted_runtime_targets=()
+
+is_mountpoint() {
+  local path="$1"
+  if command -v mountpoint >/dev/null 2>&1; then
+    mountpoint -q "${path}"
+  else
+    grep -q " ${path} " /proc/mounts 2>/dev/null
+  fi
+}
+
+mount_runtime_target() {
+  local target="$1"
+  local type="$2"
+  local source="$3"
+  local options="${4:-}"
+
+  mkdir -p "${target}"
+  if is_mountpoint "${target}"; then
+    return 0
+  fi
+  if [[ -n "${options}" ]]; then
+    mount -t "${type}" -o "${options}" "${source}" "${target}" 2>/dev/null ||
+      return 1
+  else
+    mount -t "${type}" "${source}" "${target}" 2>/dev/null ||
+      return 1
+  fi
+  mounted_runtime_targets+=("${target}")
+}
+
+prepare_chroot_runtime() {
+  local root="$1"
+  local service_runtime="/Programs/AuzixServiceRuntime/current/Commands/ensure-runtime-mounts"
+
+  if chroot "${root}" /Programs/BusyBox/current/Commands/busybox test -x "${service_runtime}" 2>/dev/null; then
+    chroot "${root}" "${service_runtime}" / && return 0
+  fi
+
+  mkdir -p \
+    "${root}/proc" \
+    "${root}/sys" \
+    "${root}/sys/fs/cgroup" \
+    "${root}/dev" \
+    "${root}/dev/pts" \
+    "${root}/dev/shm" \
+    "${root}/run"
+
+  mount_runtime_target "${root}/proc" proc proc || return 1
+  mount_runtime_target "${root}/sys" sysfs sysfs || return 1
+  mount_runtime_target "${root}/dev" devtmpfs devtmpfs ||
+    mount_runtime_target "${root}/dev" tmpfs tmpfs || return 1
+  mount_runtime_target "${root}/dev/pts" devpts devpts "gid=5,mode=620,ptmxmode=666" ||
+    mount_runtime_target "${root}/dev/pts" devpts devpts || return 1
+  mount_runtime_target "${root}/dev/shm" tmpfs tmpfs "mode=1777,nosuid,nodev" || return 1
+  mount_runtime_target "${root}/run" tmpfs tmpfs "mode=0755,nosuid,nodev" || return 1
+  mount_runtime_target "${root}/sys/fs/cgroup" cgroup2 cgroup2 || return 1
+}
+
+cleanup_chroot_runtime() {
+  local target
+  local i
+  for ((i=${#mounted_runtime_targets[@]} - 1; i >= 0; i--)); do
+    target="${mounted_runtime_targets[$i]}"
+    umount "${target}" 2>/dev/null || true
+  done
+}
+
+trap cleanup_chroot_runtime EXIT
+
 python3 - "${INDEX_PATH}" >"${closure_report}" <<'PY'
 import json
 import sys
@@ -118,8 +188,13 @@ done
   loffice_wrapper="/Programs/LibreOfficeCommon/current/Commands/loffice"
   soffice_program="/System/State/libreoffice/program/soffice"
 
-  runner=""
-  mkdir -p "${AUZIX_ROOT}/System/State/libreoffice/headless-convert"
+	  runner=""
+	  if prepare_chroot_runtime "${AUZIX_ROOT}"; then
+	    printf 'CHECK\truntime-mounts-ready\n'
+	  else
+	    printf 'CHECK\truntime-mounts-incomplete\n'
+	  fi
+	  mkdir -p "${AUZIX_ROOT}/System/State/libreoffice/headless-convert"
   if [[ -s "${SAMPLE_SPREADSHEET}" ]]; then
     cp "${SAMPLE_SPREADSHEET}" "${AUZIX_ROOT}${chroot_sample}"
   fi

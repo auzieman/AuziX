@@ -192,3 +192,39 @@ This is now written into the package validation contract as the "native source
 guidebook gate": if the native Debian recipe cannot be fetched, configured,
 built, or tested/cached in the builder, the AUZiX port cannot honestly graduate
 beyond planning/source-failed.
+
+## Runtime mount package gate
+
+The `/proc` failure was not a LibreOffice packaging bug by itself. It was the
+same runtime substrate issue already found during the vmid135 Podman work:
+services and complex applications need proc, sysfs, devtmpfs/devpts, tmpfs
+`/run` and `/dev/shm`, and cgroup2.
+
+The existing `AuzixServiceRuntime` queue item was promoted from pseudo-package
+to a real package. It now stages:
+
+- `/Programs/AuzixServiceRuntime/current/Commands/ensure-runtime-mounts`
+- `/Services/runtime-mounts/run`
+- a package receipt describing the runtime mount contract
+
+The LibreOffice validator now calls that package command inside the AUZiX root
+when present. In an unprivileged Docker validation container, the result remains
+`runtime-mounts-incomplete`; in a privileged validation container, the package
+reports:
+
+```text
+AuzixServiceRuntime: runtime mounts ready at /
+CHECK	runtime-mounts-ready
+```
+
+With runtime mounts available, Calc advances to the next true package closure
+failure:
+
+```text
+/System/State/libreoffice/program/soffice.bin: error while loading shared libraries: libgpgmepp.so.6: cannot open shared object file: No such file or directory
+```
+
+That means the cgroup/proc/sys/dev/run class is now handled by a package and
+container launch contract. The next LibreOffice work is the dependency ladder,
+starting with packages already named in the closure report such as
+`Libgpgmepp6t64`.

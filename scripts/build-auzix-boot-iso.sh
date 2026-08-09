@@ -350,8 +350,12 @@ mount_live_iso_root() {
 
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
+mkdir -p /sys/fs/cgroup 2>/dev/null || true
+mount -t cgroup2 cgroup2 /sys/fs/cgroup 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs tmpfs /dev 2>/dev/null || true
-mkdir -p /run /Work/Temp /lib
+mkdir -p /run /Work/Temp /lib /dev/pts /dev/shm
+mount -t devpts devpts /dev/pts -o gid=5,mode=620,ptmxmode=666 2>/dev/null || mount -t devpts devpts /dev/pts 2>/dev/null || true
+mount -t tmpfs tmpfs /dev/shm -o mode=1777,nosuid,nodev 2>/dev/null || true
 ln -s /System/Drivers /lib/modules 2>/dev/null || true
 [ -e /dev/console ] || mknod /dev/console c 5 1
 [ -e /dev/tty0 ] || mknod /dev/tty0 c 4 0
@@ -376,6 +380,8 @@ if [ -n "${AUZIX_ROOT_DEVICE}" ]; then
   echo "Auzix requested installed root: ${AUZIX_ROOT_DEVICE}"
   mkdir -p /run/auzix-root
   if mount "${AUZIX_ROOT_DEVICE}" /run/auzix-root; then
+    mkdir -p /run/auzix-root/proc /run/auzix-root/sys /run/auzix-root/dev /run/auzix-root/run /run/auzix-root/sys/fs/cgroup 2>/dev/null || true
+    mount -t tmpfs tmpfs /run/auzix-root/run 2>/dev/null || true
     mount --move /proc /run/auzix-root/proc 2>/dev/null || true
     mount --move /sys /run/auzix-root/sys 2>/dev/null || true
     mount --move /dev /run/auzix-root/dev 2>/dev/null || true
