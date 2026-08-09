@@ -1,0 +1,296 @@
+{
+  "auzix_contract": {
+    "path_policy": "mirror Debian semantics with AUZiX path values; no blind /usr dependency except explicit compatibility exports",
+    "required_data_exports": [
+      "usr/share/glib-2.0",
+      "usr/share/gnome-control-center",
+      "usr/share/icons",
+      "usr/share/polkit-1",
+      "usr/share/dbus-1",
+      "usr/share/applications",
+      "usr/share/metainfo"
+    ],
+    "required_package_split": [
+      "GnomeControlCenter",
+      "GnomeControlCenterData",
+      "GnomeControlCenterDev when building extensions"
+    ],
+    "required_runtime_groups": [
+      "gtk4",
+      "gnome-runtime",
+      "gsettings-schemas",
+      "dbus",
+      "polkit",
+      "media-thumbnail-loaders",
+      "network-settings",
+      "accounts-and-users"
+    ],
+    "required_services": [
+      "accountsservice",
+      "gnome-settings-daemon",
+      "polkitd",
+      "dbus-system-bus semantics",
+      "NetworkManager/ModemManager/UDisks/UPower where panels are enabled"
+    ],
+    "validation_probes": [
+      "gnome-control-center --version or front-door no-DISPLAY classification",
+      "panel binary ldd with wrapper env",
+      "desktop entries exist for expected panels",
+      "schemas/icons/polkit/dbus files are exported"
+    ],
+    "wrapper_env": [
+      "XDG_DATA_DIRS includes GnomeControlCenterData and dependencies",
+      "GSETTINGS_SCHEMA_DIR includes compiled schemas or schema dirs",
+      "GI_TYPELIB_PATH for GNOME deps",
+      "LD_LIBRARY_PATH from full source package runtime closure"
+    ]
+  },
+  "binary_packages": [
+    {
+      "architecture": "any",
+      "depends": [
+        "accountsservice",
+        "colord",
+        "desktop-base",
+        "desktop-file-utils",
+        "gnome-control-center-data",
+        "gnome-control-center-data",
+        "gnome-desktop3-data",
+        "gnome-online-accounts",
+        "gnome-settings-daemon",
+        "gsettings-desktop-schemas",
+        "heif-gdk-pixbuf",
+        "heif-thumbnailer",
+        "libgtk-4-media-gstreamer",
+        "libjxl-gdk-pixbuf",
+        "mutter-common",
+        "tecla",
+        "webp-pixbuf-loader",
+        "${misc:Depends}",
+        "${shlibs:Depends}"
+      ],
+      "description": "utilities to configure the GNOME desktop This package contains configuration applets for the GNOME desktop, allowing to set accessibility configuration, desktop fonts, keyboard and mouse properties, sound setup, desktop theme and background, user interface properties, screen resolution, and other GNOME parameters. . It also contains a front end to these applets, which can also be accessed with the GNOME panel or the Nautilus file manager.",
+      "multi_arch": null,
+      "package": "gnome-control-center",
+      "recommends": [
+        "cracklib-runtime",
+        "cups-pk-helper",
+        "fwupd",
+        "gnome-bluetooth-sendto",
+        "gnome-remote-desktop",
+        "gnome-user-docs",
+        "gnome-user-share",
+        "iso-codes",
+        "libcanberra-pulse",
+        "libnss-myhostname",
+        [
+          "libspa-0.2-bluetooth",
+          "pulseaudio-module-bluetooth"
+        ],
+        "malcontent-gui",
+        "mobile-broadband-provider-info",
+        [
+          "nm-connection-editor",
+          "network-manager-gnome"
+        ],
+        "polkitd",
+        "power-profiles-daemon",
+        "realmd",
+        [
+          "rygel",
+          "rygel-tracker"
+        ],
+        "system-config-printer-common"
+      ],
+      "suggests": [
+        [
+          "gnome-software",
+          "gnome-packagekit"
+        ],
+        "gstreamer1.0-plugins-good",
+        "x11-xserver-utils"
+      ]
+    },
+    {
+      "architecture": "all",
+      "depends": [
+        "gnome-control-center-data",
+        "${misc:Depends}"
+      ],
+      "description": "utilities to configure the GNOME desktop This package contains the file required to get the keydirs location",
+      "multi_arch": "foreign",
+      "package": "gnome-control-center-dev",
+      "recommends": [],
+      "suggests": []
+    },
+    {
+      "architecture": "all",
+      "depends": [
+        "${misc:Depends}"
+      ],
+      "description": "configuration applets for GNOME - data files This package contains data files (icons, pixmaps, locales files) needed by the configuration applets in the gnome-control-center package.",
+      "multi_arch": "foreign",
+      "package": "gnome-control-center-data",
+      "recommends": [],
+      "suggests": []
+    }
+  ],
+  "debian_install_manifests": {
+    "gnome-control-center-data.install": [
+      "usr/share/gettext/its",
+      "usr/share/glib-2.0",
+      "usr/share/gnome-control-center",
+      "usr/share/icons",
+      "usr/share/locale",
+      "usr/share/pixmaps/faces",
+      "usr/share/polkit-1",
+      "usr/share/sounds"
+    ],
+    "gnome-control-center-dev.install": [
+      "usr/share/pkgconfig"
+    ],
+    "gnome-control-center.install": [
+      "usr/bin",
+      "usr/libexec",
+      "usr/share/applications",
+      "usr/share/bash-completion",
+      "usr/share/dbus-1",
+      "usr/share/gnome-shell",
+      "usr/share/man",
+      "usr/share/metainfo"
+    ]
+  },
+  "format": "auzix-debian-source-contract-v1",
+  "id": "GnomeControlCenter",
+  "maintainer_surfaces": [],
+  "source": {
+    "local_source_dir": "out/debian-source-contracts/gnome-control-center/gnome-control-center-48.4",
+    "package": "gnome-control-center",
+    "suite": "trixie",
+    "type": "debian-source",
+    "version": "48.4"
+  },
+  "source_build": {
+    "build_depends": [
+      "debhelper-compat",
+      "desktop-file-utils",
+      "dh-sequence-gnome",
+      "gnome-settings-daemon-dev",
+      "gsettings-desktop-schemas-dev",
+      "gtk-doc-tools",
+      "libaccountsservice-dev",
+      "libadwaita-1-dev",
+      "libcolord-dev",
+      "libcolord-gtk4-dev",
+      "libcups2-dev",
+      "libgcr-4-dev",
+      "libgdk-pixbuf-2.0-dev",
+      "libgirepository1.0-dev",
+      "libglib2.0-dev",
+      "libgnome-bg-4-dev",
+      "libgnome-bluetooth-ui-3.0-dev",
+      "libgnome-desktop-4-dev",
+      "libgnome-rr-4-dev",
+      "libgnutls28-dev",
+      "libgoa-1.0-dev",
+      "libgoa-backend-1.0-dev",
+      "libgsound-dev",
+      "libgtk-4-dev",
+      "libgtop2-dev",
+      "libgudev-1.0-dev",
+      "libhandy-1-dev",
+      "libibus-1.0-dev",
+      "libjson-glib-dev",
+      "libkrb5-dev",
+      "libmalcontent-0-dev",
+      "libmm-glib-dev",
+      "libnm-dev",
+      "libnma-gtk4-dev",
+      "libpolkit-gobject-1-dev",
+      "libpulse-dev",
+      "libpwquality-dev",
+      "libsecret-1-dev",
+      "libsmbclient-dev",
+      "libsoup-3.0-dev",
+      "libudisks2-dev",
+      "libupower-glib-dev",
+      "libwacom-dev",
+      "libx11-dev",
+      "libxft-dev",
+      "libxi-dev",
+      "libxklavier-dev",
+      "libxml2-dev",
+      "libxml2-utils",
+      "locales",
+      "meson",
+      "polkitd",
+      "python3-dbusmock",
+      "shared-mime-info",
+      "tecla",
+      "tzdata",
+      "xvfb"
+    ],
+    "build_system": "meson via debhelper/dh-sequence-gnome",
+    "configure_flags": [
+      "-Dlocation-services=enabled",
+      "-Dprivileged_group=sudo",
+      "-Ddocumentation=true",
+      "-Dmalcontent=true on amd64",
+      "-Ddistributor_logo=/usr/share/icons/vendor/scalable/emblems/emblem-vendor.svg"
+    ],
+    "configure_signals": [
+      "DISTRIBUTOR_LOGO := /usr/share/pixmaps/ubuntu-logo-text.png",
+      "DISTRIBUTOR_LOGO_DARK := /usr/share/pixmaps/ubuntu-logo-text-dark.png",
+      "DISTRIBUTOR_LOGO := /usr/share/icons/vendor/scalable/emblems/emblem-vendor.svg",
+      "DISTRIBUTOR_LOGO_DARK := /usr/share/icons/vendor/scalable/emblems/emblem-vendor.svg",
+      "MALCONTENT := -Dmalcontent=true",
+      "MALCONTENT := -Dmalcontent=false",
+      "override_dh_auto_configure:",
+      "dh_auto_configure -- \\",
+      "-Dlocation-services=enabled \\",
+      "-Dprivileged_group=sudo \\",
+      "-Ddocumentation=true \\",
+      "-Ddistributor_logo=$(DISTRIBUTOR_LOGO) \\",
+      "-Ddark_mode_distributor_logo=$(DISTRIBUTOR_LOGO_DARK) \\",
+      "$(MALCONTENT)"
+    ],
+    "native_build_proof": {
+      "builder": "lab-build docker container auzix-lo-builder",
+      "command": "DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b",
+      "result": "passed",
+      "artifacts": [
+        "gnome-control-center_48.4-1~deb13u1_amd64.deb",
+        "gnome-control-center-data_48.4-1~deb13u1_all.deb",
+        "gnome-control-center-dev_48.4-1~deb13u1_all.deb",
+        "gnome-control-center-dbgsym_48.4-1~deb13u1_amd64.deb"
+      ],
+      "reports": [
+        "out/auzix-source-ports/gnome-control-center/reports/debian-build.log",
+        "out/auzix-source-ports/gnome-control-center/reports/debian-build-artifacts.tsv"
+      ]
+    },
+    "auzix_path_build_knobs": {
+      "lesson": "GNOME Control Center embeds panel paths from build-system variables; AUZiX must set these at configure/meson time before staging, not patch missing runtime files afterward.",
+      "debian_defaults_seen": [
+        "--prefix=/usr",
+        "--sysconfdir=/etc",
+        "--localstatedir=/var",
+        "--libdir=lib/x86_64-linux-gnu",
+        "DATADIR=/usr/share",
+        "SYSCONFDIR=/etc",
+        "LIBEXECDIR=/usr/libexec",
+        "GNOMECC_DATA_DIR=/usr/share/gnome-control-center",
+        "GNOMELOCALEDIR=/usr/share/locale",
+        "SOUND_DATA_DIR=/usr/share/sounds"
+      ],
+      "auzix_target_values": [
+        "--prefix=/Programs/GnomeControlCenter/current",
+        "--sysconfdir=/System/Settings",
+        "--localstatedir=/System/State",
+        "--libexecdir=/Programs/GnomeControlCenter/current/Helpers",
+        "--datadir=/Programs/GnomeControlCenter/current/Shared"
+      ]
+    },
+    "rules_requires_root": "no"
+  }
+}
