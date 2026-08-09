@@ -228,3 +228,67 @@ That means the cgroup/proc/sys/dev/run class is now handled by a package and
 container launch contract. The next LibreOffice work is the dependency ladder,
 starting with packages already named in the closure report such as
 `Libgpgmepp6t64`.
+
+## Build / measure / learn: Calc reaches real document conversion
+
+After the runtime mount package and recursive dependency closure were in place,
+Calc advanced through three distinct non-library failures:
+
+1. `User installation could not be completed`
+2. `No fonts could be found on the system`
+3. `Error: source file could not be loaded`
+
+The important lesson is procedural: do not infer this class of application
+layout from strace symptoms first. The Debian source package and installed
+package metadata already describe the runtime universe.
+
+Debian/source facts:
+
+- `debian/scripts/gid2pkgdirs.sh` shows that LibreOffice wrappers and runtime
+  payloads are split across multiple packages.
+- `debian/libreoffice-common.links.in` links
+  `/etc/libreoffice/registry/main.xcd` into
+  `/usr/lib/libreoffice/share/registry/main.xcd`.
+- `desktop/source/app/userinstall.cxx` creates the user installation by
+  copying `baseUri/presets` into the user profile.
+- `bootstraprc` declares `UserInstallation=$SYSUSERCONFIG/libreoffice/4`.
+- `dpkg-deb -c` showed that
+  `share/config/soffice.cfg/svt/ui/scrollbars.ui` is owned by
+  `libreoffice-uiconfig-common`, not by the thin Calc package.
+
+AUZiX fix:
+
+- LibreOffice text and symlink intake now rewrites `/usr/lib/libreoffice` to
+  `/System/State/libreoffice` and `/etc/libreoffice` to
+  `/System/Settings/libreoffice`.
+- LibreOffice wrappers now assemble runtime `program`, `share`, `presets`, and
+  `etc/libreoffice` contributions from every package in the installed AUZiX
+  dependency closure, not just `LibreOfficeCommon`, `LibreOfficeCore`, and the
+  current module.
+- The wrapper normalizes root runtime state for AUZiX by setting `HOME` to
+  `/Users/root` when needed, creating the LibreOffice user profile parent, and
+  generating a package-aware `FONTCONFIG_FILE` that points at dependency-owned
+  font directories.
+
+Validation proof from the privileged AUZiX validation container:
+
+```text
+AuzixServiceRuntime: runtime mounts ready at /
+RUNNER	/Programs/LibreOfficeCalc/current/Commands/localc
+convert /System/State/libreoffice/auzix-libreoffice-calc-proof.ods as a Calc document -> /System/State/libreoffice/headless-convert/auzix-libreoffice-calc-proof.csv using filter : Text - txt - csv (StarCalc)
+EXIT	0
+CHECK	headless-convert-ok
+CSV	out/auzix-strict/AuzixRoot/System/State/libreoffice/headless-convert/auzix-libreoffice-calc-proof.csv
+AUZiX,LibreOffice Calc proof
+Package rail,Kanboard + bkc-channel + ai_worker
+```
+
+Next contract update:
+
+- Complex GUI/userland packages must start from Debian source and installed
+  package ownership data: `debian/rules`, package split scripts,
+  maintainer-created links/configs, `dpkg -S` or `dpkg-deb -c`, and then
+  AUZiX runtime assembly.
+- A package is not "built" until at least one native CLI or headless operation
+  succeeds in the validation root. For LibreOffice Calc, that operation is ODS
+  to CSV conversion through the AUZiX wrapper.

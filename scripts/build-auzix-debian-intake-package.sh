@@ -108,6 +108,51 @@ debian_control_field() {
   ' "${control_file}" | paste -sd' ' -
 }
 
+native_installed_depends_closure_words() {
+  local roots_text="$1"
+  local package_db="$2"
+  local roots_json
+  roots_json="$(tr ' ' '\n' <<<"${roots_text}" | awk 'NF && !seen[$0]++' | jq -R -s 'split("\n") | map(select(length > 0))')"
+  python3 - "${package_db}" "${roots_json}" <<'PY'
+import json
+import pathlib
+import sys
+
+package_db = pathlib.Path(sys.argv[1])
+roots = json.loads(sys.argv[2])
+receipts = {}
+
+if package_db.is_dir():
+    for receipt_path in package_db.glob("*.json"):
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        name = receipt.get("name")
+        if name:
+            receipts[name] = receipt
+
+ordered = []
+seen = set()
+stack = list(reversed(roots))
+while stack:
+    name = stack.pop()
+    if name in seen:
+        continue
+    seen.add(name)
+    ordered.append(name)
+    receipt = receipts.get(name)
+    if not receipt:
+        continue
+    depends = receipt.get("depends") or []
+    for dep in reversed(depends):
+        if dep and dep not in seen:
+            stack.append(dep)
+
+print(" ".join(ordered))
+PY
+}
+
 command_name_allowed() {
   [[ "$1" =~ ^[A-Za-z0-9._+-]+$ ]]
 }
@@ -219,6 +264,8 @@ if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" 
     fi
   fi
 fi
+native_depends_words="$(native_installed_depends_closure_words "${native_depends_words}" "${AUZIX_ROOT}/System/PackageDB")"
+native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
 receipt_path="${AUZIX_ROOT}/System/PackageDB/${native_name}-${safe_version}.auzix.json"
 legacy_program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
@@ -251,14 +298,33 @@ if [[ "${native_name}" == LibreOffice* ]]; then
   while IFS= read -r libreoffice_text; do
     sed -i \
       -e 's#file:///usr/lib/libreoffice#file:///System/State/libreoffice#g' \
+      -e 's#file:///etc/libreoffice#file:///System/Settings/libreoffice#g' \
       -e 's#/usr/lib/libreoffice/program#/System/State/libreoffice/program#g' \
       -e 's#/usr/lib/libreoffice#/System/State/libreoffice#g' \
+      -e 's#/etc/libreoffice#/System/Settings/libreoffice#g' \
       "${libreoffice_text}"
   done < <(
     find "${program_root}/RootFS" -type f \
       \( -path '*/usr/bin/*' -o -path '*/usr/lib/libreoffice/program/*' -o -path '*/usr/share/libreoffice/*' \) \
       -exec grep -Il '/usr/lib/libreoffice' {} + 2>/dev/null
   )
+  while IFS= read -r libreoffice_link; do
+    link_target="$(readlink "${libreoffice_link}" || true)"
+    case "${link_target}" in
+      /etc/libreoffice/registry/main.xcd)
+        rm -f "${libreoffice_link}"
+        ln -s ../.registry/main.xcd "${libreoffice_link}"
+        ;;
+      /etc/libreoffice/*)
+        rm -f "${libreoffice_link}"
+        ln -s "/System/Settings/libreoffice/${link_target#/etc/libreoffice/}" "${libreoffice_link}"
+        ;;
+      /usr/lib/libreoffice/*)
+        rm -f "${libreoffice_link}"
+        ln -s "/System/State/libreoffice/${link_target#/usr/lib/libreoffice/}" "${libreoffice_link}"
+        ;;
+    esac
+  done < <(find "${program_root}/RootFS" -type l -print)
 fi
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
 ln -sfn "/Programs/${native_name}/${safe_version}" \
@@ -281,15 +347,26 @@ rootfs="\${prefix}/RootFS"
 common="/Programs/LibreOfficeCommon/current/RootFS"
 core="/Programs/LibreOfficeCore/current/RootFS"
 state="/System/State/libreoffice"
+settings="/System/Settings/libreoffice"
 program="\${state}/program"
 share="\${state}/share"
+presets="\${state}/presets"
 runtime_packages="${native_depends_words}"
 runtime_lib_path=""
-"\${BB}" mkdir -p "\${program}" "\${share}"
+font_dirs=""
+lo_share_roots="\${common}/usr/lib/libreoffice/share \${common}/usr/share/libreoffice \${rootfs}/usr/lib/libreoffice/share \${rootfs}/usr/share/libreoffice"
+lo_preset_roots="\${common}/usr/lib/libreoffice/presets \${rootfs}/usr/lib/libreoffice/presets"
+lo_settings_roots="\${common}/etc/libreoffice \${rootfs}/etc/libreoffice"
+"\${BB}" mkdir -p "\${program}" "\${share}" "\${presets}" "\${settings}"
 for runtime_package in \${runtime_packages}; do
   runtime_root="/Programs/\${runtime_package}/current/RootFS"
   [ -d "\${runtime_root}" ] || continue
   runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
+  [ -d "\${runtime_root}/usr/share/fonts" ] && font_dirs="\${font_dirs} \${runtime_root}/usr/share/fonts"
+  [ -d "\${runtime_root}/usr/lib/libreoffice/share" ] && lo_share_roots="\${lo_share_roots} \${runtime_root}/usr/lib/libreoffice/share"
+  [ -d "\${runtime_root}/usr/share/libreoffice" ] && lo_share_roots="\${lo_share_roots} \${runtime_root}/usr/share/libreoffice"
+  [ -d "\${runtime_root}/usr/lib/libreoffice/presets" ] && lo_preset_roots="\${lo_preset_roots} \${runtime_root}/usr/lib/libreoffice/presets"
+  [ -d "\${runtime_root}/etc/libreoffice" ] && lo_settings_roots="\${lo_settings_roots} \${runtime_root}/etc/libreoffice"
 done
 for source_dir in \\
   "\${common}/usr/lib/libreoffice/program" \\
@@ -314,13 +391,72 @@ for source_dir in \\
     fi
   done
 done
-for source_dir in "\${common}/usr/lib/libreoffice/share" "\${common}/usr/share/libreoffice" "\${rootfs}/usr/lib/libreoffice/share" "\${rootfs}/usr/share/libreoffice"; do
+for source_dir in \${lo_share_roots}; do
   [ -d "\${source_dir}" ] || continue
-  for item in "\${source_dir}"/*; do
-    [ -e "\${item}" ] || continue
-    "\${BB}" ln -sfn "\${item}" "\${share}/\$("\${BB}" basename "\${item}")"
+  (cd "\${source_dir}" && "\${BB}" find . -type d -print) | while IFS= read -r rel_dir; do
+    [ "\${rel_dir}" = "." ] && continue
+    [ -L "\${share}/\${rel_dir#./}" ] && "\${BB}" rm "\${share}/\${rel_dir#./}"
+    "\${BB}" mkdir -p "\${share}/\${rel_dir#./}"
+  done
+  (cd "\${source_dir}" && "\${BB}" find . \( -type f -o -type l \) -print) | while IFS= read -r rel_item; do
+    target_dir="\${share}/\$("\${BB}" dirname "\${rel_item#./}")"
+    [ "\${target_dir}" = "\${share}/." ] && target_dir="\${share}"
+    "\${BB}" mkdir -p "\${target_dir}"
+    "\${BB}" ln -sfn "\${source_dir}/\${rel_item#./}" "\${share}/\${rel_item#./}"
   done
 done
+for source_dir in \${lo_preset_roots}; do
+  [ -d "\${source_dir}" ] || continue
+  (cd "\${source_dir}" && "\${BB}" find . -type d -print) | while IFS= read -r rel_dir; do
+    [ "\${rel_dir}" = "." ] && continue
+    [ -L "\${presets}/\${rel_dir#./}" ] && "\${BB}" rm "\${presets}/\${rel_dir#./}"
+    "\${BB}" mkdir -p "\${presets}/\${rel_dir#./}"
+  done
+  (cd "\${source_dir}" && "\${BB}" find . \( -type f -o -type l \) -print) | while IFS= read -r rel_item; do
+    target_dir="\${presets}/\$("\${BB}" dirname "\${rel_item#./}")"
+    [ "\${target_dir}" = "\${presets}/." ] && target_dir="\${presets}"
+    "\${BB}" mkdir -p "\${target_dir}"
+    "\${BB}" ln -sfn "\${source_dir}/\${rel_item#./}" "\${presets}/\${rel_item#./}"
+  done
+done
+for source_dir in \${lo_settings_roots}; do
+  [ -d "\${source_dir}" ] || continue
+  (cd "\${source_dir}" && "\${BB}" find . -type d -print) | while IFS= read -r rel_dir; do
+    [ "\${rel_dir}" = "." ] && continue
+    [ -L "\${settings}/\${rel_dir#./}" ] && "\${BB}" rm "\${settings}/\${rel_dir#./}"
+    "\${BB}" mkdir -p "\${settings}/\${rel_dir#./}"
+  done
+  (cd "\${source_dir}" && "\${BB}" find . \( -type f -o -type l \) -print) | while IFS= read -r rel_item; do
+    target_dir="\${settings}/\$("\${BB}" dirname "\${rel_item#./}")"
+    [ "\${target_dir}" = "\${settings}/." ] && target_dir="\${settings}"
+    "\${BB}" mkdir -p "\${target_dir}"
+    "\${BB}" ln -sfn "\${source_dir}/\${rel_item#./}" "\${settings}/\${rel_item#./}"
+  done
+done
+export HOME="\${HOME:-/Users/root}"
+if [ "\${HOME}" = "/root" ]; then
+  export HOME="/Users/root"
+fi
+export XDG_CONFIG_HOME="\${XDG_CONFIG_HOME:-\${HOME}/.config}"
+export USER="\${USER:-root}"
+export LOGNAME="\${LOGNAME:-\${USER}}"
+export TMPDIR="\${TMPDIR:-/Work/Temp}"
+"\${BB}" mkdir -p "\${HOME}" "\${XDG_CONFIG_HOME}" "\${TMPDIR}" "\${XDG_CONFIG_HOME}/libreoffice/4/user"
+if [ -n "\${font_dirs}" ]; then
+  "\${BB}" mkdir -p /System/Settings/fonts /System/Cache/fontconfig
+  {
+    echo '<?xml version="1.0"?>'
+    echo '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">'
+    echo '<fontconfig>'
+    for font_dir in \${font_dirs}; do
+      echo "  <dir>\${font_dir}</dir>"
+    done
+    echo '  <cachedir>/System/Cache/fontconfig</cachedir>'
+    echo '</fontconfig>'
+  } >/System/Settings/fonts/fonts.conf
+  export FONTCONFIG_FILE="/System/Settings/fonts/fonts.conf"
+  export FONTCONFIG_PATH="/System/Settings/fonts"
+fi
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
