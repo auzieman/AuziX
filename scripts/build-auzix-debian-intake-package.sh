@@ -70,20 +70,95 @@ auzix_native_name() {
   printf '%s\n' "${native}"
 }
 
+clean_debian_dep_atom() {
+  sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//'
+}
+
+debian_package_has_candidate() {
+  local package="$1"
+  apt-cache policy "${package}" 2>/dev/null |
+    awk '/Candidate:/ { if ($2 != "(none)") found = 1 } END { exit found ? 0 : 1 }'
+}
+
+debian_depends_to_package_lines() {
+  local depends_text="$1"
+  local dep alternative clean selected
+  tr ',' '\n' <<<"${depends_text}" |
+    while IFS= read -r dep; do
+      selected=""
+      while IFS= read -r alternative; do
+        clean="$(clean_debian_dep_atom <<<"${alternative}")"
+        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
+        if debian_package_has_candidate "${clean}"; then
+          selected="${clean}"
+          break
+        fi
+        [[ -n "${selected}" ]] || selected="${clean}"
+      done < <(tr '|' '\n' <<<"${dep}")
+      [[ -n "${selected}" ]] || continue
+      if ! debian_package_has_candidate "${selected}"; then
+        log "skipping virtual/no-candidate dependency ${selected}"
+        continue
+      fi
+      printf '%s\n' "${selected}"
+    done | awk '!seen[$0]++'
+}
+
 debian_depends_to_native_json() {
   local depends_text="$1"
-  local dep clean native
+  local dep native
   {
-    tr ',' '\n' <<<"${depends_text}" |
+    debian_depends_to_package_lines "${depends_text}" |
       while IFS= read -r dep; do
-        clean="${dep%%|*}"
-        clean="$(sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${clean}")"
-        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
-        native="$(auzix_native_name "${clean}")"
+        native="$(auzix_native_name "${dep}")"
         [[ -n "${native}" ]] || continue
         printf '%s\n' "${native}"
       done | awk '!seen[$0]++'
   } | jq -R -s 'split("\n") | map(select(length > 0))'
+}
+
+native_receipt_exists() {
+  local native="$1"
+  find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
+    -name "${native}-*.auzix.json" -print -quit 2>/dev/null | grep -q .
+}
+
+build_missing_debian_dependencies() {
+  local depends_text="$1"
+  local package dep dep_native next_depth
+  local depth="${AUZIX_TRIXIE_DEP_DEPTH:-0}"
+  local max_depth="${AUZIX_TRIXIE_DEP_MAX_DEPTH:-64}"
+  local stack=" ${AUZIX_TRIXIE_DEP_STACK:-} ${package_name} "
+  [[ "${AUZIX_TRIXIE_BUILD_DEPENDS:-1}" == "1" ]] || return 0
+  [[ "${depth}" -lt "${max_depth}" ]] || {
+    log "dependency recursion depth ${depth} reached max ${max_depth}; continuing with current receipts"
+    return 0
+  }
+  next_depth="$((depth + 1))"
+  log "dependency scan for ${package_name}: depth=${depth} max=${max_depth}"
+  while IFS= read -r dep; do
+    [[ -n "${dep}" ]] || continue
+    [[ "${dep}" != "${package_name}" ]] || continue
+    if [[ "${stack}" == *" ${dep} "* ]]; then
+      log "skipping dependency cycle ${package_name} -> ${dep}"
+      continue
+    fi
+    dep_native="$(auzix_native_name "${dep}")"
+    if native_receipt_exists "${dep_native}"; then
+      log "dependency already staged ${dep} -> ${dep_native}"
+      continue
+    fi
+    log "building missing dependency ${dep} -> ${dep_native} for ${package_name}"
+    AUZIX_TRIXIE_DEP_DEPTH="${next_depth}" \
+    AUZIX_TRIXIE_DEP_STACK="${AUZIX_TRIXIE_DEP_STACK:-} ${package_name}" \
+    AUZIX_TRIXIE_BUILD_DEPENDS="${AUZIX_TRIXIE_BUILD_DEPENDS:-1}" \
+    AUZIX_TRIXIE_INCLUDE_RECOMMENDS="${AUZIX_TRIXIE_INCLUDE_RECOMMENDS:-0}" \
+    AUZIX_TRIXIE_OVERWRITE_NATIVE="${AUZIX_TRIXIE_OVERWRITE_NATIVE:-0}" \
+      "${BASH_SOURCE[0]}" "${AUZIX_ROOT}" "${dep}" || {
+        log "dependency build failed for ${dep}; ${package_name} may fail validation"
+        return 1
+      }
+  done < <(debian_depends_to_package_lines "${depends_text}")
 }
 
 debian_control_field() {
@@ -246,9 +321,15 @@ package_name="$(dpkg-deb -f "${deb_path}" Package)"
 package_version="$(dpkg-deb -f "${deb_path}" Version)"
 package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"
 package_description="$(dpkg-deb -f "${deb_path}" Description | sed -n '1p')"
+package_predepends="$(dpkg-deb -f "${deb_path}" Pre-Depends 2>/dev/null || true)"
 package_depends="$(dpkg-deb -f "${deb_path}" Depends 2>/dev/null || true)"
 package_recommends="$(dpkg-deb -f "${deb_path}" Recommends 2>/dev/null || true)"
-native_depends_json="$(debian_depends_to_native_json "${package_depends}")"
+dependency_contract="${package_predepends}${package_predepends:+, }${package_depends}"
+if [[ "${AUZIX_TRIXIE_INCLUDE_RECOMMENDS:-0}" == "1" && -n "${package_recommends}" ]]; then
+  dependency_contract="${dependency_contract}${dependency_contract:+, }${package_recommends}"
+fi
+build_missing_debian_dependencies "${dependency_contract}"
+native_depends_json="$(debian_depends_to_native_json "${dependency_contract}")"
 native_recommends_json="$(debian_depends_to_native_json "${package_recommends}")"
 native_depends_words="$(jq -r 'join(" ")' <<<"${native_depends_json}")"
 safe_version="$(tr '/: ' '---' <<<"${package_version}" | tr -cd 'A-Za-z0-9_.+~-')"
