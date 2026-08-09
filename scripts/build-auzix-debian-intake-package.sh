@@ -462,6 +462,10 @@ export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatib
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
 export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+runtime_loader="/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+if [ -x "\${runtime_loader}" ] && [ -x "\${program}/soffice.bin" ]; then
+  exec "\${runtime_loader}" --library-path "\${LD_LIBRARY_PATH}" "\${program}/soffice.bin" ${libreoffice_mode} "\$@"
+fi
 exec "\${program}/soffice" ${libreoffice_mode} "\$@"
 EOF
   else

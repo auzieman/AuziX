@@ -292,3 +292,52 @@ Next contract update:
 - A package is not "built" until at least one native CLI or headless operation
   succeeds in the validation root. For LibreOffice Calc, that operation is ODS
   to CSV conversion through the AUZiX wrapper.
+
+## vmid135 office review icon and live loader proof
+
+After the validation-container Calc proof, vmid135 exposed a live-install-only
+loader mismatch. The synced Trixie-built LibreOffice payload initially failed
+on vmid135 with `GLIBC_PRIVATE`/`GLIBC_2.38` errors because ELF helpers such as
+`oosplash` were being started by the live VM's existing dynamic loader while
+`LD_LIBRARY_PATH` exposed the packaged Trixie `Libc6` tree.
+
+The LibreOffice intake generator now prefers the packaged Trixie loader when
+launching `soffice.bin` from AUZiX wrappers:
+
+```text
+/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 \
+  --library-path "$LD_LIBRARY_PATH" \
+  /System/State/libreoffice/program/soffice.bin ...
+```
+
+vmid135 proof after that live-loader fix:
+
+```text
+/Programs/LibreOfficeCalc/current/Commands/localc --headless --version
+LibreOffice 25.2.3.2 520(Build:2)
+
+/Programs/LibreOfficeCalc/current/Commands/localc --headless --convert-to csv \
+  --outdir /Work/auzix-proof/out \
+  /Work/auzix-proof/auzix-libreoffice-calc-proof.ods
+
+AUZiX,LibreOffice Calc proof
+Package rail,Kanboard + bkc-channel + ai_worker
+```
+
+All LibreOffice module wrappers on vmid135 passed `--headless --version` for
+Calc, Writer, Draw, Impress, Math, and Base.
+
+A desktop icon was added at:
+
+```text
+/Users/auzix/Desktop/AUZiX Office Review.desktop
+```
+
+The E menu was curated by moving unvalidated desktop entries into:
+
+```text
+/System/Compatibility/usr/share/applications-unvalidated-20260809
+```
+
+The visible menu now keeps only installer/package setup plus the Office review
+lane until each wider userland app earns `desktop-ready`.
