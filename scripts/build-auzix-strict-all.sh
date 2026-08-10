@@ -20,7 +20,8 @@ run_step make auzix-strict-iputils
 run_step make auzix-strict-package-tools
 run_step make auzix-strict-installer
 run_step make auzix-strict-installer-test
-run_step ./scripts/build-auzix-filesystem-tools-slice.sh out/auzix-strict/AuzixRoot
+run_step ./scripts/build-auzix-command-suite-package.sh \
+  out/auzix-strict/AuzixRoot packages/e2fsprogs.command-suite.json
 run_step make auzix-strict-grub
 run_step make auzix-strict-sudo
 run_step make auzix-strict-dbus

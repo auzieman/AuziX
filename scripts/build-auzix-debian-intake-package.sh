@@ -22,11 +22,14 @@ auzix_native_name() {
   for part in "${parts[@]}"; do
     [[ -n "${part}" ]] || continue
     case "${part}" in
-      api|dbus|dns|gcc|gimp|gtk|html|http|ip|pdf|pip|ssh|ssl|ui|vim|vlc|x11|xcb|xfce|xml)
+      api|dns|gcc|gimp|gtk|html|http|ip|pdf|pip|ssh|ssl|ui|vim|vlc|x11|xcb|xfce|xml)
         native+="${part^^}"
         ;;
       cmake)
         native+="CMake"
+        ;;
+      dbus)
+        native+="DBus"
         ;;
       gnumeric)
         native+="Gnumeric"
@@ -69,6 +72,11 @@ auzix_native_name() {
   done
   printf '%s\n' "${native}"
 }
+
+if [[ "${1:-}" == "--print-native-name" ]]; then
+  auzix_native_name "${2:?usage: build-auzix-debian-intake-package.sh --print-native-name <debian-package>}"
+  exit 0
+fi
 
 clean_debian_dep_atom() {
   sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//'
