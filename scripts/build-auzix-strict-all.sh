@@ -43,5 +43,7 @@ run_step make auzix-strict-live-tools
 run_step ./scripts/validate-auzix-live-agent.sh
 run_step make auzix-strict-kernel-modules
 run_step make auzix-strict-package-repo
+run_step ./scripts/build-auzix-command-suite-package.sh \
+  out/auzix-strict/AuzixRoot packages/e2fsprogs.command-suite.json
 run_step make auzix-strict-audit
 run_step make auzix-strict-iso
