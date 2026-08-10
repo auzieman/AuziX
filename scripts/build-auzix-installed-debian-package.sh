@@ -71,10 +71,10 @@ jq -n \
     version: $version,
     kind: "staging",
     migration_stage: "stage-1-installed-dpkg-repack",
-    prefix: "/Programs/" + $name + "/" + $safe_version,
+    prefix: ("/Programs/" + $name + "/" + $safe_version),
     paths: {
-      prefix: "/Programs/" + $name + "/" + $safe_version,
-      current: "/Programs/" + $name + "/current"
+      prefix: ("/Programs/" + $name + "/" + $safe_version),
+      current: ("/Programs/" + $name + "/current")
     },
     depends: $depends,
     recommends: [],
@@ -93,7 +93,7 @@ jq -n \
       package: $package,
       version: $version,
       architecture: $architecture,
-      control_file: "/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-control.txt",
+      control_file: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-control.txt"),
       upstream_depends: $upstream_depends,
       payload_file_count: $payload_file_count,
       payload_size_bytes: $payload_size_bytes,
