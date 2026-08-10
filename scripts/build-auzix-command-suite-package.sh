@@ -20,6 +20,15 @@ jq -e '
 
 name="$(jq -r '.name' "${RECIPE}")"
 version="$(jq -r '.version' "${RECIPE}")"
+package_self_reexec_direct="$(jq -r '.self_reexec_direct // false' "${RECIPE}")"
+if [[ "${package_self_reexec_direct}" == "true" ]]; then
+  for command_name in patchelf readelf; do
+    command -v "${command_name}" >/dev/null 2>&1 || {
+      printf 'Missing required command for self_reexec_direct recipe: %s\n' "${command_name}" >&2
+      exit 1
+    }
+  done
+fi
 if [[ "${version}" == "auto" ]]; then
   source_package="$(jq -r '.source.package' "${RECIPE}")"
   version="$(dpkg-query -W -f='${Version}' "${source_package}")"
@@ -46,6 +55,19 @@ copy_libraries() {
     done
 }
 
+copy_interpreter() {
+  local binary="$1"
+  local interpreter
+  interpreter="$(
+    readelf -l "${binary}" 2>/dev/null |
+      sed -n 's#.*Requesting program interpreter: \(.*\)]#\1#p' |
+      head -1
+  )"
+  [[ -n "${interpreter}" && -f "${interpreter}" ]] || return 0
+  install -m 0755 "${interpreter}" "${libraries}/$(basename "${interpreter}")"
+  printf '%s\n' "$(basename "${interpreter}")"
+}
+
 while IFS=$'\t' read -r export_name host_command; do
   source_path="$(command -v "${host_command}" || true)"
   [[ -n "${source_path}" ]] || {
@@ -55,6 +77,24 @@ while IFS=$'\t' read -r export_name host_command; do
   source_path="$(readlink -f "${source_path}")"
   install -m 0755 "${source_path}" "${program}/Commands/${export_name}.real"
   copy_libraries "${source_path}"
+  loader_name=""
+  command_self_reexec_direct="$(jq -r --arg name "${export_name}" '
+    .commands[] | select(.name == $name) | (.self_reexec_direct // empty)
+  ' "${RECIPE}")"
+  patch_elf="$(jq -r --arg name "${export_name}" '
+    .commands[] | select(.name == $name) | (.patch_elf // empty)
+  ' "${RECIPE}")"
+  if [[ "${patch_elf:-$(jq -r '.patch_elf // false' "${RECIPE}")}" == "true" ]]; then
+    loader_name="$(copy_interpreter "${source_path}")"
+    [[ -n "${loader_name}" ]] || {
+      printf '%s: cannot locate ELF interpreter for patch_elf command: %s\n' "${name}" "${source_path}" >&2
+      exit 1
+    }
+    patchelf \
+      --set-interpreter "/Programs/${name}/current/Libraries/${loader_name}" \
+      --set-rpath '$ORIGIN/../Libraries' \
+      "${program}/Commands/${export_name}.real"
+  fi
   fixed_args="$(jq -r --arg name "${export_name}" '
     .commands[] | select(.name == $name) | (.fixed_args // []) | map(@sh) | join(" ")
   ' "${RECIPE}")"
@@ -65,6 +105,14 @@ while IFS=$'\t' read -r export_name host_command; do
   shell_prelude="$(jq -r --arg name "${export_name}" '
     .commands[] | select(.name == $name) | (.shell_prelude // [])[]
   ' "${RECIPE}")"
+  if [[ "${command_self_reexec_direct:-${package_self_reexec_direct}}" == "true" ]]; then
+cat >"${program}/Commands/${export_name}" <<EOF
+#!/Programs/BusyBox/current/Commands/busybox sh
+${environment}
+${shell_prelude}
+exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
+EOF
+  else
 cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 ${environment}
@@ -73,6 +121,7 @@ exec "/Programs/${name}/current/Libraries/ld-linux-x86-64.so.2" \\
   --library-path "/Programs/${name}/current/Libraries" \\
   "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
+  fi
   chmod 0755 "${program}/Commands/${export_name}"
   ln -sfn "/Programs/${name}/current/Commands/${export_name}" \
     "${AUZIX_ROOT}/System/Compatibility/bin/${export_name}"
@@ -109,6 +158,11 @@ jq \
     validation,
     source,
     depends: (.depends // ["BusyBox"]),
+    launch_contract: {
+      self_reexec_direct: (.self_reexec_direct // false),
+      patch_elf: (.patch_elf // false),
+      rpath: (if (.patch_elf // false) then "$ORIGIN/../Libraries" else null end)
+    },
     notes: "First-pass command-suite repack. Graduate to an upstream source build before declaring the port native."
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 

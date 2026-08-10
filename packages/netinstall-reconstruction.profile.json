@@ -1,0 +1,168 @@
+{
+  "format": "auzix-netinstall-reconstruction-profile-v1",
+  "id": "auzix-netinstall-reconstruct-last-good-workstation",
+  "description": "Post-ISO package-group plan for rebuilding the useful vmid135/vmid132-inspired AUZiX workstation state from the package repository instead of embedding it all in the live ISO.",
+  "repo": {
+    "primary": "http://192.168.1.10/auzix/repo",
+    "index": "http://192.168.1.10/auzix/repo/index.json"
+  },
+  "iso_bootstrap_spine": {
+    "purpose": "Boot, network, SSH, partition, format, mount, refresh package repo, and install groups.",
+    "packages": [
+      "BusyBox",
+      "AuzixPackageTools",
+      "AuzixInstaller",
+      "OpenSSH",
+      "Sudo",
+      "CACerts",
+      "Curl",
+      "Coreutils",
+      "UtilLinux",
+      "E2fsprogs",
+      "Dosfstools",
+      "Parted",
+      "AuzixServiceRuntime"
+    ],
+    "exclude_from_iso_by_default": [
+      "DesktopAssets",
+      "large wallpapers",
+      "demo screenshots",
+      "office apps",
+      "Flatpak apps",
+      "Podman demo workloads",
+      "large Enlightenment themes"
+    ]
+  },
+  "package_groups": [
+    {
+      "id": "AuzixDesktopBase",
+      "purpose": "Reach a usable graphical desktop with durable menus, terminal, file manager, network visibility, package UI, and login/session services.",
+      "packages": [
+        "LightDM",
+        "Xorg",
+        "Enlightenment",
+        "EFL",
+        "Terminology",
+        "Econnman",
+        "DBus",
+        "Polkit",
+        "AuzixUserGroups",
+        "AuzixPackageManagerEfl",
+        "AuzixControlPanel",
+        "AuzixDesktopAssets"
+      ],
+      "validation": [
+        "login as auzix from LightDM",
+        "open terminal from menu and ibar",
+        "menu categories include system, internet, graphics, office, multimedia, development",
+        "logout/login preserves menu surface"
+      ]
+    },
+    {
+      "id": "AuzixOffice",
+      "purpose": "Provide a filmable basic office/productivity layer with real launchers and CLI conversion smoke tests.",
+      "packages": [
+        "LibreOfficeCommon",
+        "LibreOfficeCore",
+        "LibreOfficeWriter",
+        "LibreOfficeCalc",
+        "LibreOfficeImpress",
+        "LibreOfficeDraw",
+        "AbiWord",
+        "Gnumeric",
+        "Pluma",
+        "Galculator"
+      ],
+      "validation": [
+        "lowriter opens a sample document",
+        "localc opens a sample spreadsheet",
+        "loffice --headless converts sample files",
+        "desktop entries launch through E menus"
+      ]
+    },
+    {
+      "id": "AuzixContainerHost",
+      "purpose": "Own Podman/rootful container service runtime and demo workloads.",
+      "packages": [
+        "AuzixServiceRuntime",
+        "ContainersCommon",
+        "Conmon",
+        "Crun",
+        "Netavark",
+        "AardvarkDNS",
+        "Fuse3",
+        "Libfuse34",
+        "FuseOverlayFS",
+        "Uidmap",
+        "Libsubid5",
+        "Slirp4netns",
+        "Pasta",
+        "Podman",
+        "Nginx"
+      ],
+      "validation": [
+        "podman --version",
+        "podman info reports cgroupVersion v2",
+        "podman load or import from local AUZiX service archive",
+        "run AUZiX BusyBox container",
+        "run AUZiX Nginx service container and HTTP probe 8080"
+      ],
+      "technical_debt": [
+        "Podman currently keeps the /lib64 compatibility loader and direct-exec wrapper because patched pure /Programs ELF mode segfaulted in the builder.",
+        "Registry DNS for bkc-registry.lab.auzietek.com must be inventory/pipeline-owned before registry pulls are a hard validation gate."
+      ]
+    },
+    {
+      "id": "AuzixFlatpakDesktop",
+      "purpose": "Allow selected desktop apps to arrive as Flatpaks while AUZiX native ports mature.",
+      "packages": [
+        "Bubblewrap",
+        "OSTree",
+        "XdgDbusProxy",
+        "GnuPG",
+        "Flatpak",
+        "BazaarFlatpakAdapter",
+        "MicroFlatpakAdapter",
+        "ZedFlatpakAdapter",
+        "ClementineFlatpakAdapter"
+      ],
+      "validation": [
+        "flatpak remotes list",
+        "flatpak run shortcut works without typing app ids",
+        "menu shortcut appears after package install",
+        "known /var alias behavior is cataloged"
+      ]
+    },
+    {
+      "id": "AuzixDeveloperTools",
+      "purpose": "Make AUZiX pleasant to debug and build from itself.",
+      "packages": [
+        "Git",
+        "Less",
+        "Tar",
+        "Gzip",
+        "Strace",
+        "GDB",
+        "LDD",
+        "File",
+        "Strings",
+        "Geany"
+      ],
+      "validation": [
+        "git clone over SSH/HTTPS with CA bundle",
+        "ldd reports AUZiX package library paths or explicitly cataloged compatibility debt",
+        "strace catches missing paths",
+        "Geany launches from menu"
+      ]
+    }
+  ],
+  "install_flow": [
+    "Boot lean AUZiX ISO.",
+    "Bring up network and SSH.",
+    "Run auzix-pkg refresh against the repo.",
+    "Partition/format/install base root.",
+    "Install package groups based on selected role: desktop, office, container-host, flatpak, developer-tools.",
+    "Run group validation gates and write receipts under /System/State/install/receipts."
+  ],
+  "notes": "This is the bionic rebuild map: AUZiX should recreate the rich workstation from packages after boot, not fossilize a one-off desktop root into every ISO."
+}
