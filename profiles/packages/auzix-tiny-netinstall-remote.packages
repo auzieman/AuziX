@@ -1,0 +1,23 @@
+# AUZiX tiny netinstall remote-first package profile.
+#
+# Keep this list intentionally small. It is the installer-core payload needed
+# to boot, get network, accept SSH, partition/format, refresh the AUZiX package
+# repo, and install selected package groups after first boot. Desktop and demo
+# packages do not belong here.
+
+BusyBox
+AuzixPackageTools
+AuzixInstaller
+OpenSSH
+Sudo
+CACerts
+Curl
+Coreutils
+UtilLinux
+Iproute2
+E2fsprogs
+Dosfstools
+Parted
+Strace
+File
+AuzixServiceRuntime

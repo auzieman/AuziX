@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       curl \
       dbus \
       dbus-x11 \
+      dosfstools \
       dpkg-dev \
       e2fsprogs \
       enlightenment \
@@ -26,6 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       file \
       flex \
       gcc \
+      genisoimage \
       git \
       grub-common \
       grub-efi-amd64-bin \
@@ -46,6 +48,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       openssh-client \
       openssh-server \
       openssl \
+      parted \
       pulseaudio \
       pkg-config \
       qemu-utils \

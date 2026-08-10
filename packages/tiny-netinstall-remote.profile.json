@@ -1,0 +1,114 @@
+{
+  "format": "auzix-media-profile-v1",
+  "id": "tiny-netinstall-remote",
+  "description": "Sub-GB AUZiX netinstall/live media profile: boot, network, SSH, install a base root, then hydrate package groups from the AUZiX repository. This intentionally excludes the workstation and demo desktop payload.",
+  "size_budget": {
+    "target": "sub-GB",
+    "hard_fail_over_bytes": 1073741824,
+    "notes": "The ISO may include kernel, initramfs, live SquashFS, boot assets, installer-core packages, and receipts. Desktop, office, Flatpak apps, screenshots, wallpaper packs, Podman demo images, and large themes are post-install package groups."
+  },
+  "debian_reference": {
+    "tool_model": "simple-cdd over debian-cd",
+    "mirrored_concepts": [
+      "profile package lists drive media contents",
+      "preseed-style defaults answer installer questions",
+      "postinst-style hooks finish target-root setup",
+      "logs and receipts record every build/install decision",
+      "kernel and bootloader are boot substrate, not ordinary desktop packages"
+    ],
+    "not_mirrored": [
+      "Debian path layout ownership",
+      "tasksel desktop payload inclusion",
+      "stuffing dependency closure by hand into the profile"
+    ]
+  },
+  "boot_substrate": {
+    "purpose": "Make the media boot and become remotely diagnosable.",
+    "contents": [
+      "kernel",
+      "matching kernel modules required for storage, ISO, SquashFS, overlay, virtio/e1000/vmxnet networking",
+      "initramfs",
+      "GRUB BIOS/UEFI boot assets",
+      "ISO9660 image layout",
+      "live SquashFS mount and tmpfs overlay handoff"
+    ],
+    "must_not_include": [
+      "desktop session",
+      "display manager",
+      "office suite",
+      "Flatpak applications",
+      "Podman demo images"
+    ]
+  },
+  "installer_core_packages": [
+    "BusyBox",
+    "AuzixPackageTools",
+    "AuzixInstaller",
+    "OpenSSH",
+    "Sudo",
+    "CACerts",
+    "Curl",
+    "Coreutils",
+    "UtilLinux",
+    "Iproute2",
+    "E2fsprogs",
+    "Dosfstools",
+    "Parted",
+    "Strace",
+    "File",
+    "AuzixServiceRuntime"
+  ],
+  "repo": {
+    "primary": "http://192.168.1.10/auzix/repo",
+    "required_bootstrap_actions": [
+      "write repository config into installed root",
+      "refresh package index before group install",
+      "verify package archive checksums before extraction"
+    ]
+  },
+  "remote_access_gate": {
+    "required": true,
+    "acceptance": [
+      "DHCP obtains IPv4 or a declared static config is applied",
+      "resolver path exists and can resolve the AUZiX repo host or documented IP fallback",
+      "sshd starts before any GUI/installer UI",
+      "root key login succeeds or the selected lab password profile is explicitly declared",
+      "TTY or serial shell is available even when graphical installer startup fails"
+    ]
+  },
+  "install_flow": [
+    "Boot tiny netinstall media.",
+    "Mount ISO and AUZiX live SquashFS read-only.",
+    "Create one writable live overlay.",
+    "Bring up proc, sysfs, devtmpfs/devpts, tmpfs runtime mounts, and network.",
+    "Start sshd and write a boot receipt.",
+    "Operator or installer selects target disk.",
+    "Partition, format ext4, mount installed root.",
+    "Install AUZiX base root and package tools.",
+    "Refresh AUZiX package repository.",
+    "Install selected package groups such as AuzixDesktopBase, AuzixOffice, AuzixContainerHost.",
+    "Write install receipts under /System/State/install/receipts.",
+    "Reboot into installed root."
+  ],
+  "validation": {
+    "media_static": [
+      "ISO volume id is AUZIXLIVE",
+      "BIOS and UEFI boot entries are present unless the build is explicitly labelled BIOS-only",
+      "kernel and initramfs are present",
+      "live/auzix-root.squashfs is present",
+      "ISO size is below the hard fail budget"
+    ],
+    "boot_smoke": [
+      "VM boots to shell/installer spine without starting a desktop",
+      "ip addr shows an active non-loopback interface",
+      "ssh root@target succeeds through the selected access profile",
+      "auzix-pkg refresh reaches the configured repository",
+      "mkfs.ext4, parted, mount, df, du, strace, and file are present"
+    ],
+    "explicit_non_goals": [
+      "No LightDM/E/GUI acceptance in this profile",
+      "No LibreOffice/Flatpak/Podman demo acceptance in this profile"
+    ]
+  },
+  "promotion_rule": "This profile can be promoted only when a disposable VM can be booted and reached by SSH before any workstation package group is installed."
+}
