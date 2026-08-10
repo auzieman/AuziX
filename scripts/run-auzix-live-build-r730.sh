@@ -101,6 +101,10 @@ docker run --rm --name "${RUN_NAME}" \
   -e AUZIX_ACCESS_PROFILE="${ACCESS_PROFILE}" \
   -e AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
   -e AUZIX_ISO_NAME="${ISO_NAME}" \
+  -e AUZIX_DISPLAY_AUTOSTART="${AUZIX_DISPLAY_AUTOSTART:-x11}" \
+  -e AUZIX_INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}" \
+  -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
+  -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
   "${BUILDER_IMAGE}" \
   ./scripts/build-auzix-strict-all.sh 2>&1 | tee -a "${work_log}"
 
