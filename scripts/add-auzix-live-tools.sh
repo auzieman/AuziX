@@ -1413,8 +1413,8 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Boot/InstalledInit"
 cp "${AUZIX_ROOT}/System/Boot/InstalledInit" "${AUZIX_ROOT}/init"
 chmod 0755 "${AUZIX_ROOT}/init"
-cat > "${AUZIX_ROOT}/System/Settings/display/autostart" <<'TXT'
-x11
+cat > "${AUZIX_ROOT}/System/Settings/display/autostart" <<TXT
+${AUZIX_DISPLAY_AUTOSTART:-x11}
 TXT
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-load-module" <<'SCRIPT'

@@ -417,7 +417,8 @@ echo "startup=/System/Boot/StartSequence"
 echo "gui=/System/Tools/start-gui-stage"
 echo
 
-if [ -e /System/Settings/display/autostart ]; then
+if [ -e /System/Settings/display/autostart ] &&
+   [ "$(cat /System/Settings/display/autostart 2>/dev/null)" != "manual" ]; then
   exec "${BB}" sh -c 'while true; do sleep 3600; done'
 fi
 
