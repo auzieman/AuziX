@@ -43,10 +43,18 @@ depends_text="${package_predepends}${package_predepends:+, }${package_depends}"
 depends_json="$(
   tr ',' '\n' <<<"${depends_text}" |
     while IFS= read -r dep; do
-      first_alt="${dep%%|*}"
-      clean="$(sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${first_alt}")"
-      [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
-      "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" --print-native-name "${clean}"
+      selected=""
+      while IFS= read -r alternative; do
+        clean="$(sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${alternative}")"
+        [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
+        if dpkg-query -W -f='${db:Status-Abbrev}' "${clean}" 2>/dev/null | grep -q '^ii '; then
+          selected="${clean}"
+          break
+        fi
+        [[ -n "${selected}" ]] || selected="${clean}"
+      done < <(tr '|' '\n' <<<"${dep}")
+      [[ -n "${selected}" ]] || continue
+      "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" --print-native-name "${selected}"
     done |
     awk 'NF && !seen[$0]++' |
     jq -R -s 'split("\n") | map(select(length > 0))'
