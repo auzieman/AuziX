@@ -131,3 +131,66 @@ Next patch target:
 - add a live debug/getty console or serial console for headless recovery;
 - keep post-boot reconstruction package-driven once the installer shell/network
   is reachable.
+
+## VM135 installer-spine r4 — 2026-08-09 evening
+
+Good checkpoint:
+
+- Commit `1946469` made live ISO GUI autostart selectable.
+- Commit `7988faf` passed live ISO mode flags into the r730 builder container.
+- r4 was built with `AUZIX_DISPLAY_AUTOSTART=manual`.
+- Worker proof before boot: `/System/Settings/display/autostart` contained
+  `manual`.
+
+Artifact:
+
+`/mnt/ns1/AuziX/src/artifacts/auzix/auzix-netinstall-express-r4-20260810T024318Z.iso`
+
+SHA-256:
+
+`ad7027fa1fd4807781ba7a8875be1412c6f9dde6c569d4fe469d27162d79017a`
+
+VM135 boot/install result:
+
+- PASS: VM135 booted r4 without entering the frozen Enlightenment language
+  wizard.
+- PASS: live console showed `gui: autostart disabled`.
+- PASS: DHCP succeeded on `eth0` with `192.168.1.198/24`.
+- PASS: SSH as root succeeded at `192.168.1.198`.
+- PASS: `auzix-installer validate` passed.
+- PASS: corrected install plan for `/dev/sda` validated and executed.
+- PASS: installed root booted disk-first from `/dev/sda1`.
+- PASS: installed root mounted `/dev/sda1` as `/` and exposed SSH.
+- PASS: `auzix-pkg refresh` pulled the NS1 repo index and saw `1180 packages`.
+- PASS: Podman installed post-boot and `podman info` worked with:
+  - cgroup v2;
+  - `crun`;
+  - `netavark`;
+  - `aardvark-dns`;
+  - graph root `/Work/Containers/storage`;
+  - storage config `/System/Settings/containers/storage.conf`.
+
+Remaining seams:
+
+- The installer fell back from ext4 to ext2 because ext4 tooling is still not
+  in the live installer spine.
+- Installed hostname still reports `auzix-live`; identity finalization needs to
+  apply the install plan hostname.
+- LightDM hydration failed because repo metadata/package inventory references
+  `LibpamSystemd`, which is not currently in the repository.
+- E/LightDM should stay post-install package work until the theme/font/config
+  stack is rebuilt cleanly; the ISO should remain shell/TUI-first.
+- Early service status may report SSH not listening before it is fully up; add
+  a delayed or socket-level check to reduce false negatives.
+
+Next package/build targets:
+
+1. Add ext4/e2fs tooling to the installer spine so VM installs format ext4.
+2. Add or map `LibpamSystemd`, or adjust the LightDM dependency contract to the
+   AUZiX logind/session provider actually used.
+3. Add package-group/meta packages such as `AuzixDesktopBase` and
+   `AuzixContainerHost`; the installer already records those selected names,
+   but the repo currently exposes the component packages rather than those
+   metas.
+4. Rebuild E/LightDM as post-install packages with fonts/themes/config
+   validation, not as a live ISO gate.
