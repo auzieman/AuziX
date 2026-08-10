@@ -319,6 +319,18 @@ report_network_status() {
   fi
 }
 
+start_rescue_consoles() {
+  "${BB}" mkdir -p /System/Logs 2>/dev/null || true
+  if [ -c /dev/tty2 ] && [ ! -e /run/auzix-rescue-tty2 ]; then
+    "${BB}" touch /run/auzix-rescue-tty2 2>/dev/null || true
+    "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on tty2. GUI continues on tty7." >/dev/tty2; exec /Programs/BusyBox/1.36.1/Commands/busybox cttyhack /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty2 >/dev/tty2 2>&1' &
+  fi
+  if [ -c /dev/ttyS0 ] && [ ! -e /run/auzix-rescue-ttyS0 ]; then
+    "${BB}" touch /run/auzix-rescue-ttyS0 2>/dev/null || true
+    "${BB}" setsid "${BB}" sh -c 'echo "Auzix rescue shell on ttyS0. GUI continues on tty7." >/dev/ttyS0; exec /Programs/BusyBox/1.36.1/Commands/busybox cttyhack /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/ttyS0 >/dev/ttyS0 2>&1' &
+  fi
+}
+
 start_hardware() {
   if [ -x /System/Tools/auzix-hw-detect ]; then
     /System/Tools/auzix-hw-detect boot >/System/Logs/display/hardware-boot.log 2>&1 || true
@@ -788,6 +800,8 @@ start_display() {
 
 console_note "stage: mounting runtime filesystems"
 mount_runtime
+console_note "stage: starting rescue consoles"
+start_rescue_consoles
 console_note "stage: repairing live user home"
 repair_live_user_home
 console_note "stage: starting udev"
@@ -1833,6 +1847,24 @@ mask_unstable_enlightenment_modules() {
     fi
     "${BB}" rm -f "${HOME}/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
+  "${BB}" touch /System/State/desktop/enlightenment/vm-safe-modules-applied 2>/dev/null || true
+}
+
+disable_enlightenment_first_run_wizard() {
+  [ "${AUZIX_DISABLE_E_WIZARD:-1}" = "1" ] || return 0
+  disabled_dir=/System/State/desktop/enlightenment/disabled-modules
+  module_root=/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules
+  wizard_dir="${module_root}/wizard"
+  "${BB}" mkdir -p "${disabled_dir}" "${HOME}/.e/e/config/standard" 2>/dev/null || true
+  if [ -d "${wizard_dir}" ]; then
+    "${BB}" mv "${wizard_dir}" "${disabled_dir}/wizard" 2>/dev/null || true
+  fi
+  "${BB}" rm -f \
+    "${HOME}/.e/e/config/standard/module.wizard.cfg" \
+    "${HOME}/.e/e/config/default/module.wizard.cfg" \
+    "${HOME}/.e/e/config/module.wizard.cfg" 2>/dev/null || true
+  "${BB}" touch "${HOME}/.e/e/config/standard/.auzix-wizard-disabled" 2>/dev/null || true
+  "${BB}" touch /System/State/desktop/enlightenment/wizard-disabled 2>/dev/null || true
 }
 
 normalize_enlightenment_profile() {
@@ -1916,7 +1948,8 @@ normalize_enlightenment_profile() {
     "${profile_dir}/module.connman.cfg" \
     "${profile_dir}/module.bluez5.cfg" \
     "${profile_dir}/module.packagekit.cfg" \
-    "${profile_dir}/module.geolocation.cfg" 2>/dev/null || true
+    "${profile_dir}/module.geolocation.cfg" \
+    "${profile_dir}/module.wizard.cfg" 2>/dev/null || true
   "${BB}" chown -R "$(id -u 2>/dev/null || echo 1000):$(id -g 2>/dev/null || echo 1000)" \
     "${HOME}/.e" 2>/dev/null || true
 }
@@ -1938,7 +1971,9 @@ normalize_enlightenment_profile() {
 
 mask_evas_gl_engines
 mask_unstable_enlightenment_modules
+disable_enlightenment_first_run_wizard
 normalize_enlightenment_profile
+disable_enlightenment_first_run_wizard
 
 start_efreet_session() {
   [ "${AUZIX_PRESTART_EFREETD:-0}" = "1" ] || return 0

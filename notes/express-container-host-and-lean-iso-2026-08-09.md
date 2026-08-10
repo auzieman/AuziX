@@ -95,3 +95,39 @@ The working intended image reference is:
 Both Trixie vmid132 and AUZiX vmid135 saw DNS failure for
 `bkc-registry.lab.auzietek.com`. Before relying on pulls in demos or CI, fix the
 registry DNS/hosts/pipeline inventory path.
+
+## VM135 express ISO boot — 2026-08-09 evening
+
+Artifact booted:
+
+`/mnt/ns1/AuziX/src/artifacts/auzix/auzix-netinstall-express-20260810T020717Z.iso`
+
+Proxmox copy:
+
+`/var/lib/vz/template/iso/auzix-netinstall-express-vm135.iso`
+
+SHA-256:
+
+`9c6ef3d4dbad481ef0ff9399f0d7fa46f74c1fd695890780f72b5c5e075528f5`
+
+VM135 was recreated as disposable cattle with a fresh 32 GiB `local-lvm` disk,
+ISO-first boot order, and virtio network on `vmbr0`.
+
+Result:
+
+- PASS: Proxmox started VM135 from the new ISO.
+- PASS: QMP screenshot confirmed the graphical installer/session reached the
+  `Language` screen at 1920x1080.
+- FAIL/SEAM: language selector list was empty and `Next` was disabled.
+- FAIL/SEAM: no IPv4 DHCP lease or SSH was observed within the first boot
+  window; only the VM's IPv6 link-local neighbor appeared on `vmbr0`.
+- FAIL/SEAM: switching to TTY2 produced only a blank cursor, suggesting getty or
+  emergency shell access is not yet staged for this live media path.
+
+Next patch target:
+
+- stage a default locale/language option so the installer can advance;
+- start network/SSH independently of the graphical installer gate;
+- add a live debug/getty console or serial console for headless recovery;
+- keep post-boot reconstruction package-driven once the installer shell/network
+  is reachable.
