@@ -47,6 +47,11 @@ depends_json="$(
       while IFS= read -r alternative; do
         clean="$(sed -E 's/[[:space:]]*\([^)]*\)//g; s/^[[:space:]]+//; s/[[:space:]]+$//; s/:[A-Za-z0-9_-]+$//' <<<"${alternative}")"
         [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
+        case "${clean}" in
+          default-dbus-system-bus|dbus-system-bus)
+            clean="dbus"
+            ;;
+        esac
         if dpkg-query -W -f='${db:Status-Abbrev}' "${clean}" 2>/dev/null | grep -q '^ii '; then
           selected="${clean}"
           break
