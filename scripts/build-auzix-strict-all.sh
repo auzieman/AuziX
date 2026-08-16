@@ -46,7 +46,6 @@ run_step make auzix-strict-alsa
 run_step make auzix-strict-strace
 run_step make auzix-strict-ca-certificates
 run_step make auzix-strict-curl
-run_step make auzix-strict-userspace-tools
 run_step make auzix-strict-host-xorg
 run_step make auzix-strict-host-e
 run_step make auzix-strict-host-terminology
