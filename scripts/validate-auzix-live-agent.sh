@@ -91,6 +91,16 @@ else
   fail "missing live browser autostart entry"
 fi
 [[ -x "${AUZIX_ROOT}/System/Tools/launch-auzix-browser" ]] || fail "missing live browser launcher"
+[[ -s "${AUZIX_ROOT}/Users/auzix/.e/e/applications/startup/.order" ]] ||
+  fail "missing native Enlightenment startup app order"
+grep -Fxq 'auzix-installer.desktop' "${AUZIX_ROOT}/Users/auzix/.e/e/applications/startup/.order" ||
+  fail "native Enlightenment startup omits installer"
+grep -Fxq 'auzix-browser.desktop' "${AUZIX_ROOT}/Users/auzix/.e/e/applications/startup/.order" ||
+  fail "native Enlightenment startup omits browser"
+grep -Fq '/System/Tools/launch-auzix-installer --autostart' "${AUZIX_ROOT}/Users/auzix/.e/e/applications/startup/auzix-installer.desktop" ||
+  fail "native Enlightenment installer startup does not use AUZiX launcher"
+grep -Fq '/System/Tools/launch-auzix-browser' "${AUZIX_ROOT}/Users/auzix/.e/e/applications/startup/auzix-browser.desktop" ||
+  fail "native Enlightenment browser startup does not use AUZiX launcher"
 [[ -s "${AUZIX_ROOT}/System/Settings/browser/midori-start-pages" ]] || fail "Midori start pages are missing"
 grep -Fq 'https://auzietek.com' "${AUZIX_ROOT}/System/Settings/browser/midori-start-pages" ||
   fail "Midori start pages omit auzietek.com"

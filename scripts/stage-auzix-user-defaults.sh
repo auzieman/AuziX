@@ -92,6 +92,7 @@ enforce_foggy_trees_background() {
 
 mkdir -p \
   "${TARGET_HOME}/.e/e/config" \
+  "${TARGET_HOME}/.e/e/applications/startup" \
   "${TARGET_HOME}/.config/autostart" \
   "${TARGET_HOME}/Desktop" \
   "${AUZIX_ROOT}/System/Settings/display/defaults"
@@ -188,6 +189,8 @@ Hidden=false
 EOF
 
 chmod 0644 "${TARGET_HOME}/.config/autostart/auzix-installer.desktop"
+cp -a "${TARGET_HOME}/.config/autostart/auzix-installer.desktop" \
+  "${TARGET_HOME}/.e/e/applications/startup/auzix-installer.desktop"
 
 cat > "${TARGET_HOME}/.config/autostart/auzix-browser.desktop" <<'EOF'
 [Desktop Entry]
@@ -201,6 +204,17 @@ Hidden=false
 EOF
 
 chmod 0644 "${TARGET_HOME}/.config/autostart/auzix-browser.desktop"
+cp -a "${TARGET_HOME}/.config/autostart/auzix-browser.desktop" \
+  "${TARGET_HOME}/.e/e/applications/startup/auzix-browser.desktop"
+
+cat > "${TARGET_HOME}/.e/e/applications/startup/.order" <<'EOF'
+auzix-installer.desktop
+auzix-browser.desktop
+EOF
+chmod 0644 \
+  "${TARGET_HOME}/.e/e/applications/startup/auzix-installer.desktop" \
+  "${TARGET_HOME}/.e/e/applications/startup/auzix-browser.desktop" \
+  "${TARGET_HOME}/.e/e/applications/startup/.order"
 
 cat > "${TARGET_HOME}/Desktop/Install AuziX.desktop" <<'EOF'
 [Desktop Entry]
@@ -251,6 +265,7 @@ EOF
 chmod 0755 "${TARGET_HOME}/Desktop/AUZiX Files.desktop"
 
 chown -R 1000:1000 "${TARGET_HOME}/.config" 2>/dev/null || true
+chown -R 1000:1000 "${TARGET_HOME}/.e/e/applications" 2>/dev/null || true
 chown -R 1000:1000 "${TARGET_HOME}/Desktop" 2>/dev/null || true
 
 cat > "${AUZIX_ROOT}/System/Settings/display/defaults/user-defaults-note.txt" <<TXT
