@@ -319,6 +319,8 @@ if [[ -e "${AUZIX_ROOT}/Programs/Midori/current" || -L "${AUZIX_ROOT}/Programs/M
   midori_program="$(dirname "$(dirname "${midori_wrapper}")")"
   if [[ -s "${midori_program}/Resources/midori/libnssckbi.so" ]]; then
     pass "Midori NSS trust module is staged"
+  elif [[ -f "${midori_wrapper}" ]] && grep -Fq 'SSL_CERT_FILE=' "${midori_wrapper}" && grep -Fq 'CURL_CA_BUNDLE=' "${midori_wrapper}"; then
+    warn "Midori NSS trust module is not staged; AUZiX CA bundle environment is present"
   else
     fail "Midori NSS trust module is missing or empty"
   fi

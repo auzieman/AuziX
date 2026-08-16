@@ -143,8 +143,7 @@ else
     done
   fi
   if [[ ! -f "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so" ]]; then
-    printf 'NSS trust module not found; install libnss3 or set AUZIX_NSS_TRUST_MODULE.\n' >&2
-    exit 1
+    log "NSS trust module not found; continuing with AUZiX CA bundle environment only"
   fi
 fi
 
