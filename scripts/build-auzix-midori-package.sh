@@ -123,7 +123,29 @@ if [[ -f "${nss_trust_module}" ]]; then
   install -m 0755 "${nss_trust_module}" \
     "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so"
 else
-  log "NSS trust module not found; continuing with AUZiX CA bundle environment only"
+  nss_work="${WORK_DIR}/nss"
+  mkdir -p "${nss_work}/debs" "${nss_work}/extract"
+  if command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1 && \
+     (cd "${nss_work}/debs" && apt-get download libnss3 >/dev/null 2>&1); then
+    for deb in "${nss_work}"/debs/*.deb; do
+      [[ -e "${deb}" ]] || continue
+      dpkg-deb -x "${deb}" "${nss_work}/extract"
+    done
+    for candidate in \
+      "${nss_work}/extract/usr/lib/x86_64-linux-gnu/nss/libnssckbi.so" \
+      "${nss_work}/extract/usr/lib/x86_64-linux-gnu/libnssckbi.so"; do
+      if [[ -f "${candidate}" ]]; then
+        install -m 0755 "${candidate}" \
+          "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so"
+        nss_trust_module="${candidate}"
+        break
+      fi
+    done
+  fi
+  if [[ ! -f "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so" ]]; then
+    printf 'NSS trust module not found; install libnss3 or set AUZIX_NSS_TRUST_MODULE.\n' >&2
+    exit 1
+  fi
 fi
 
 cat > "${MIDORI_PROGRAM}/Commands/midori" <<'EOF'
