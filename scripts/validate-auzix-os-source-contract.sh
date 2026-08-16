@@ -50,10 +50,20 @@ if [[ -d "${AUZIX_ROOT}/System" ]]; then
   grep -Fq "${source_file}" "${AUZIX_ROOT}${interactive_shim}" ||
     fail "${interactive_shim} does not source ${source_file}"
 
+  resolved_env="$(
+    env -i HOME=/Users/root SHELL=/System/Compatibility/bin/sh /bin/sh -c \
+      ". '${AUZIX_ROOT}${source_file}'; printf 'LD_LIBRARY_PATH=%s\nXDG_DATA_DIRS=%s\nE_PREFIX=%s\nE_DATA_DIR=%s\n' \"\$LD_LIBRARY_PATH\" \"\$XDG_DATA_DIRS\" \"\$E_PREFIX\" \"\$E_DATA_DIR\""
+  )"
+  resolved_ld_path="$(printf '%s\n' "${resolved_env}" | sed -n 's/^LD_LIBRARY_PATH=//p')"
+  [[ -n "${resolved_ld_path}" ]] || fail "${source_file} resolves an empty LD_LIBRARY_PATH"
   for required_lib in $(jq -r '.bootstrap_environment.exports.LD_LIBRARY_PATH[]' "${CONTRACT}"); do
-    grep -Fq "${required_lib}" "${AUZIX_ROOT}${source_file}" ||
-      fail "${source_file} does not export required library path ${required_lib}"
+    case ":${resolved_ld_path}:" in
+      *":${required_lib}:"*) ;;
+      *) fail "${source_file} resolved LD_LIBRARY_PATH without ${required_lib}" ;;
+    esac
   done
+  printf '%s\n' "${resolved_env}" | grep -Fxq 'E_PREFIX=/System/Compatibility/usr' ||
+    fail "${source_file} resolves unexpected E_PREFIX"
 
   for entrypoint in \
     /System/Boot/StartSequence \
