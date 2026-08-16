@@ -127,6 +127,8 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
     main { max-width: 920px; margin: 0 auto; padding: 8vh 24px; }
     h1 { font-size: clamp(2.4rem, 7vw, 5.5rem); margin: 0 0 .25em; letter-spacing: .03em; }
     .tag { color: #7be7ff; text-transform: uppercase; letter-spacing: .22em; font-weight: 700; }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0; }
+    nav a { border: 1px solid #24506d; border-radius: 999px; padding: 8px 13px; background: rgba(10, 35, 52, .7); text-decoration: none; }
     .card { border: 1px solid #24506d; background: rgba(4, 12, 20, .72); border-radius: 18px; padding: 22px; margin: 20px 0; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
     a { color: #88e8ff; }
     code { background: #0b2233; padding: .15em .35em; border-radius: 6px; }
@@ -140,6 +142,18 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
     <p>A small, stubbornly personal Linux-shaped operating system experiment:
     strict AUZiX paths, Enlightenment desktop, package factory, Podman proofs,
     and tiny containers that keep making people blink twice.</p>
+    <nav aria-label="AUZiX links">
+      <a href="/">AUZiX Home</a>
+      <a href="repo/">Package Repo</a>
+      <a href="isos/">ISOs</a>
+      <a href="receipts/">Receipts</a>
+      <a href="https://auzietek.com/">Auzietek</a>
+      <a href="https://linux-users.auzietek.com/blog">Linux Users</a>
+      <a href="https://retro-users.auzietek.com/blog">Retro Users</a>
+      <a href="https://www.blackknightcontroller.com/">BlackKnightController</a>
+      <a href="https://discord.gg/zZh9XuDt9">Community</a>
+      <a href="https://www.linkedin.com/in/auzieman">LinkedIn</a>
+    </nav>
     <section class="card">
       <h2>Downloads</h2>
       <ul>
@@ -161,8 +175,10 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
       <h2>Community</h2>
       <p>Start at <a href="https://auzietek.com/">Auzietek</a> or the
       <a href="https://linux-users.auzietek.com/blog">Linux Users field notes</a>.
-      Community links are kept on the controlled Auzietek contact page so
-      Discord invites and social links can rotate without rebuilding media.</p>
+      Join the <a href="https://discord.gg/zZh9XuDt9">Auzietek community</a>,
+      or use <a href="https://discord.com/channels/1537817201380302952/1537821223222780006">the Discord channel</a>
+      if you are already inside. Professional contact is on
+      <a href="https://www.linkedin.com/in/auzieman">LinkedIn</a>.</p>
     </section>
   </main>
 </body>
