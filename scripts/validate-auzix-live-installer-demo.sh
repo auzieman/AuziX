@@ -36,7 +36,6 @@ require_desktop_exec() {
 
 require_path /Programs/Midori/current
 require_executable /Programs/Midori/current/Commands/midori
-require_path /Programs/NetSurf/current
 require_path /Programs/AuzixInstallerEfl/current
 require_executable /Programs/AuzixInstallerEfl/current/Commands/efl
 require_path /Programs/AuzixPackageManagerEfl/current

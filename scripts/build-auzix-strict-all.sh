@@ -51,7 +51,6 @@ run_step make auzix-strict-host-e
 run_step make auzix-strict-host-terminology
 run_step make auzix-strict-host-xterm
 run_step make auzix-strict-midori
-run_step make auzix-strict-netsurf
 run_step make auzix-strict-lightdm
 run_step make auzix-strict-display-templates
 run_step make auzix-strict-e-assets
