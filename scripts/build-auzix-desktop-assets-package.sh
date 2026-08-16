@@ -77,10 +77,10 @@ for asset in "${ASSET_PROGRAM}"/Resources/display/assets/themes/*.edj; do
   [[ -f "${asset}" ]] || continue
   case "$(basename "${asset}" | tr '[:upper:]' '[:lower:]')" in
     *terminology*)
-      ln -f "${asset}" "${GLOBAL_TERMINOLOGY_THEMES}/$(basename "${asset}")"
+      install -D -m 0644 "${asset}" "${GLOBAL_TERMINOLOGY_THEMES}/$(basename "${asset}")"
       ;;
     *)
-      ln -f "${asset}" "${GLOBAL_THEMES}/$(basename "${asset}")"
+      install -D -m 0644 "${asset}" "${GLOBAL_THEMES}/$(basename "${asset}")"
       ;;
   esac
 done
@@ -90,7 +90,7 @@ for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
     *.edj|*.jpg|*.jpeg|*.png|*.JPG|*.JPEG|*.PNG) ;;
     *) continue ;;
   esac
-  ln -f "${asset}" "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
+  install -D -m 0644 "${asset}" "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
 done
 
 asset_count="$(find "${ASSET_PROGRAM}/Resources/display/assets" -type f | wc -l | tr -d ' ')"
