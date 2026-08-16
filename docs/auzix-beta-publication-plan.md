@@ -116,6 +116,10 @@ The BKC repository now has a dedicated visible pipeline contract:
 
 - `/home/auzieman/Projects/BlackKnightController/pipelines/auzix-public-beta-shelf/`
 
+The operational inventory source is:
+
+- `/home/auzieman/Projects/BlackKnightController/ops/remote-sites/auzietek-public-inventory.json`
+
 That lane maps the AUZiX shelf to the existing Auzietek/IONOS pattern:
 
 - build authority: `lab-build` / R730;
@@ -124,7 +128,10 @@ That lane maps the AUZiX shelf to the existing Auzietek/IONOS pattern:
 - public primary host: `74.208.45.165`;
 - public root: `/srv/auzix/site`;
 - public hostname: `auzix.auzietek.com`.
+- DNS workhorse: ns1 using the IONOS API key under `/root`;
+- TLS mode: reuse the existing `*.auzietek.com` star certificate for
+  `auzix.auzietek.com`.
 
 The default BKC run is intentionally dry-run/gated. External changes require
-explicitly enabling public rsync, nginx apply, DNS apply, certificate request,
-and secondary sync gates.
+explicitly enabling public rsync, nginx apply, DNS apply, wildcard certificate
+deployment, optional certificate renewal, and secondary sync gates.
