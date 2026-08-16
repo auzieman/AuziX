@@ -20,9 +20,25 @@ require_path() {
   pass "present ${path}"
 }
 
+resolve_staged_path() {
+  local path="$1"
+  local full="${AUZIX_ROOT}${path}"
+  local target
+  if [[ -L "${full}" ]]; then
+    target="$(readlink "${full}")"
+    case "${target}" in
+      /*) full="${AUZIX_ROOT}${target}" ;;
+      *) full="$(dirname "${full}")/${target}" ;;
+    esac
+  fi
+  printf '%s\n' "${full}"
+}
+
 require_executable() {
   local path="$1"
-  [[ -x "${AUZIX_ROOT}${path}" ]] || fail "missing executable ${path}"
+  local full
+  full="$(resolve_staged_path "${path}")"
+  [[ -x "${full}" ]] || fail "missing executable ${path}"
   pass "executable ${path}"
 }
 

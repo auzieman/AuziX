@@ -9,6 +9,7 @@ SOURCE_SSH="${AUZIX_ASSET_SSH:-}"
 SOURCE_RSYNC_SSH="${AUZIX_ASSET_RSYNC_SSH:-ssh}"
 SOURCE_THEME_BUILD="${AUZIX_ASSET_THEME_BUILD:-${SOURCE_HOME}/Enlightenment-Themes/artifacts/bin-e}"
 SOURCE_BACKGROUND_BUILD="${AUZIX_ASSET_BACKGROUND_BUILD:-${ROOT_DIR}/../wallpaper}"
+SOURCE_REPO_ASSETS="${AUZIX_ASSET_REPO_ROOT:-${ROOT_DIR}/assets/display}"
 DISPLAY_ROOT="${AUZIX_ROOT}/System/Settings/display"
 ASSET_ROOT="${DISPLAY_ROOT}/assets"
 
@@ -76,6 +77,8 @@ copy_tree_if_present "${SOURCE_HOME}/.e/e/backgrounds" "${ASSET_ROOT}/background
 copy_tree_if_present "${SOURCE_HOME}/.e/e/themes" "${ASSET_ROOT}/themes"
 copy_tree_if_present "${SOURCE_HOME}/.elementary/themes" "${ASSET_ROOT}/themes"
 copy_tree_if_present "${SOURCE_HOME}/Pictures/Wallpapers" "${ASSET_ROOT}/backgrounds"
+copy_tree_if_present "${SOURCE_REPO_ASSETS}/backgrounds" "${ASSET_ROOT}/backgrounds"
+copy_tree_if_present "${SOURCE_REPO_ASSETS}/themes" "${ASSET_ROOT}/themes"
 if [[ -n "${SOURCE_EXTRA_ROOT}" ]]; then
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/backgrounds" "${ASSET_ROOT}/backgrounds"
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/themes" "${ASSET_ROOT}/themes"
