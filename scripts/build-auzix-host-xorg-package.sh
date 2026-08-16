@@ -85,15 +85,23 @@ stage_evdev_driver() {
       exit 1
     fi
     temp_dir="$(mktemp -d)"
-    (
+    if ! (
       cd "${temp_dir}"
       apt-get download xserver-xorg-input-evdev >/dev/null
       dpkg-deb -x xserver-xorg-input-evdev_*.deb extract
-    )
+    ); then
+      log "evdev input driver unavailable; continuing with libinput-only Xorg input stack"
+      rm -rf "${temp_dir}"
+      return 0
+    fi
     evdev_source="${temp_dir}/extract/usr/lib/xorg/modules/input/evdev_drv.so"
   fi
 
-  require_path "${evdev_source}"
+  if [[ ! -e "${evdev_source}" ]]; then
+    log "evdev input driver not present after extraction; continuing with libinput-only Xorg input stack"
+    [[ -n "${temp_dir}" ]] && rm -rf "${temp_dir}"
+    return 0
+  fi
   install -D -m 0755 "${evdev_source}" "${RUNTIME_USR}/lib/xorg/modules/input/evdev_drv.so"
   install -D -m 0755 "${evdev_source}" "${NATIVE_XORG}/modules/input/evdev_drv.so"
   copy_runtime_deps "${evdev_source}"
