@@ -25,12 +25,9 @@ Compatibility paths live under `/System/Compatibility` and are treated as bridge
 
 ## 🎬 Latest Demo Video
 
-A fresh AuziX alpha workstation/install field demo is now available on YouTube.
-Add the final public link here when it is ready to publish:
+A fresh AuziX alpha workstation/install field demo is now available on YouTube:
 
-```text
-TODO: YouTube demo URL
-```
+[Watch the AuziX alpha install field note](https://www.youtube.com/watch?v=vkrk-H5vc_U&t=303s)
 
 ## 👁️ The Vision
 
