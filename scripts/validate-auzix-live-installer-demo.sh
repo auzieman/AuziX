@@ -80,7 +80,7 @@ pass "installer launcher points at EFL frontend"
 
 require_executable /System/Tools/launch-auzix-browser
 require_desktop_exec /System/Compatibility/usr/share/applications/auzix-midori.desktop "Exec=midori"
-require_desktop_exec /System/Compatibility/usr/share/applications/auzix-browser.desktop /System/Tools/launch-auzix-browser
+require_desktop_exec /Users/auzix/Desktop/AUZiX\ Browser.desktop /System/Tools/launch-auzix-browser
 require_desktop_exec /Users/auzix/Desktop/Install\ AuziX.desktop /System/Tools/launch-auzix-installer
 
 if ! find "${AUZIX_ROOT}/Programs/DesktopAssets/auzietek" -type f -name '*.edj' | grep -q .; then
