@@ -71,6 +71,9 @@ if ! command -v rsync >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ -L "${ASSET_ROOT}" ]]; then
+  rm -f "${ASSET_ROOT}"
+fi
 mkdir -p "${ASSET_ROOT}/backgrounds" "${ASSET_ROOT}/themes" "${ASSET_ROOT}/config"
 
 copy_tree_if_present "${SOURCE_HOME}/.e/e/backgrounds" "${ASSET_ROOT}/backgrounds"
