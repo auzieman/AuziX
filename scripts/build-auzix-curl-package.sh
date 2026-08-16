@@ -91,14 +91,20 @@ CURL_PROGRAM="${AUZIX_ROOT}/Programs/Curl/${CURL_VERSION}"
 rm -rf "${WORK_DIR}" "${CURL_PROGRAM}"
 mkdir -p "${WORK_DIR}/debs" "${WORK_DIR}/extract"
 
+downloaded_debs=0
 (
   cd "${WORK_DIR}/debs"
   apt-get download "${APT_PACKAGES[@]}" >/dev/null
-)
+) && downloaded_debs=1 || downloaded_debs=0
 
-for deb in "${WORK_DIR}"/debs/*.deb; do
-  dpkg-deb -x "${deb}" "${WORK_DIR}/extract"
-done
+if [[ "${downloaded_debs}" == "1" ]] && compgen -G "${WORK_DIR}/debs/*.deb" >/dev/null; then
+  for deb in "${WORK_DIR}"/debs/*.deb; do
+    dpkg-deb -x "${deb}" "${WORK_DIR}/extract"
+  done
+else
+  log "apt download unavailable; falling back to installed builder curl runtime"
+  install -D -m 0755 /usr/bin/curl "${WORK_DIR}/extract/usr/bin/curl"
+fi
 
 if [[ ! -x "${WORK_DIR}/extract/usr/bin/curl" ]]; then
   printf 'curl binary not found in downloaded packages.\n' >&2
