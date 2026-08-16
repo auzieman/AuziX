@@ -136,6 +136,9 @@ done < <(jq -r '.commands[] | [.name, .host_command] | @tsv' "${RECIPE}")
 
 ln -sfn "/Programs/${name}/${version}" "${AUZIX_ROOT}/Programs/${name}/current"
 
+program_abs="$(readlink -f "${program}")"
+libraries_abs="$(readlink -f "${libraries}")"
+
 jq \
   --arg version "${version}" \
   --arg prefix "/Programs/${name}/${version}" \
@@ -167,45 +170,58 @@ jq \
     notes: "First-pass command-suite repack. Graduate to an upstream source build before declaring the port native."
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 
+busybox_path=""
+for candidate in \
+  "${AUZIX_ROOT}"/Programs/BusyBox/*/Commands/busybox \
+  "$(command -v busybox || true)"; do
+  [[ -n "${candidate}" && -x "${candidate}" ]] || continue
+  busybox_path="$(readlink -f "${candidate}")"
+  break
+done
+[[ -n "${busybox_path}" ]] || {
+  printf '%s: validation needs busybox to execute AUZiX wrapper scripts\n' "${name}" >&2
+  exit 1
+}
+
+validation_command_root="$(mktemp -d)"
+cleanup_validation=()
+cleanup() {
+  local path
+  for path in "${cleanup_validation[@]:-}"; do
+    if [[ -L "${path}" ]]; then
+      rm -f "${path}"
+    elif [[ -d "${path}" && "${path}" == /tmp/* ]]; then
+      rm -rf "${path}"
+    fi
+  done
+}
+trap cleanup EXIT
+
+if [[ "${program}" == "${AUZIX_ROOT}/Programs/"* && ! -e "/Programs/${name}/current/Libraries" ]]; then
+  if mkdir -p "/Programs/${name}" 2>/dev/null; then
+    ln -sfn "${program_abs}" "/Programs/${name}/current"
+    cleanup_validation+=("/Programs/${name}/current")
+  else
+    printf '%s: cannot create temporary /Programs/%s/current validation link; run builder as root or validate in a chroot\n' "${name}" "${name}" >&2
+    exit 1
+  fi
+fi
+cleanup_validation+=("${validation_command_root}")
+
+while IFS= read -r command_name; do
+  cat >"${validation_command_root}/${command_name}" <<EOF
+#!/usr/bin/env bash
+exec "${busybox_path}" sh "${program_abs}/Commands/${command_name}" "\$@"
+EOF
+  chmod 0755 "${validation_command_root}/${command_name}"
+done < <(jq -r '.commands[].name' "${RECIPE}")
+
 while IFS= read -r smoke_command; do
-  temp_program_link=""
-  temp_busybox_link=""
-  if [[ ! -e /Programs/BusyBox/current/Commands/busybox ]]; then
-    busybox_path=""
-    for candidate in \
-      "${AUZIX_ROOT}"/Programs/BusyBox/*/Commands/busybox \
-      "$(command -v busybox || true)"; do
-      [[ -n "${candidate}" && -x "${candidate}" ]] || continue
-      busybox_path="${candidate}"
-      break
-    done
-    if [[ -n "${busybox_path}" ]]; then
-      mkdir -p /Programs/BusyBox/current/Commands
-      ln -sfn "${busybox_path}" /Programs/BusyBox/current/Commands/busybox
-      temp_busybox_link=/Programs/BusyBox/current/Commands/busybox
-    else
-      printf '%s: validation needs busybox for AUZiX wrapper shebangs\n' "${name}" >&2
-      exit 1
-    fi
-  fi
-  if [[ "${program}" == "${AUZIX_ROOT}/Programs/"* && ! -e "/Programs/${name}/current" ]]; then
-    if mkdir -p "/Programs/${name}" 2>/dev/null; then
-      ln -sfn "${program}" "/Programs/${name}/current"
-      temp_program_link="/Programs/${name}/current"
-    else
-      printf '%s: cannot create temporary /Programs/%s/current validation link; run builder as root or validate in a chroot\n' "${name}" "${name}" >&2
-      exit 1
-    fi
-  fi
-  AUZIX_COMMAND_ROOT="${program}/Commands" \
-  LD_LIBRARY_PATH="${libraries}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+  AUZIX_COMMAND_ROOT="${validation_command_root}" \
+  LD_LIBRARY_PATH="${libraries_abs}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
     bash -o pipefail -ec "${smoke_command}"
-  if [[ -n "${temp_program_link}" ]]; then
-    rm -f "${temp_program_link}"
-  fi
-  if [[ -n "${temp_busybox_link}" ]]; then
-    rm -f "${temp_busybox_link}"
-  fi
 done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
+trap - EXIT
+cleanup
 
 printf '[command-suite] built %s %s\n' "${name}" "${version}"
