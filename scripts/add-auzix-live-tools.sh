@@ -777,6 +777,10 @@ report_service_status() {
     console_note "services: ${line}"
   done
   if command -v nc >/dev/null 2>&1; then
+    for _probe in 1 2 3 4 5; do
+      nc -z 127.0.0.1 22 >/dev/null 2>&1 && break
+      "${BB}" sleep 1
+    done
     nc -z 127.0.0.1 22 >/dev/null 2>&1 &&
       console_note "services: ssh tcp/22 listening" ||
       console_note "services: ssh tcp/22 not listening"
