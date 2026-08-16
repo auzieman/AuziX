@@ -8,6 +8,7 @@ RECEIPT_DIR="${AUZIX_PUBLIC_RECEIPT_DIR:-${3:-${ROOT_DIR}/out}}"
 SHELF_DIR="${AUZIX_PUBLIC_SHELF_DIR:-${4:-${ROOT_DIR}/public/auzix}}"
 MAX_ISOS="${AUZIX_PUBLIC_MAX_ISOS:-3}"
 MAX_RECEIPTS="${AUZIX_PUBLIC_MAX_RECEIPTS:-80}"
+LANDING_ONLY="${AUZIX_PUBLIC_LANDING_ONLY:-0}"
 
 log() {
   printf '[auzix-public-shelf] %s\n' "$*" >&2
@@ -23,48 +24,70 @@ require() {
 require date
 require find
 require jq
-require rsync
-require sha256sum
-
-[[ -f "${REPO_DIR}/index.json" ]] || {
-  log "missing AUZiX repo index: ${REPO_DIR}/index.json"
-  exit 1
-}
-
-jq -e '.format == "auzix-repo-v1" and (.packages | type == "array")' \
-  "${REPO_DIR}/index.json" >/dev/null
+if [[ "${LANDING_ONLY}" != "1" ]]; then
+  require rsync
+  require sha256sum
+fi
 
 mkdir -p "${SHELF_DIR}/repo" "${SHELF_DIR}/isos" "${SHELF_DIR}/receipts"
-rsync -a "${REPO_DIR}/" "${SHELF_DIR}/repo/"
 
+package_count=0
 iso_count=0
-while IFS= read -r iso_path; do
-  iso_name="$(basename "${iso_path}")"
-  case "${iso_name}" in
-    *public*|*beta*|*live-demo*|*themefix*|*installer*)
-      install -m 0644 "${iso_path}" "${SHELF_DIR}/isos/${iso_name}"
-      if [[ -f "${iso_path}.sha256" ]]; then
-        install -m 0644 "${iso_path}.sha256" "${SHELF_DIR}/isos/${iso_name}.sha256"
-      else
-        sha256sum "${SHELF_DIR}/isos/${iso_name}" >"${SHELF_DIR}/isos/${iso_name}.sha256"
-      fi
-      iso_count=$((iso_count + 1))
-      ;;
-  esac
-  [[ "${iso_count}" -ge "${MAX_ISOS}" ]] && break
-done < <(find "${ISO_DIR}" -maxdepth 2 -type f -name '*.iso' -printf '%T@ %p\n' | sort -nr | awk '{sub(/^[^ ]+ /, ""); print}')
-
 receipt_count=0
-while IFS= read -r receipt_path; do
-  receipt_name="$(basename "${receipt_path}")"
-  install -m 0644 "${receipt_path}" "${SHELF_DIR}/receipts/${receipt_name}"
-  receipt_count=$((receipt_count + 1))
-  [[ "${receipt_count}" -ge "${MAX_RECEIPTS}" ]] && break
-done < <(find "${RECEIPT_DIR}" -maxdepth 4 -type f \
-  \( -name '*auzix*.json' -o -name '*auzix*.txt' -o -name '*auzix*.summary' -o -name '*repository-publish.report.json' \) \
-  -printf '%T@ %p\n' | sort -nr | awk '{sub(/^[^ ]+ /, ""); print}')
+artifact_status="pending-next-iso-install-proof"
+repo_path=""
 
-package_count="$(jq '.packages | length' "${SHELF_DIR}/repo/index.json")"
+if [[ "${LANDING_ONLY}" == "1" ]]; then
+  jq -n \
+    '{format: "auzix-repo-placeholder-v1", status: "pending-next-iso-install-proof", packages: []}' \
+    >"${SHELF_DIR}/repo/index.json"
+  printf 'AUZiX package repository publication is pending the next ISO/install validation.\n' \
+    >"${SHELF_DIR}/repo/README.txt"
+  printf 'AUZiX ISO publication is pending the next ISO/install validation.\n' \
+    >"${SHELF_DIR}/isos/README.txt"
+  printf 'AUZiX public receipts are pending the next ISO/install validation.\n' \
+    >"${SHELF_DIR}/receipts/README.txt"
+  repo_path="repo/index.json"
+else
+  [[ -f "${REPO_DIR}/index.json" ]] || {
+    log "missing AUZiX repo index: ${REPO_DIR}/index.json"
+    exit 1
+  }
+
+  jq -e '.format == "auzix-repo-v1" and (.packages | type == "array")' \
+    "${REPO_DIR}/index.json" >/dev/null
+
+  rsync -a "${REPO_DIR}/" "${SHELF_DIR}/repo/"
+
+  while IFS= read -r iso_path; do
+    iso_name="$(basename "${iso_path}")"
+    case "${iso_name}" in
+      *public*|*beta*|*live-demo*|*themefix*|*installer*)
+        install -m 0644 "${iso_path}" "${SHELF_DIR}/isos/${iso_name}"
+        if [[ -f "${iso_path}.sha256" ]]; then
+          install -m 0644 "${iso_path}.sha256" "${SHELF_DIR}/isos/${iso_name}.sha256"
+        else
+          sha256sum "${SHELF_DIR}/isos/${iso_name}" >"${SHELF_DIR}/isos/${iso_name}.sha256"
+        fi
+        iso_count=$((iso_count + 1))
+        ;;
+    esac
+    [[ "${iso_count}" -ge "${MAX_ISOS}" ]] && break
+  done < <(find "${ISO_DIR}" -maxdepth 2 -type f -name '*.iso' -printf '%T@ %p\n' | sort -nr | awk '{sub(/^[^ ]+ /, ""); print}')
+
+  while IFS= read -r receipt_path; do
+    receipt_name="$(basename "${receipt_path}")"
+    install -m 0644 "${receipt_path}" "${SHELF_DIR}/receipts/${receipt_name}"
+    receipt_count=$((receipt_count + 1))
+    [[ "${receipt_count}" -ge "${MAX_RECEIPTS}" ]] && break
+  done < <(find "${RECEIPT_DIR}" -maxdepth 4 -type f \
+    \( -name '*auzix*.json' -o -name '*auzix*.txt' -o -name '*auzix*.summary' -o -name '*repository-publish.report.json' \) \
+    -printf '%T@ %p\n' | sort -nr | awk '{sub(/^[^ ]+ /, ""); print}')
+
+  package_count="$(jq '.packages | length' "${SHELF_DIR}/repo/index.json")"
+  artifact_status="staged"
+  repo_path="repo/index.json"
+fi
 build_commit="$(git -C "${ROOT_DIR}" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
 published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -72,13 +95,15 @@ jq -n \
   --arg format "auzix-public-beta-shelf-v1" \
   --arg published_at "${published_at}" \
   --arg build_commit "${build_commit}" \
-  --arg repo_path "repo/index.json" \
+  --arg repo_path "${repo_path}" \
+  --arg artifact_status "${artifact_status}" \
   --argjson package_count "${package_count}" \
   --argjson iso_count "${iso_count}" \
   '{
     format: $format,
     generated_at: $published_at,
     source_commit: $build_commit,
+    artifact_status: $artifact_status,
     repo_index: $repo_path,
     package_count: $package_count,
     iso_count: $iso_count,
@@ -118,9 +143,9 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
     <section class="card">
       <h2>Downloads</h2>
       <ul>
-        <li><a href="repo/index.json">Package repository index</a> (${package_count} packages)</li>
-        <li><a href="isos/">ISO candidates</a> (${iso_count} staged)</li>
-        <li><a href="receipts/">Build receipts and validation notes</a></li>
+        <li><a href="repo/index.json">Package repository index</a> (${package_count} packages; ${artifact_status})</li>
+        <li><a href="isos/">ISO candidates</a> (${iso_count} staged; ${artifact_status})</li>
+        <li><a href="receipts/">Build receipts and validation notes</a> (${receipt_count} staged; ${artifact_status})</li>
         <li><a href="manifest.json">Publication manifest</a></li>
       </ul>
     </section>
