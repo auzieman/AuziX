@@ -8,5 +8,5 @@
   "commands": [
     {"name": "tar", "host_command": "tar"}
   ],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/tar.real --version 2>&1 | grep -i tar"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/tar --version 2>&1 | grep -i tar"]}
 }

@@ -8,5 +8,5 @@
   "commands": [
     {"name": "gzip", "host_command": "gzip"}
   ],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/gzip.real --version 2>&1 | grep -i gzip"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/gzip --version 2>&1 | grep -i gzip"]}
 }

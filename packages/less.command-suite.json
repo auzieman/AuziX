@@ -8,5 +8,5 @@
   "commands": [
     {"name": "less", "host_command": "less"}
   ],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/less.real --version 2>&1 | grep -i less"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/less --version 2>&1 | grep -i less"]}
 }

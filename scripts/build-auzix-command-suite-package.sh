@@ -43,6 +43,12 @@ mkdir -p "${program}/Commands" "${libraries}" "${package_db}" \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
   "${AUZIX_ROOT}/System/Compatibility/usr/sbin"
 
+command_extract_root="$(mktemp -d)"
+cleanup_command_extract() {
+  [[ -d "${command_extract_root}" && "${command_extract_root}" == /tmp/* ]] && rm -rf "${command_extract_root}"
+}
+trap cleanup_command_extract EXIT
+
 copy_libraries() {
   local binary="$1"
   local dependency
@@ -70,6 +76,31 @@ copy_interpreter() {
 
 while IFS=$'\t' read -r export_name host_command; do
   source_path="$(command -v "${host_command}" || true)"
+  if [[ -z "${source_path}" ]]; then
+    source_package="$(jq -r '.source.package // empty' "${RECIPE}")"
+    if [[ -n "${source_package}" && "${source_package}" != "null" ]] &&
+      command -v apt-get >/dev/null 2>&1 &&
+      command -v dpkg-deb >/dev/null 2>&1; then
+      package_deb_dir="${command_extract_root}/${export_name}/debs"
+      package_extract_dir="${command_extract_root}/${export_name}/extract"
+      mkdir -p "${package_deb_dir}" "${package_extract_dir}"
+      if (cd "${package_deb_dir}" && apt-get download "${source_package}" >/dev/null) &&
+        compgen -G "${package_deb_dir}/*.deb" >/dev/null; then
+        for deb in "${package_deb_dir}"/*.deb; do
+          dpkg-deb -x "${deb}" "${package_extract_dir}"
+        done
+        for candidate in \
+          "${package_extract_dir}/usr/bin/${host_command}" \
+          "${package_extract_dir}/bin/${host_command}" \
+          "${package_extract_dir}/usr/sbin/${host_command}" \
+          "${package_extract_dir}/sbin/${host_command}"; do
+          [[ -x "${candidate}" ]] || continue
+          source_path="${candidate}"
+          break
+        done
+      fi
+    fi
+  fi
   [[ -n "${source_path}" ]] || {
     printf '%s: command not found: %s\n' "${name}" "${host_command}" >&2
     exit 1
@@ -223,5 +254,6 @@ while IFS= read -r smoke_command; do
 done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
 trap - EXIT
 cleanup
+cleanup_command_extract
 
 printf '[command-suite] built %s %s\n' "${name}" "${version}"
