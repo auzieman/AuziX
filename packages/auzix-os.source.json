@@ -76,8 +76,8 @@
         "/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv",
         "/System/Compatibility/lib/x86_64-linux-gnu/gconv"
       ],
-      "SSL_CERT_DIR": "/etc/ssl/certs",
-      "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+      "SSL_CERT_DIR": "/System/Compatibility/etc/ssl/certs",
+      "SSL_CERT_FILE": "/System/Compatibility/etc/ssl/certs/ca-certificates.crt",
       "CURL_CA_BUNDLE": "$SSL_CERT_FILE",
       "REQUESTS_CA_BUNDLE": "$SSL_CERT_FILE"
     }

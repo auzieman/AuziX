@@ -2047,8 +2047,10 @@ set -eu
 
 PATH=/System/Compatibility/bin:/Programs/Midori/current/Commands:/Programs/NetSurf/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
 export PATH
-export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Settings/ssl/certs/ca-certificates.crt}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 
 url="${1:-https://auzietek.com}"
 if command -v midori >/dev/null 2>&1; then
@@ -2115,8 +2117,8 @@ export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export ELM_ACCEL="${ELM_ACCEL:-none}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
-export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
-export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
@@ -2479,8 +2481,8 @@ export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export ELM_ACCEL="${ELM_ACCEL:-none}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
-export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
-export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"

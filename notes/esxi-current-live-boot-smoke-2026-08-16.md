@@ -40,5 +40,29 @@ checks TCP/22. That can produce a false `not listening` receipt if sshd has not
 settled yet. `scripts/add-auzix-live-tools.sh` now waits up to five seconds
 before recording the SSH listen result.
 
+Follow-up live capture after the operator observed the one-time Enlightenment
+config dialog:
+
+- ESXi VMID `13` was powered on.
+- Serial showed DHCP address `10.20.0.113/24`.
+- `vmwgfx` initialized and VMware VMMouse devices were detected.
+- The display path started and reached the GUI.
+- The process summary still showed no `sshd` process, so the SSH warning is not
+  only the immediate `nc` probe. The service runner likely exits before the
+  summary.
+
+Build-root checks:
+
+- `/Services/ssh/run`, OpenSSH binaries, host keys, and `sshd_config` exist.
+- `chroot <AuzixRoot> /Services/ssh/run` reaches bind-time when the host port is
+  already in use, proving the package can load and read its keys/config in
+  chroot semantics.
+- `ld-linux --list /Programs/OpenSSH/host/Commands/sshd` resolves OpenSSH's
+  runtime libraries from `/System/Compatibility/lib*/...`.
+
+Next source fix should make `StartSequence` include the failing service log tail
+when a declared service is absent from the process summary, especially
+`/System/Logs/ssh.log`.
+
 Next ISO run should distinguish between a real sshd failure and a too-early
 boot receipt.

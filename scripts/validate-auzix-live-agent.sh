@@ -38,6 +38,11 @@ grep -Fq 'LD_LIBRARY_PATH=' "${PATH_CONTRACT}" || fail "path contract lacks cano
 grep -Fq 'XDG_DATA_DIRS=' "${PATH_CONTRACT}" || fail "path contract lacks canonical XDG data path"
 grep -Fq 'E_PREFIX=' "${PATH_CONTRACT}" || fail "path contract lacks Enlightenment prefix"
 grep -Fq 'GCONV_PATH=' "${PATH_CONTRACT}" || fail "path contract lacks glibc conversion path"
+grep -Fq 'SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"' "${PATH_CONTRACT}" || fail "path contract lacks canonical AUZiX CA cert dir"
+grep -Fq 'SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"' "${PATH_CONTRACT}" || fail "path contract lacks canonical AUZiX CA bundle"
+[[ -s "${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt" ]] || fail "canonical AUZiX CA bundle is missing"
+[[ -e "${AUZIX_ROOT}/System/Settings/ssl" ]] || fail "/System/Settings/ssl alias for hardwired /etc/ssl callers is missing"
+[[ -s "${AUZIX_ROOT}/System/Settings/ssl/certs/ca-certificates.crt" ]] || fail "/System/Settings/ssl CA alias does not resolve"
 for script in "${SEQUENCE}" "${START_E}" "${START_E_SESSION}" "${LIGHTDM_WRAPPER}" "${LIGHTDM_SESSION}"; do
   [[ -e "${script}" ]] || continue
   grep -Fq '/System/Settings/auzix-paths.sh' "${script}" || fail "${script#${AUZIX_ROOT}} does not source canonical AUZiX paths"

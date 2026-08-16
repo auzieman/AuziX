@@ -11,6 +11,7 @@ PACKAGE_DB="${AUZIX_ROOT}/System/PackageDB"
 SSL_CERTS="${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs"
 SSL_SHARE="${AUZIX_ROOT}/System/Compatibility/usr/share/ca-certificates"
 PKI_CERTS="${AUZIX_ROOT}/System/Settings/pki/tls/certs"
+SETTINGS_SSL="${AUZIX_ROOT}/System/Settings/ssl"
 VERSION="${AUZIX_CA_CERTIFICATES_VERSION:-}"
 
 cleanup() {
@@ -52,6 +53,13 @@ copy_cert_tree_if_present() {
   )
 }
 
+copy_bundle_if_present() {
+  local source="$1"
+  local target="$2"
+  [[ -s "${source}" ]] || return 0
+  install -D -m 0644 "${source}" "${target}"
+}
+
 downloaded_deb=0
 if command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1; then
   rm -rf "${WORK_DIR}/debs" "${EXTRACT_DIR}"
@@ -83,10 +91,20 @@ if [[ "${downloaded_deb}" != "1" ]]; then
   VERSION="${VERSION:-system-auzix1}"
   if [[ ! -s "${SSL_CERTS}/ca-certificates.crt" ]]; then
     copy_cert_tree_if_present /etc/ssl/certs "${SSL_CERTS}"
+    copy_bundle_if_present /etc/ssl/certs/ca-certificates.crt "${SSL_CERTS}/ca-certificates.crt"
+    copy_bundle_if_present /etc/ssl/cert.pem "${SSL_CERTS}/ca-certificates.crt"
   fi
 
   if [[ -d /usr/share/ca-certificates && ! -d "${SSL_SHARE}/mozilla" ]]; then
     copy_cert_tree_if_present /usr/share/ca-certificates "${SSL_SHARE}"
+  fi
+  if [[ ! -s "${SSL_CERTS}/ca-certificates.crt" && -d "${SSL_SHARE}/mozilla" ]]; then
+    find "${SSL_SHARE}/mozilla" -maxdepth 1 -type f -name '*.crt' -print |
+      sort |
+      while IFS= read -r cert; do
+        cat "${cert}"
+        printf '\n'
+      done >"${SSL_CERTS}/ca-certificates.crt"
   fi
 fi
 
@@ -99,6 +117,8 @@ rm -f "${PACKAGE_DB}"/CACerts-*.auzix.json
 
 ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
   "${AUZIX_ROOT}/System/Compatibility/etc/ssl/cert.pem"
+rm -rf "${SETTINGS_SSL}"
+ln -sfn /System/Compatibility/etc/ssl "${SETTINGS_SSL}"
 ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
   "${PKI_CERTS}/ca-bundle.crt"
 
@@ -118,6 +138,7 @@ cat >"${PACKAGE_DB}/CACerts-${VERSION}.auzix.json" <<EOF
   "paths": {
     "certificates": "/System/Compatibility/etc/ssl/certs",
     "debian_bundle": "/System/Compatibility/etc/ssl/certs/ca-certificates.crt",
+    "debian_etc_alias": "/System/Settings/ssl -> /System/Compatibility/etc/ssl",
     "fedora_bundle": "/System/Settings/pki/tls/certs/ca-bundle.crt",
     "openssl_usr_lib_bundle": "/System/Compatibility/usr/lib/ssl/cert.pem via /System/Compatibility/usr/lib/ssl -> /System/Compatibility/etc/ssl",
     "share": "/System/Compatibility/usr/share/ca-certificates"
@@ -125,6 +146,7 @@ cat >"${PACKAGE_DB}/CACerts-${VERSION}.auzix.json" <<EOF
   "settings": [
     "/System/Compatibility/etc/ssl/certs",
     "/System/Compatibility/etc/ssl/cert.pem",
+    "/System/Settings/ssl",
     "/System/Settings/pki/tls/certs/ca-bundle.crt",
     "/System/Compatibility/usr/share/ca-certificates"
   ],
@@ -132,12 +154,14 @@ cat >"${PACKAGE_DB}/CACerts-${VERSION}.auzix.json" <<EOF
   "compatibility_exports": [
     "/System/Compatibility/etc/ssl/certs",
     "/System/Compatibility/etc/ssl/cert.pem",
+    "/System/Settings/ssl",
     "/System/Settings/pki/tls/certs/ca-bundle.crt",
     "/System/Compatibility/usr/share/ca-certificates"
   ],
   "validation": {
     "smoke_commands": [
       "test -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt",
+      "test -s /System/Settings/ssl/certs/ca-certificates.crt",
       "test -e /System/Settings/pki/tls/certs/ca-bundle.crt"
     ]
   },
