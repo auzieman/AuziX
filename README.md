@@ -23,6 +23,15 @@ Compatibility paths live under `/System/Compatibility` and are treated as bridge
 
 <img width="1920" height="1080" alt="AuziX Live Environment" src="https://github.com/user-attachments/assets/541bc7de-3168-45fb-8abc-0d16c450bee3" />
 
+## 🎬 Latest Demo Video
+
+A fresh AuziX alpha workstation/install field demo is now available on YouTube.
+Add the final public link here when it is ready to publish:
+
+```text
+TODO: YouTube demo URL
+```
+
 ## 👁️ The Vision
 
 Modern operating systems are broken. Standard Linux is plagued by a century of messy legacy pathing, brittle global dependencies, and environment pollution. Modern "immutable" alternatives fix the stability but introduce extreme configuration complexity.
