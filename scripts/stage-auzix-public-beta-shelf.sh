@@ -9,6 +9,9 @@ SHELF_DIR="${AUZIX_PUBLIC_SHELF_DIR:-${4:-${ROOT_DIR}/public/auzix}}"
 MAX_ISOS="${AUZIX_PUBLIC_MAX_ISOS:-3}"
 MAX_RECEIPTS="${AUZIX_PUBLIC_MAX_RECEIPTS:-80}"
 LANDING_ONLY="${AUZIX_PUBLIC_LANDING_ONLY:-0}"
+SHOWCASE_IMAGE="${AUZIX_PUBLIC_SHOWCASE_IMAGE:-${ROOT_DIR}/docs/images/Screenshot at 2026-08-16 11-45-57.png}"
+SHOWCASE_IMAGE_NAME="auzix-installer-desktop-20260816.png"
+FIELD_NOTE_VIDEO_URL="https://www.youtube.com/watch?v=vkrk-H5vc_U&t=303s"
 
 log() {
   printf '[auzix-public-shelf] %s\n' "$*" >&2
@@ -29,7 +32,13 @@ if [[ "${LANDING_ONLY}" != "1" ]]; then
   require sha256sum
 fi
 
-mkdir -p "${SHELF_DIR}/repo" "${SHELF_DIR}/isos" "${SHELF_DIR}/receipts"
+mkdir -p "${SHELF_DIR}/repo" "${SHELF_DIR}/isos" "${SHELF_DIR}/receipts" "${SHELF_DIR}/assets"
+
+if [[ -f "${SHOWCASE_IMAGE}" ]]; then
+  install -m 0644 "${SHOWCASE_IMAGE}" "${SHELF_DIR}/assets/${SHOWCASE_IMAGE_NAME}"
+else
+  log "showcase image not found: ${SHOWCASE_IMAGE}"
+fi
 
 package_count=0
 iso_count=0
@@ -130,9 +139,14 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
     nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0; }
     nav a { border: 1px solid #24506d; border-radius: 999px; padding: 8px 13px; background: rgba(10, 35, 52, .7); text-decoration: none; }
     .card { border: 1px solid #24506d; background: rgba(4, 12, 20, .72); border-radius: 18px; padding: 22px; margin: 20px 0; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .showcase { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .9fr); gap: 20px; align-items: center; }
+    .showcase img { width: 100%; border-radius: 16px; border: 1px solid rgba(123,231,255,.26); box-shadow: 0 22px 70px rgba(0,0,0,.45); }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .pill-row a { border: 1px solid #24506d; border-radius: 999px; padding: 9px 14px; background: rgba(10, 35, 52, .72); font-weight: 750; text-decoration: none; }
     a { color: #88e8ff; }
     code { background: #0b2233; padding: .15em .35em; border-radius: 6px; }
     ul { line-height: 1.7; }
+    @media (max-width: 760px) { .showcase { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -154,6 +168,21 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
       <a href="https://discord.gg/zZh9XuDt9" target="_blank" rel="noopener noreferrer">Community</a>
       <a href="https://www.linkedin.com/in/auzieman" target="_blank" rel="noopener noreferrer">LinkedIn</a>
     </nav>
+    <section class="card showcase">
+      <div>
+        <h2>Latest lab proof</h2>
+        <p>The current public run shows the AUZiX installer, Enlightenment desktop,
+        AUZiX path work, Midori rendering Auzietek, and the package-driven
+        workstation direction coming together in one screen.</p>
+        <div class="pill-row">
+          <a href="${FIELD_NOTE_VIDEO_URL}" target="_blank" rel="noopener noreferrer">Watch the field note</a>
+          <a href="assets/${SHOWCASE_IMAGE_NAME}" target="_blank" rel="noopener noreferrer">Open screenshot</a>
+        </div>
+      </div>
+      <a href="assets/${SHOWCASE_IMAGE_NAME}" target="_blank" rel="noopener noreferrer">
+        <img src="assets/${SHOWCASE_IMAGE_NAME}" alt="AUZiX installer and desktop running with Midori on the Auzietek site">
+      </a>
+    </section>
     <section class="card">
       <h2>Downloads</h2>
       <ul>
