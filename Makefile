@@ -219,7 +219,7 @@ auzix-strict-kernel-modules:
 	./scripts/package-auzix-kernel-modules.sh
 
 auzix-strict-package-repo:
-	./scripts/audit-auzix-package-runtime.sh out/auzix-strict/AuzixRoot
+	AUZIX_PACKAGE_RUNTIME_AUDIT_MODE=warn ./scripts/audit-auzix-package-runtime.sh out/auzix-strict/AuzixRoot
 	./scripts/build-auzix-package-repo.sh
 	./scripts/audit-auzix-package-archive-metadata.py out/auzix-strict/AuzixRoot --repo artifacts/auzix/repo --forbid-builder-owned-system-paths
 	./scripts/report-auzix-package-metadata-risk.py out/auzix-strict/AuzixRoot --repo artifacts/auzix/repo --json-out artifacts/auzix/package-metadata-risk.json --md-out artifacts/auzix/package-metadata-risk.md

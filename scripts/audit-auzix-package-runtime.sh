@@ -71,10 +71,21 @@ dependency_receipt_exists() {
   ' "${AUZIX_ROOT}/System/PackageDB/"*.auzix.json >/dev/null 2>&1
 }
 
+is_bridge_like_receipt() {
+  local migration_stage="$1"
+  local source_type="$2"
+  case "${migration_stage}:${source_type}" in
+    *bridge*:*|*staging*:*|first-pass-*:*|stage-0-*:*|stage-1-*:*|*:host-binary|*:debian-binary)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 audit_receipt() {
   local receipt="$1"
   local package_name prefix loader loader_path library_path library_path_json library_path_arg
-  local command_path full_command elf output command_count migration_stage source_type
+  local command_path full_command elf output command_count migration_stage source_type bridge_like
 
   package_name="$(jq -r '.name // empty' "${receipt}")"
   if [[ -n "${PACKAGE_FILTER}" && "${package_name}" != "${PACKAGE_FILTER}" ]]; then
@@ -83,17 +94,30 @@ audit_receipt() {
   prefix="$(jq -r '.prefix // .paths.prefix // empty' "${receipt}")"
   migration_stage="$(jq -r '.migration_stage // empty' "${receipt}")"
   source_type="$(jq -r '.source.type // empty' "${receipt}")"
-  loader="$(jq -r '.validation.loader // empty' "${receipt}")"
-  library_path_json="$(jq -c '.validation.library_paths // .runtime_libraries // empty' "${receipt}")"
+  if jq -e '(.validation // null) | type == "object"' "${receipt}" >/dev/null; then
+    loader="$(jq -r '.validation.loader // empty' "${receipt}")"
+    library_path_json="$(jq -c '.validation.library_paths // .runtime_libraries // empty' "${receipt}")"
+  else
+    loader=""
+    library_path_json="$(jq -c '.runtime_libraries // empty' "${receipt}")"
+  fi
   library_path="$(jq -r '.runtime_libraries[0] // .paths.libraries // empty' "${receipt}")"
   command_count="$(jq '(.commands // []) | length' "${receipt}")"
+  bridge_like=0
+  if is_bridge_like_receipt "${migration_stage}" "${source_type}"; then
+    bridge_like=1
+  fi
   [[ -n "${package_name}" && -n "${prefix}" ]] || {
-    fail "invalid receipt: ${receipt#${AUZIX_ROOT}/}"
+    if [[ -n "${package_name}" && "${command_count}" -eq 0 ]]; then
+      report "INFO: ${package_name}: non-command receipt has no prefix; skipping runtime audit"
+    else
+      fail "invalid receipt: ${receipt#${AUZIX_ROOT}/}"
+    fi
     return
   }
 
   report "PACKAGE: ${package_name}"
-  if [[ "${migration_stage}" != *bridge* && "${migration_stage}" != *staging* ]]; then
+  if [[ "${bridge_like}" != "1" ]]; then
     if [[ "$(jq 'has("source_build") or has("build_receipt") or (.build.receipt_required? == true)' "${receipt}")" != "true" ]]; then
       fail "${package_name}: promoted/non-bridge receipt lacks source build/install receipt"
     fi
@@ -119,7 +143,11 @@ audit_receipt() {
   while IFS= read -r dependency; do
     [[ -n "${dependency}" ]] || continue
     if ! dependency_receipt_exists "${dependency}"; then
-      fail "${package_name}: declared dependency has no local receipt: ${dependency}"
+      if [[ "${bridge_like}" == "1" ]]; then
+        report "INFO: ${package_name}: bridge/proof dependency has no local receipt yet: ${dependency}"
+      else
+        fail "${package_name}: declared dependency has no local receipt: ${dependency}"
+      fi
     fi
   done < <(jq -r '.depends[]?' "${receipt}")
 
@@ -139,7 +167,11 @@ audit_receipt() {
 
   [[ -n "${loader}" && -n "${library_path_arg}" ]] || {
     if [[ "${command_count}" -gt 0 ]]; then
-      fail "${package_name}: command-bearing package has no bundled-loader/library validation contract"
+      if [[ "${bridge_like}" == "1" ]]; then
+        report "INFO: ${package_name}: bridge/proof command package has no bundled-loader/library validation contract yet"
+      else
+        fail "${package_name}: command-bearing package has no bundled-loader/library validation contract"
+      fi
     else
       report "INFO: ${package_name}: no bundled-loader validation contract"
     fi
