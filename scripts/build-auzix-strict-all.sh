@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LIVE_CURRENT_ONLY="${AUZIX_LIVE_CURRENT_ONLY:-0}"
 
 cd "${ROOT_DIR}"
 
@@ -56,8 +57,12 @@ run_step make auzix-strict-display-templates
 run_step make auzix-strict-e-assets
 run_step make auzix-strict-desktop-assets-package
 run_step make auzix-strict-desktop-integration
-run_step make auzix-strict-flatpak-runtime-support
-run_step make auzix-strict-flatpak-adapters
+if [[ "${LIVE_CURRENT_ONLY}" == "1" ]]; then
+  printf '[auzix-build-all] current-live mode: skipping Flatpak runtime support/adapters until the live image carries proven Flatpak payloads and session services\n' >&2
+else
+  run_step make auzix-strict-flatpak-runtime-support
+  run_step make auzix-strict-flatpak-adapters
+fi
 run_step make auzix-strict-user-defaults
 run_step make auzix-strict-live-tools
 run_step ./scripts/validate-auzix-live-agent.sh

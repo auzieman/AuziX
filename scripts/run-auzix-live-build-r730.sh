@@ -12,6 +12,7 @@ ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-lab-password}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-/mnt/ns1/AuziX/runtime/secrets/live-root-shadow}"
 BUILDER_IMAGE="${AUZIX_BUILDER_IMAGE:-auzix/builder:lab}"
 ISO_NAME="${AUZIX_ISO_NAME:-auzix-live-efl-candidate.iso}"
+EXTRA_ISO_NAMES="${AUZIX_EXTRA_ISO_NAMES:-}"
 BUILD_TARGET="${AUZIX_BUILD_TARGET:-strict-all}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RUN_NAME="auzix-live-build-${RUN_ID}"
@@ -119,6 +120,7 @@ docker run --rm --name "${RUN_NAME}" \
   -e AUZIX_INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}" \
   -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
   -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
+  -e AUZIX_LIVE_CURRENT_ONLY="${AUZIX_LIVE_CURRENT_ONLY:-0}" \
   "${BUILDER_IMAGE}" \
   "${build_command[@]}" 2>&1 | tee -a "${work_log}"
 
@@ -145,8 +147,43 @@ docker run --rm \
 sha256sum "${work_iso}" | tee "${work_iso}.sha256" | tee -a "${work_log}"
 install -d "${PUBLISH_DIR}"
 rsync -a "${work_iso}" "${work_iso}.sha256" "${PUBLISH_DIR}/"
+extra_iso_paths=""
+for extra_iso_name in ${EXTRA_ISO_NAMES}; do
+  [[ -n "${extra_iso_name}" ]] || continue
+  log "assembling extra ISO from same validated root: ${extra_iso_name}"
+  docker run --rm \
+    -v "${work_source}:/workspace" \
+    -v "${KEY_FILE}:/run/auzix-runtime/authorized_keys:ro" \
+    -v "${ROOT_PASSWORD_HASH_FILE}:/run/auzix-runtime/live-root-shadow:ro" \
+    -w /workspace \
+    -e AUZIX_ROOT_SOURCE=/workspace/out/auzix-strict/AuzixRoot \
+    -e AUZIX_AUTHORIZED_KEYS_SOURCE=/run/auzix-runtime/authorized_keys \
+    -e AUZIX_ACCESS_PROFILE="${ACCESS_PROFILE}" \
+    -e AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
+    -e AUZIX_ISO_NAME="${extra_iso_name}" \
+    -e AUZIX_DISPLAY_AUTOSTART="${AUZIX_DISPLAY_AUTOSTART:-x11}" \
+    -e AUZIX_INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}" \
+    -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
+    -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
+    "${BUILDER_IMAGE}" \
+    ./scripts/build-auzix-boot-iso.sh 2>&1 | tee -a "${work_log}"
+  extra_work_iso="${work_source}/artifacts/auzix/${extra_iso_name}"
+  [[ -s "${extra_work_iso}" ]] || fail "expected extra ISO is missing: ${extra_work_iso}"
+  docker run --rm \
+    -v "${work_source}:/workspace:ro" \
+    -w /workspace \
+    -e AUZIX_REQUIRE_UEFI=1 \
+    "${BUILDER_IMAGE}" \
+    ./scripts/validate-auzix-boot-iso.sh "/workspace/artifacts/auzix/${extra_iso_name}" 2>&1 | tee -a "${work_log}"
+  sha256sum "${extra_work_iso}" | tee "${extra_work_iso}.sha256" | tee -a "${work_log}"
+  rsync -a "${extra_work_iso}" "${extra_work_iso}.sha256" "${PUBLISH_DIR}/"
+  extra_iso_paths="${extra_iso_paths} ${PUBLISH_DIR}/${extra_iso_name}"
+done
 printf 'finished_at=%s\niso_path=%s\nsha256_file=%s\nstatus=pass\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${iso_path}" "${iso_path}.sha256" >>"${work_receipt}"
+if [[ -n "${extra_iso_paths}" ]]; then
+  printf 'extra_iso_paths=%s\n' "${extra_iso_paths# }" >>"${work_receipt}"
+fi
 publish_metadata
 trap - EXIT
 log "PASS run_id=${RUN_ID} receipt=${receipt}"

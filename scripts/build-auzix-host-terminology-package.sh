@@ -116,7 +116,7 @@ Type=Application
 Name=Auzix Terminal
 Comment=Open a local Auzix shell
 TryExec=terminology
-Exec=env LIBGL_ALWAYS_SOFTWARE=1 ELM_ACCEL=none ECORE_EVAS_ENGINE=software_x11 ELM_ENGINE=software_x11 E_COMP_ENGINE=sw terminology -e /System/Compatibility/bin/bash
+Exec=/System/Tools/launch-auzix-terminal
 Icon=utilities-terminal
 Categories=System;TerminalEmulator;
 Terminal=false
@@ -130,6 +130,36 @@ while IFS= read -r file_path; do
     copy_runtime_deps "${file_path}" || true
   fi
 done
+
+mkdir -p "${AUZIX_ROOT}/System/Tools"
+cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-terminal" <<'EOF'
+#!/System/Compatibility/bin/sh
+set -eu
+
+if [ -r /System/Settings/auzix-paths.sh ]; then
+  . /System/Settings/auzix-paths.sh
+fi
+
+export PATH="/Programs/Terminology/current/Commands:/Programs/XTerm/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/Programs/BusyBox/current/Commands:${PATH:-}"
+export HOME="${HOME:-/Users/auzix}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share}"
+export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export ELM_ACCEL="${ELM_ACCEL:-none}"
+export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
+export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
+export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
+
+if command -v terminology >/dev/null 2>&1; then
+  exec terminology -e /System/Compatibility/bin/bash "$@"
+fi
+
+exec xterm -T "AUZiX Terminal" -e /System/Compatibility/bin/bash "$@"
+EOF
+chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-terminal"
 
 cat > "${AUZIX_ROOT}/System/PackageDB/Terminology-${TERM_VERSION}.auzix.json" <<EOF
 {
@@ -145,9 +175,11 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Terminology-${TERM_VERSION}.auzix.json" <<
     "/Programs/Terminology/current",
     "/System/Compatibility/bin/terminology",
     "/System/Compatibility/usr/bin/terminology",
-    "/System/Compatibility/usr/share/applications/terminology.desktop"
+    "/System/Compatibility/usr/share/applications/terminology.desktop",
+    "/System/Compatibility/usr/share/applications/auzix-terminal.desktop",
+    "/System/Tools/launch-auzix-terminal"
   ],
-  "notes": "Host-packaged Terminology terminal for graphical bring-up validation."
+  "notes": "Host-packaged Terminology terminal for graphical bring-up validation. Menu launch flows through /System/Tools/launch-auzix-terminal so AUZiX PATH, library, XDG, cert, and software-rendering environment is inherited before Terminology starts."
 }
 EOF
 
