@@ -70,6 +70,7 @@ copy_runtime_deps() {
 rm -rf "${WORK_DIR}" "${MIDORI_PROGRAM}"
 mkdir -p "${WORK_DIR}" "${MIDORI_PROGRAM}/Commands" "${MIDORI_PROGRAM}/Resources" "${MIDORI_PROGRAM}/Libraries" \
   "${AUZIX_ROOT}/System/Compatibility/bin" \
+  "${AUZIX_ROOT}/System/Settings/browser" \
   "${RUNTIME_USR}/bin" \
   "${RUNTIME_USR}/share/applications" \
   "${RUNTIME_USR}/share/pixmaps" \
@@ -181,9 +182,23 @@ if [ ! -w "${XDG_CACHE_HOME}" ] || [ ! -w "${XDG_CONFIG_HOME}" ] ||
 fi
 
 cd /Programs/Midori/current/Resources/midori
+if [ "$#" -eq 0 ] && [ -s /System/Settings/browser/midori-start-pages ]; then
+  set --
+  while IFS= read -r start_url; do
+    case "${start_url}" in
+      ''|'#'*) continue ;;
+    esac
+    set -- "$@" "${start_url}"
+  done < /System/Settings/browser/midori-start-pages
+fi
 exec ./midori "$@"
 EOF
 chmod 0755 "${MIDORI_PROGRAM}/Commands/midori"
+
+cat > "${AUZIX_ROOT}/System/Settings/browser/midori-start-pages" <<'EOF'
+https://auzietek.com
+https://linux-users.auzietek.com/post/auzix-alpha-install-field-note?page=1&page_size=100&tag=linux&theme=linux-pro&lane=linux#article-start
+EOF
 
 ln -sfn "/Programs/Midori/${MIDORI_VERSION}" "${AUZIX_ROOT}/Programs/Midori/current"
 ln -sfn /Programs/Midori/current/Commands/midori "${AUZIX_ROOT}/System/Compatibility/bin/midori"
@@ -234,7 +249,8 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Midori-${MIDORI_VERSION}.auzix.json" <<EOF
     "/System/Compatibility/bin/midori",
     "/System/Compatibility/usr/bin/midori",
     "/System/Compatibility/usr/share/applications/auzix-midori.desktop",
-    "/System/Compatibility/usr/share/pixmaps/midori.png"
+    "/System/Compatibility/usr/share/pixmaps/midori.png",
+    "/System/Settings/browser/midori-start-pages"
   ],
   "notes": "Optional heavyweight Midori browser package built from upstream v${MIDORI_VERSION} linux-x86_64 tarball. Kept out of the base live ISO by default."
 }

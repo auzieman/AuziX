@@ -432,15 +432,19 @@ stage_enlightenment_user_assets() {
   "${BB}" mkdir -p \
     /Users/auzix/.e/e/config 2>/dev/null || true
 
-  if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
+  if [ "${AUZIX_STAGE_E_CONFIG:-1}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
     "${BB}" cp -f "${asset_dir}/config/profile.cfg" /Users/auzix/.e/e/config/profile.cfg 2>/dev/null || true
   fi
-  if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ]; then
+  if [ "${AUZIX_STAGE_E_CONFIG:-1}" = "1" ]; then
   for profile in standard default; do
     [ -d "${asset_dir}/config/${profile}" ] || continue
     "${BB}" mkdir -p "/Users/auzix/.e/e/config/${profile}" 2>/dev/null || true
     "${BB}" cp -a "${asset_dir}/config/${profile}/." "/Users/auzix/.e/e/config/${profile}/" 2>/dev/null || true
   done
+  if [ -d "${asset_dir}/config/elementary" ]; then
+    "${BB}" mkdir -p /Users/auzix/.elementary/config 2>/dev/null || true
+    "${BB}" cp -a "${asset_dir}/config/elementary/." /Users/auzix/.elementary/config/ 2>/dev/null || true
+  fi
   fi
 
   "${BB}" chmod -R u+rwX /Users/auzix/.e/e/config 2>/dev/null || true

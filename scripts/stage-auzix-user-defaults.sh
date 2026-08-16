@@ -142,7 +142,7 @@ cat > "${TARGET_HOME}/Desktop/AUZiX Browser.desktop" <<'EOF'
 Type=Application
 Name=AUZiX Browser
 Comment=Open the AUZiX web start page
-Exec=/System/Tools/launch-auzix-browser https://auzietek.com
+Exec=/System/Tools/launch-auzix-browser
 Icon=web-browser
 Terminal=false
 Categories=Network;WebBrowser;

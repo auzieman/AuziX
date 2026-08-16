@@ -82,6 +82,7 @@ copy_tree_if_present "${SOURCE_HOME}/.elementary/themes" "${ASSET_ROOT}/themes"
 copy_tree_if_present "${SOURCE_HOME}/Pictures/Wallpapers" "${ASSET_ROOT}/backgrounds"
 copy_tree_if_present "${SOURCE_REPO_ASSETS}/backgrounds" "${ASSET_ROOT}/backgrounds"
 copy_tree_if_present "${SOURCE_REPO_ASSETS}/themes" "${ASSET_ROOT}/themes"
+copy_tree_if_present "${SOURCE_REPO_ASSETS}/config" "${ASSET_ROOT}/config"
 if [[ -n "${SOURCE_EXTRA_ROOT}" ]]; then
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/backgrounds" "${ASSET_ROOT}/backgrounds"
   copy_tree_if_present "${SOURCE_EXTRA_ROOT}/themes" "${ASSET_ROOT}/themes"
