@@ -114,12 +114,12 @@ if [[ -z "${nss_trust_module}" ]]; then
     fi
   done
 fi
-if [[ ! -f "${nss_trust_module}" ]]; then
-  printf 'NSS trust module not found; install libnss3 or set AUZIX_NSS_TRUST_MODULE.\n' >&2
-  exit 1
+if [[ -f "${nss_trust_module}" ]]; then
+  install -m 0755 "${nss_trust_module}" \
+    "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so"
+else
+  log "NSS trust module not found; continuing with AUZiX CA bundle environment only"
 fi
-install -m 0755 "${nss_trust_module}" \
-  "${MIDORI_PROGRAM}/Resources/midori/libnssckbi.so"
 
 cat > "${MIDORI_PROGRAM}/Commands/midori" <<'EOF'
 #!/System/Compatibility/bin/sh
