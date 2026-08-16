@@ -79,7 +79,7 @@ installer_link="$(readlink "${AUZIX_ROOT}/System/Tools/launch-auzix-installer" 2
 pass "installer launcher points at EFL frontend"
 
 require_executable /System/Tools/launch-auzix-browser
-require_desktop_exec /System/Compatibility/usr/share/applications/auzix-midori.desktop /Programs/Midori/current/Commands/midori
+require_desktop_exec /System/Compatibility/usr/share/applications/auzix-midori.desktop "Exec=midori"
 require_desktop_exec /System/Compatibility/usr/share/applications/auzix-browser.desktop /System/Tools/launch-auzix-browser
 require_desktop_exec /Users/auzix/Desktop/Install\ AuziX.desktop /System/Tools/launch-auzix-installer
 
