@@ -84,6 +84,19 @@ for asset in "${ASSET_PROGRAM}"/Resources/display/assets/themes/*.edj; do
       ;;
   esac
 done
+
+default_theme="${ASSET_PROGRAM}/Resources/display/assets/themes/Transient-Color.edj"
+if [[ ! -f "${default_theme}" ]]; then
+  default_theme="${ASSET_PROGRAM}/Resources/display/assets/themes/Transient.edj"
+fi
+if [[ ! -f "${default_theme}" ]]; then
+  default_theme="${ASSET_PROGRAM}/Resources/display/assets/themes/Dark.edj"
+fi
+if [[ -f "${default_theme}" ]]; then
+  install -D -m 0644 "${default_theme}" "${GLOBAL_THEMES}/default.edj"
+  install -D -m 0644 "${default_theme}" "${GLOBAL_TERMINOLOGY_THEMES}/default.edj"
+fi
+
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
   [[ -f "${asset}" ]] || continue
   case "${asset}" in
@@ -92,6 +105,10 @@ for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
   esac
   install -D -m 0644 "${asset}" "${GLOBAL_BACKGROUNDS}/$(basename "${asset}")"
 done
+
+chown -R 0:0 "${ASSET_PROGRAM}" "${GLOBAL_THEMES}" "${GLOBAL_BACKGROUNDS}" "${GLOBAL_TERMINOLOGY_THEMES}" 2>/dev/null || true
+find "${ASSET_PROGRAM}" "${GLOBAL_THEMES}" "${GLOBAL_BACKGROUNDS}" "${GLOBAL_TERMINOLOGY_THEMES}" -type d -exec chmod 0755 {} + 2>/dev/null || true
+find "${ASSET_PROGRAM}" "${GLOBAL_THEMES}" "${GLOBAL_BACKGROUNDS}" "${GLOBAL_TERMINOLOGY_THEMES}" -type f -exec chmod 0644 {} + 2>/dev/null || true
 
 asset_count="$(find "${ASSET_PROGRAM}/Resources/display/assets" -type f | wc -l | tr -d ' ')"
 asset_size="$(du -sb "${ASSET_PROGRAM}/Resources/display/assets" | awk '{print $1}')"
@@ -111,7 +128,8 @@ AuziTek desktop asset pack.
 
 This package carries selected Enlightenment backgrounds and themes. Assets are
 exported into E's global data directories so every user inherits the catalog.
-No theme is force-selected because themes remain coupled to the EFL/E release.
+The live/demo default theme export points default.edj at Transient-Color when
+present, then Transient, then Dark.  User profile selection remains writable.
 EOF
 
 cat > "${RECEIPT}" <<EOF
