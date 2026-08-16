@@ -24,6 +24,20 @@ resolve_staged_path() {
   local path="$1"
   local full="${AUZIX_ROOT}${path}"
   local target
+  if [[ "${path}" =~ ^/Programs/([^/]+)/current(/.*)?$ ]]; then
+    local package="${BASH_REMATCH[1]}"
+    local suffix="${BASH_REMATCH[2]:-}"
+    local current="${AUZIX_ROOT}/Programs/${package}/current"
+    if [[ -L "${current}" ]]; then
+      target="$(readlink "${current}")"
+      case "${target}" in
+        /*) full="${AUZIX_ROOT}${target}${suffix}" ;;
+        *) full="$(dirname "${current}")/${target}${suffix}" ;;
+      esac
+      printf '%s\n' "${full}"
+      return 0
+    fi
+  fi
   if [[ -L "${full}" ]]; then
     target="$(readlink "${full}")"
     case "${target}" in
