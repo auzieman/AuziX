@@ -105,7 +105,12 @@ done
 nss_trust_module="${AUZIX_NSS_TRUST_MODULE:-}"
 if [[ -z "${nss_trust_module}" ]]; then
   for candidate in \
+    "${MIDORI_PROGRAM}/Libraries/nss/libnssckbi.so" \
+    "${MIDORI_PROGRAM}/Libraries/libnssckbi.so" \
+    "${RUNTIME_LIB}/nss/libnssckbi.so" \
+    "${RUNTIME_LIB}/libnssckbi.so" \
     /usr/lib/x86_64-linux-gnu/libnssckbi.so \
+    /usr/lib/x86_64-linux-gnu/nss/libnssckbi.so \
     /usr/lib64/libnssckbi.so \
     /usr/lib/libnssckbi.so; do
     if [[ -f "${candidate}" ]]; then
@@ -143,7 +148,7 @@ export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-ce
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
-export LD_LIBRARY_PATH="/Programs/Midori/current/Resources/midori:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="/Programs/Midori/current/Resources/midori:/Programs/Midori/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu/nss:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 mkdir -p "${XDG_RUNTIME_DIR}" "${XDG_CACHE_HOME}" "${XDG_CONFIG_HOME}" "${XDG_DATA_HOME}" "${HOME}/.midori" 2>/dev/null || true
 chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
