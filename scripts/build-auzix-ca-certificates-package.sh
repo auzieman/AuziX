@@ -52,28 +52,34 @@ copy_cert_tree_if_present() {
   )
 }
 
+downloaded_deb=0
 if command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1; then
   rm -rf "${WORK_DIR}/debs" "${EXTRACT_DIR}"
   mkdir -p "${WORK_DIR}/debs" "${EXTRACT_DIR}"
   (
     cd "${WORK_DIR}/debs"
     apt-get download ca-certificates >/dev/null
-  )
-  for deb in "${WORK_DIR}"/debs/*.deb; do
-    dpkg-deb -x "${deb}" "${EXTRACT_DIR}"
-  done
-  VERSION="${VERSION:-$(detect_version)-auzix1}"
-  copy_cert_tree_if_present "${EXTRACT_DIR}/etc/ssl/certs" "${SSL_CERTS}"
-  copy_cert_tree_if_present "${EXTRACT_DIR}/usr/share/ca-certificates" "${SSL_SHARE}"
-  if [[ ! -s "${SSL_CERTS}/ca-certificates.crt" && -d "${SSL_SHARE}/mozilla" ]]; then
-    find "${SSL_SHARE}/mozilla" -maxdepth 1 -type f -name '*.crt' -print |
-      sort |
-      while IFS= read -r cert; do
-        cat "${cert}"
-        printf '\n'
-      done >"${SSL_CERTS}/ca-certificates.crt"
+  ) && downloaded_deb=1 || downloaded_deb=0
+  if [[ "${downloaded_deb}" == "1" ]] && compgen -G "${WORK_DIR}/debs/*.deb" >/dev/null; then
+    for deb in "${WORK_DIR}"/debs/*.deb; do
+      dpkg-deb -x "${deb}" "${EXTRACT_DIR}"
+    done
+    VERSION="${VERSION:-$(detect_version)-auzix1}"
+    copy_cert_tree_if_present "${EXTRACT_DIR}/etc/ssl/certs" "${SSL_CERTS}"
+    copy_cert_tree_if_present "${EXTRACT_DIR}/usr/share/ca-certificates" "${SSL_SHARE}"
+    if [[ ! -s "${SSL_CERTS}/ca-certificates.crt" && -d "${SSL_SHARE}/mozilla" ]]; then
+      find "${SSL_SHARE}/mozilla" -maxdepth 1 -type f -name '*.crt' -print |
+        sort |
+        while IFS= read -r cert; do
+          cat "${cert}"
+          printf '\n'
+        done >"${SSL_CERTS}/ca-certificates.crt"
+    fi
   fi
-else
+fi
+
+if [[ "${downloaded_deb}" != "1" ]]; then
+  printf '[ca-certificates] apt download unavailable; falling back to builder trust store\n' >&2
   VERSION="${VERSION:-system-auzix1}"
   if [[ ! -s "${SSL_CERTS}/ca-certificates.crt" ]]; then
     copy_cert_tree_if_present /etc/ssl/certs "${SSL_CERTS}"
