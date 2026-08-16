@@ -94,7 +94,6 @@ if [[ ! -f "${default_theme}" ]]; then
 fi
 if [[ -f "${default_theme}" ]]; then
   install -D -m 0644 "${default_theme}" "${GLOBAL_THEMES}/default.edj"
-  install -D -m 0644 "${default_theme}" "${GLOBAL_TERMINOLOGY_THEMES}/default.edj"
 fi
 
 for asset in "${ASSET_PROGRAM}"/Resources/display/assets/backgrounds/*; do
@@ -128,8 +127,9 @@ AuziTek desktop asset pack.
 
 This package carries selected Enlightenment backgrounds and themes. Assets are
 exported into E's global data directories so every user inherits the catalog.
-The live/demo default theme export points default.edj at Transient-Color when
-present, then Transient, then Dark.  User profile selection remains writable.
+The live/demo Enlightenment/Elementary default theme export points default.edj
+at Transient-Color when present, then Transient, then Dark. Terminology themes
+are format-specific and are not overwritten by Enlightenment themes.
 EOF
 
 cat > "${RECEIPT}" <<EOF

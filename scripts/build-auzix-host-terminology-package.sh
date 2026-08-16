@@ -97,6 +97,8 @@ for cmd in terminology tyalpha tybg tycat tyls typop tyq tysend; do
   ln -sfn "/Programs/Terminology/${TERM_VERSION}/Commands/${cmd}" "${RUNTIME_USR}/bin/${cmd}"
 done
 
+ln -sfn "/Programs/Terminology/${TERM_VERSION}" "${AUZIX_ROOT}/Programs/Terminology/current"
+
 if [[ -x /usr/libexec/x86_64-linux-gnu/terminology/tytest ]]; then
   copy_binary /usr/libexec/x86_64-linux-gnu/terminology/tytest "${TERM_PROGRAM}/Libexec/tytest"
   install -D -m 0755 /usr/libexec/x86_64-linux-gnu/terminology/tytest \
@@ -140,6 +142,7 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Terminology-${TERM_VERSION}.auzix.json" <<
     "/Programs/Terminology/${TERM_VERSION}/Commands/terminology"
   ],
   "compatibility_exports": [
+    "/Programs/Terminology/current",
     "/System/Compatibility/bin/terminology",
     "/System/Compatibility/usr/bin/terminology",
     "/System/Compatibility/usr/share/applications/terminology.desktop"
