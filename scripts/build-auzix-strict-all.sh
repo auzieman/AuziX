@@ -31,6 +31,8 @@ run_step make auzix-strict-service-runtime
 run_step make auzix-strict-iputils
 run_step make auzix-strict-package-tools
 run_step make auzix-strict-installer
+run_step make auzix-strict-installer-efl
+run_step make auzix-strict-package-manager-efl
 run_step make auzix-strict-installer-test
 run_step ./scripts/build-auzix-command-suite-package.sh \
   out/auzix-strict/AuzixRoot packages/e2fsprogs.command-suite.json
@@ -42,17 +44,26 @@ run_step make auzix-strict-acpid
 run_step make auzix-strict-pulseaudio
 run_step make auzix-strict-alsa
 run_step make auzix-strict-strace
+run_step make auzix-strict-ca-certificates
 run_step make auzix-strict-curl
+run_step make auzix-strict-userspace-tools
 run_step make auzix-strict-host-xorg
 run_step make auzix-strict-host-e
 run_step make auzix-strict-host-terminology
 run_step make auzix-strict-host-xterm
+run_step make auzix-strict-midori
 run_step make auzix-strict-netsurf
 run_step make auzix-strict-lightdm
 run_step make auzix-strict-display-templates
+run_step make auzix-strict-e-assets
+run_step make auzix-strict-desktop-assets-package
+run_step make auzix-strict-desktop-integration
+run_step make auzix-strict-flatpak-runtime-support
+run_step make auzix-strict-flatpak-adapters
 run_step make auzix-strict-user-defaults
 run_step make auzix-strict-live-tools
 run_step ./scripts/validate-auzix-live-agent.sh
+run_step make auzix-strict-live-installer-demo-test
 run_step make auzix-strict-kernel-modules
 run_step make auzix-strict-package-repo
 run_step ./scripts/build-auzix-command-suite-package.sh \

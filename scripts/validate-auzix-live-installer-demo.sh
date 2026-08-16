@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
+ROOT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")/.." && pwd)"
+AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
+
+fail() {
+  printf '[auzix-live-installer-demo] FAIL: %s\n' "$*" >&2
+  exit 1
+}
+
+pass() {
+  printf '[auzix-live-installer-demo] PASS: %s\n' "$*" >&2
+}
+
+require_path() {
+  local path="$1"
+  [[ -e "${AUZIX_ROOT}${path}" || -L "${AUZIX_ROOT}${path}" ]] || fail "missing ${path}"
+  pass "present ${path}"
+}
+
+require_executable() {
+  local path="$1"
+  [[ -x "${AUZIX_ROOT}${path}" ]] || fail "missing executable ${path}"
+  pass "executable ${path}"
+}
+
+require_desktop_exec() {
+  local file="$1"
+  local needle="$2"
+  [[ -f "${AUZIX_ROOT}${file}" ]] || fail "missing desktop entry ${file}"
+  grep -Fq "${needle}" "${AUZIX_ROOT}${file}" || fail "${file} lacks ${needle}"
+  pass "desktop entry ${file} contains ${needle}"
+}
+
+require_path /Programs/Midori/current
+require_executable /Programs/Midori/current/Commands/midori
+require_path /Programs/NetSurf/current
+require_path /Programs/AuzixInstallerEfl/current
+require_executable /Programs/AuzixInstallerEfl/current/Commands/efl
+require_path /Programs/AuzixPackageManagerEfl/current
+require_executable /Programs/AuzixPackageManagerEfl/current/Commands/efl
+require_path /Programs/DesktopAssets/auzietek
+require_path /Programs/AuzixDesktopIntegration/current
+
+installer_link="$(readlink "${AUZIX_ROOT}/System/Tools/launch-auzix-installer" 2>/dev/null || true)"
+[[ "${installer_link}" == "/Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer" ]] ||
+  fail "installer launcher is not the EFL frontend: ${installer_link:-not-a-link}"
+pass "installer launcher points at EFL frontend"
+
+require_executable /System/Tools/launch-auzix-browser
+require_desktop_exec /System/Compatibility/usr/share/applications/auzix-midori.desktop /Programs/Midori/current/Commands/midori
+require_desktop_exec /System/Compatibility/usr/share/applications/auzix-browser.desktop /System/Tools/launch-auzix-browser
+require_desktop_exec /Users/auzix/Desktop/Install\ AuziX.desktop /System/Tools/launch-auzix-installer
+
+if ! find "${AUZIX_ROOT}/Programs/DesktopAssets/auzietek" -type f -name '*.edj' | grep -q .; then
+  fail "DesktopAssets contains no Enlightenment/Elementary .edj themes"
+fi
+pass "DesktopAssets contains .edj theme assets"
+
+printf '[auzix-live-installer-demo] live installer demo surface is staged\n' >&2
