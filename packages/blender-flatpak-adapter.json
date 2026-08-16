@@ -1,0 +1,31 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Blender",
+  "package_name": "BlenderFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub Blender as a normal AUZiX 3D creation launcher.",
+  "flatpak_ref": "org.blender.Blender",
+  "flatpak_command": "blender",
+  "commands": [
+    {"name": "blender", "description": "Launch Blender through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Blender",
+    "generic_name": "3D Modeler",
+    "comment": "Create and render 3D graphics",
+    "icon": "org.blender.Blender",
+    "terminal": false,
+    "categories": ["Graphics", "3DGraphics"]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Blender/current/Commands/blender --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-gpu-session",
+        "status": "open",
+        "message": "Blender is Flatpak-managed and expects a working graphical session, OpenGL/software rendering fallback, portals, and user Flatpak state."
+      }
+    ]
+  }
+}

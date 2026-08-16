@@ -30,6 +30,30 @@ rm -rf "${program_root}"
 mkdir -p "${program_root}/RootFS" "${program_root}/Metadata" "${AUZIX_ROOT}/System/PackageDB"
 
 dpkg-query -s "${DEBIAN_PACKAGE}" >"${program_root}/Metadata/debian-control.txt"
+dpkg-query -L "${DEBIAN_PACKAGE}" |
+  awk 'NF && $0 ~ /^\// { print }' |
+  sort -u >"${program_root}/Metadata/debian-payload.list"
+info_prefix="/var/lib/dpkg/info/${DEBIAN_PACKAGE}"
+for info_file in \
+  "${info_prefix}.md5sums" \
+  "${info_prefix}.conffiles" \
+  "${info_prefix}.preinst" \
+  "${info_prefix}.postinst" \
+  "${info_prefix}.prerm" \
+  "${info_prefix}.postrm" \
+  "${info_prefix}.triggers" \
+  "${info_prefix}.config" \
+  "${info_prefix}.templates"; do
+  [[ -e "${info_file}" ]] || continue
+  install -D -m 0644 "${info_file}" \
+    "${program_root}/Metadata/debian-info/$(basename "${info_file}")"
+done
+if [[ -s "${program_root}/Metadata/debian-info/${DEBIAN_PACKAGE}.md5sums" ]]; then
+  cp -f "${program_root}/Metadata/debian-info/${DEBIAN_PACKAGE}.md5sums" \
+    "${program_root}/Metadata/debian-payload.md5sums"
+else
+  : >"${program_root}/Metadata/debian-payload.md5sums"
+fi
 
 while IFS= read -r installed_path; do
   [[ "${installed_path}" == /* && -f "${installed_path}" ]] || continue
@@ -67,6 +91,43 @@ depends_json="$(
 
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
+debian_payload_manifest_json="$(
+  jq -Rn '
+    [inputs | select(length > 0) |
+      {
+        debian_path: .,
+        auzix_payload_path: ("RootFS" + .),
+        owner_source: "dpkg-query -L"
+      }]
+  ' <"${program_root}/Metadata/debian-payload.list"
+)"
+debian_md5sums_json="$(
+  awk '
+    NF >= 2 {
+      checksum = $1
+      $1 = ""
+      sub(/^[[:space:]]+/, "")
+      print checksum "\t/" $0
+    }
+  ' "${program_root}/Metadata/debian-payload.md5sums" |
+    jq -Rn '
+      [inputs | select(length > 0) |
+        split("\t") |
+        {
+          md5: .[0],
+          debian_path: .[1],
+          auzix_payload_path: ("RootFS" + .[1])
+        }]
+    '
+)"
+maintainer_surfaces_json="$(
+  if [[ -d "${program_root}/Metadata/debian-info" ]]; then
+    find "${program_root}/Metadata/debian-info" -maxdepth 1 -type f -printf '%f\n' |
+      sort | jq -R -s 'split("\n") | map(select(length > 0))'
+  else
+    jq -n '[]'
+  fi
+)"
 
 jq -n \
   --arg name "${native_name}" \
@@ -77,6 +138,9 @@ jq -n \
   --arg description "${package_description:-Installed dpkg repack}" \
   --arg upstream_depends "${depends_text}" \
   --argjson depends "${depends_json}" \
+  --argjson debian_payload_manifest "${debian_payload_manifest_json}" \
+  --argjson debian_md5sums "${debian_md5sums_json}" \
+  --argjson maintainer_surfaces "${maintainer_surfaces_json}" \
   --argjson payload_file_count "${payload_file_count}" \
   --argjson payload_size_bytes "${payload_size_bytes}" \
   '{
@@ -93,6 +157,14 @@ jq -n \
     recommends: [],
     commands: [],
     compatibility_exports: [],
+    maintainer_surfaces: $maintainer_surfaces,
+    debian_package_db: {
+      list_file: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-payload.list"),
+      md5sums_file: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-payload.md5sums"),
+      info_dir: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-info"),
+      payload_manifest: $debian_payload_manifest,
+      md5sums: $debian_md5sums
+    },
     runtime_ladder: {
       local_rootfs: true,
       dependency_packages: $depends,
@@ -107,6 +179,9 @@ jq -n \
       version: $version,
       architecture: $architecture,
       control_file: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-control.txt"),
+      payload_list: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-payload.list"),
+      payload_md5sums: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-payload.md5sums"),
+      info_dir: ("/Programs/" + $name + "/" + $safe_version + "/Metadata/debian-info"),
       upstream_depends: $upstream_depends,
       payload_file_count: $payload_file_count,
       payload_size_bytes: $payload_size_bytes,

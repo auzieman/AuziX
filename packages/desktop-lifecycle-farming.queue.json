@@ -1,0 +1,148 @@
+{
+  "format": "auzix-package-lifecycle-farming-queue-v1",
+  "id": "desktop-lifecycle-farming",
+  "summary": "Farm Debian source and binary lifecycle logic for the AUZiX desktop/session stack before package refactors.",
+  "runner_policy": {
+    "preferred_runner": "BKC-visible pipeline on lab build host",
+    "docker_context": "bkc-auzix-r730",
+    "builder_image": "auzix/trixie-builder:lab",
+    "notes": [
+      "Do not run extraction against the laptop shell.",
+      "Use ns1/BKC context for private lab reachability.",
+      "Direct docker/ssh is bootstrap only; fold repeatable runs into BKC."
+    ]
+  },
+  "output_contract": {
+    "source_guidebook": "out/package-slices/<slice>/source-guidebook/report/guidebook.md",
+    "binary_lifecycle": "out/package-slices/<slice>/lifecycle/<binary>/report/lifecycle.md",
+    "auzix_fragment": "out/package-slices/<slice>/auzix-fragments/<binary>.auzix-fragment.json",
+    "slice_report": "out/package-slices/<slice>/reports/slice.md"
+  },
+  "slices": [
+    {
+      "id": "desktop-audio-session",
+      "source_package": "pulseaudio",
+      "binary_packages": [
+        "pulseaudio",
+        "pulseaudio-utils",
+        "libpulse0"
+      ],
+      "status": "captured",
+      "why": "vmid135/E showed PulseAudio session/runtime/canonicalization failures; extract DBus, XDG, runtime dir, group and init semantics before refactor.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-login-session",
+      "source_package": "lightdm",
+      "binary_packages": [
+        "lightdm",
+        "lightdm-gtk-greeter"
+      ],
+      "status": "captured",
+      "why": "LightDM controls user/session handoff; extract PAM, DBus, Polkit, capabilities, users/groups and greeter lifecycle.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-dbus-session",
+      "source_package": "dbus",
+      "binary_packages": [
+        "dbus",
+        "dbus-bin",
+        "dbus-daemon",
+        "dbus-session-bus-common",
+        "dbus-user-session",
+        "libdbus-1-3"
+      ],
+      "status": "captured",
+      "why": "DBus is the session/system bus spine for LightDM, Flatpak, GNOME apps, Polkit and desktop portals.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-polkit-session",
+      "source_package": "policykit-1",
+      "binary_packages": [
+        "polkitd",
+        "pkexec",
+        "libpolkit-agent-1-0",
+        "libpolkit-gobject-1-0"
+      ],
+      "status": "captured",
+      "why": "GUI admin operations, Flatpak system helper, disks, network, users and control panels need Polkit policy and agent semantics.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-enlightenment-session",
+      "source_package": "enlightenment",
+      "binary_packages": [
+        "enlightenment",
+        "enlightenment-data",
+        "enlightenment-dev"
+      ],
+      "status": "captured",
+      "why": "E/Efreet/menu/theme/session behavior needs Debian recipe and lifecycle mapping before more menu or compositor fixes.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-efl-session",
+      "source_package": "efl",
+      "binary_packages": [
+        "libefl-all-dev",
+        "libeina1t64",
+        "libeina-bin",
+        "libefreet1a",
+        "libefreet-bin",
+        "libecore1",
+        "libevas1",
+        "libevas-loaders",
+        "libelementary1",
+        "libelementary-data",
+        "libelementary-bin",
+        "efl-doc"
+      ],
+      "status": "captured",
+      "why": "Efreet cache, EFL loaders/modules and E app launch behavior are core desktop plumbing.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-xdg-portals",
+      "source_package": "xdg-desktop-portal",
+      "binary_packages": [
+        "xdg-desktop-portal",
+        "xdg-desktop-portal-gtk",
+        "xdg-dbus-proxy"
+      ],
+      "status": "captured",
+      "why": "Flatpak GUI apps, file pickers, permissions and app sandboxing need portal/service lifecycle contracts.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    },
+    {
+      "id": "desktop-flatpak-system",
+      "source_package": "flatpak",
+      "binary_packages": [
+        "flatpak",
+        "libflatpak0",
+        "bubblewrap",
+        "xdg-dbus-proxy"
+      ],
+      "status": "captured",
+      "why": "Flatpak system helper, remotes, /var assumptions, DBus and sandbox helpers need lifecycle extraction before AUZiX mapping.",
+      "receipts": [
+        "out/pipeline-receipts/desktop-lifecycle-farming/desktop-lifecycle-farming-20260814T021033Z.json"
+      ]
+    }
+  ]
+}

@@ -220,6 +220,11 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Enlightenment-${E_VERSION}.auzix.json" <<E
   "kind": "program",
   "migration_stage": "stage-1-compat-install",
   "prefix": "/Programs/Enlightenment/${E_VERSION}",
+  "depends": [
+    "DBus",
+    "default-dbus-session-bus",
+    "dbus-session-bus"
+  ],
   "commands": [
     "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment",
     "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment_start"
@@ -230,7 +235,12 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Enlightenment-${E_VERSION}.auzix.json" <<E
     "/System/Compatibility/usr/bin/enlightenment",
     "/System/Compatibility/usr/bin/enlightenment_start"
   ],
-  "notes": "Host-packaged Enlightenment/EFL proof package. The version is detected from the packaging host unless AUZIX_ENLIGHTENMENT_VERSION is set; use an explicit E27 package source before enabling modern E27 theme bundles."
+  "validation": [
+    "enlightenment_start --help",
+    "test -x /System/Compatibility/bin/dbus-daemon",
+    "test -x /System/Compatibility/bin/dbus-launch || test -S /run/user/1000/bus"
+  ],
+  "notes": "Host-packaged Enlightenment/EFL proof package. Debian requires default-dbus-session-bus | dbus-session-bus for Enlightenment; AUZiX must provide a runnable session bus path before this package is considered launchable."
 }
 EOF
 

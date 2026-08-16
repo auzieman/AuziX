@@ -59,6 +59,7 @@ require_cmd install
 mkdir -p \
   "${DBUS_PROGRAM}/Commands" \
   "${AUZIX_ROOT}/System/Compatibility/bin" \
+  "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
   "${AUZIX_ROOT}/System/Compatibility/usr/share/dbus-1" \
   "${AUZIX_ROOT}/System/Settings/dbus-1" \
   "${AUZIX_ROOT}/System/PackageDB" \
@@ -70,11 +71,11 @@ copy_binary "$(command -v dbus-send)" "${DBUS_PROGRAM}/Commands/dbus-send"
 if command -v dbus-launch >/dev/null 2>&1; then
   copy_binary "$(command -v dbus-launch)" "${DBUS_PROGRAM}/Commands/dbus-launch"
   ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-launch" "${AUZIX_ROOT}/System/Compatibility/bin/dbus-launch"
+  ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-launch" "${AUZIX_ROOT}/System/Compatibility/usr/bin/dbus-launch"
 fi
 
 ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-daemon" "${AUZIX_ROOT}/System/Compatibility/bin/dbus-daemon"
 ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-send" "${AUZIX_ROOT}/System/Compatibility/bin/dbus-send"
-mkdir -p "${AUZIX_ROOT}/System/Compatibility/usr/bin"
 ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-daemon" "${AUZIX_ROOT}/System/Compatibility/usr/bin/dbus-daemon"
 ln -sfn "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-send" "${AUZIX_ROOT}/System/Compatibility/usr/bin/dbus-send"
 if [[ ! -e "${AUZIX_ROOT}/System/Compatibility/bin/which" ]]; then
@@ -100,16 +101,26 @@ cat > "${AUZIX_ROOT}/System/PackageDB/DBus-${DBUS_VERSION}.auzix.json" <<EOF
   "prefix": "/Programs/DBus/${DBUS_VERSION}",
   "commands": [
     "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-daemon",
-    "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-send"
+    "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-send",
+    "/Programs/DBus/${DBUS_VERSION}/Commands/dbus-launch"
   ],
   "compatibility_exports": [
     "/System/Compatibility/bin/dbus-daemon",
     "/System/Compatibility/bin/dbus-send",
+    "/System/Compatibility/bin/dbus-launch",
     "/System/Compatibility/usr/bin/dbus-daemon",
     "/System/Compatibility/usr/bin/dbus-send",
+    "/System/Compatibility/usr/bin/dbus-launch",
     "/System/Compatibility/bin/which"
   ],
-  "notes": "Minimal DBus session bus support for graphical session bring-up."
+  "provides": [
+    "dbus-session-bus"
+  ],
+  "validation": [
+    "dbus-daemon --version",
+    "dbus-launch --version"
+  ],
+  "notes": "Minimal DBus system/session bus support for graphical session bring-up. dbus-launch is intentionally exported in both bin and usr/bin because Xsession/enlightenment_start may resolve either path."
 }
 EOF
 

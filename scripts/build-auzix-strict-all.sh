@@ -5,6 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${ROOT_DIR}"
 
+if [[ "$(id -u)" != "0" && -z "${FAKEROOTKEY:-}" && "${AUZIX_ALLOW_UNPRIVILEGED_BUILD:-0}" != "1" ]]; then
+  cat >&2 <<'EOF'
+[auzix-build-all] refusing unprivileged strict build
+[auzix-build-all] Package make/install/chown/chmod logic must be allowed to set
+[auzix-build-all] ownership, setuid bits, sticky dirs, and package lifecycle state.
+[auzix-build-all] Run this in the builder container/root-capable lab-build path,
+[auzix-build-all] or under one fakeroot session that covers both staging and tar.
+[auzix-build-all] Set AUZIX_ALLOW_UNPRIVILEGED_BUILD=1 only for throwaway dev roots.
+EOF
+  exit 1
+fi
+
 run_step() {
   printf '[auzix-build-all] %s\n' "$*" >&2
   "$@"

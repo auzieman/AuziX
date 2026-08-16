@@ -146,7 +146,7 @@ prepare_state() {
     echo "@AUZIX_DEFAULT_REPO@" >"${REPO_CONF}"
   fi
   if [ ! -s "${INSTALLED}" ]; then
-    cat >"${INSTALLED}" <<'JSON'
+    "${BB}" tee "${INSTALLED}" >/dev/null <<'JSON'
 {"format":"auzix-installed-v1","installed":[]}
 JSON
   fi
@@ -283,15 +283,25 @@ is_installed() {
   ' "${INSTALLED}" >/dev/null
 }
 
+receipt_installed() {
+  package_json="$1"
+  receipt="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.receipt // empty')"
+  [ -n "${receipt}" ] && [ -s "${receipt}" ]
+}
+
 record_install() {
   package_json="$1"
   source_url="$2"
   installed_at="$("${BB}" date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || "${BB}" date)"
   tmp_state="${INSTALLED}.tmp.$$"
+  package_state="${WORK}/record-install-package.$$.json"
+  printf '%s\n' "${package_json}" >"${package_state}"
   "${JQ}" \
-    --argjson package "${package_json}" \
+    --slurpfile package_state "${package_state}" \
     --arg source "${source_url}" \
     --arg installed_at "${installed_at}" '
+      ($package_state[0]) as $package
+      |
       .installed = (
         [.installed[] | select((.name | ascii_downcase) != ($package.name | ascii_downcase))]
         + [{
@@ -319,6 +329,7 @@ record_install() {
         | sort_by(.name | ascii_downcase)
       )
     ' "${INSTALLED}" >"${tmp_state}"
+  "${BB}" rm -f "${package_state}"
   "${BB}" mv "${tmp_state}" "${INSTALLED}"
 }
 
@@ -340,10 +351,11 @@ run_post_install() {
     /Programs/*) ;;
     *) die "refusing post-install hook outside /Programs: ${hook}" ;;
   esac
-  [ -x "${hook}" ] || die "post-install hook is missing or not executable: ${hook}"
+  hook_path="${hook%% *}"
+  [ -x "${hook_path}" ] || die "post-install hook is missing or not executable: ${hook_path}"
   AUZIX_PACKAGE_NAME="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name')" \
     AUZIX_PACKAGE_VERSION="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')" \
-    "${hook}"
+    /System/Compatibility/bin/sh -c "${hook}"
 }
 
 install_one() {
@@ -353,6 +365,11 @@ install_one() {
   [ -n "${package_json}" ] || die "package not found in repository: ${requested}"
 
   name="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name')"
+  if receipt_installed "${package_json}" && ! is_installed "${name}"; then
+    echo "${name} receipt exists; recording installed state"
+    record_install "${package_json}" "$(repo_url)"
+    return 0
+  fi
   if is_installed "${name}"; then
     current="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')"
     current_sha="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.sha256')"
@@ -375,13 +392,20 @@ install_one() {
       ;;
   esac
 
-  printf '%s\n' "${package_json}" | "${JQ}" -r '.depends[]?' |
-    while IFS= read -r dependency; do
-      [ -n "${dependency}" ] || continue
-      if ! is_installed "${dependency}"; then
-        install_one "${dependency}" "${stack} ${name}"
-      fi
-    done
+  if [ "${AUZIX_SKIP_DEPS:-0}" != "1" ]; then
+    printf '%s\n' "${package_json}" | "${JQ}" -r '.depends[]? | select(. != null and . != "")' |
+      while IFS= read -r dependency; do
+        [ -n "${dependency}" ] || continue
+        [ "${dependency}" != "null" ] || continue
+        if [ "${dependency}" = "${name}" ]; then
+          echo "Skipping self dependency for ${name}"
+          continue
+        fi
+        if ! is_installed "${dependency}"; then
+          install_one "${dependency}" "${stack} ${name}"
+        fi
+      done
+  fi
 
   base_url="$(repo_url)"
   archive_name="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.package')"
@@ -398,7 +422,7 @@ install_one() {
     die "checksum mismatch for ${archive_name}: expected ${expected_sha}, got ${actual_sha}"
 
   validate_archive "${archive}"
-  "${BB}" tar -xzf "${archive}" -C /
+  "${BB}" tar -xzpf "${archive}" -C /
   if [ -x /System/Tools/finalize-installed-root ]; then
     /System/Tools/finalize-installed-root /
   fi

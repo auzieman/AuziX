@@ -105,11 +105,12 @@ while IFS=$'\t' read -r export_name host_command; do
   shell_prelude="$(jq -r --arg name "${export_name}" '
     .commands[] | select(.name == $name) | (.shell_prelude // [])[]
   ' "${RECIPE}")"
-  if [[ "${command_self_reexec_direct:-${package_self_reexec_direct}}" == "true" ]]; then
+if [[ "${command_self_reexec_direct:-${package_self_reexec_direct}}" == "true" ]]; then
 cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 ${environment}
 ${shell_prelude}
+export LD_LIBRARY_PATH="/Programs/${name}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
   else
@@ -167,9 +168,44 @@ jq \
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 
 while IFS= read -r smoke_command; do
+  temp_program_link=""
+  temp_busybox_link=""
+  if [[ ! -e /Programs/BusyBox/current/Commands/busybox ]]; then
+    busybox_path=""
+    for candidate in \
+      "${AUZIX_ROOT}"/Programs/BusyBox/*/Commands/busybox \
+      "$(command -v busybox || true)"; do
+      [[ -n "${candidate}" && -x "${candidate}" ]] || continue
+      busybox_path="${candidate}"
+      break
+    done
+    if [[ -n "${busybox_path}" ]]; then
+      mkdir -p /Programs/BusyBox/current/Commands
+      ln -sfn "${busybox_path}" /Programs/BusyBox/current/Commands/busybox
+      temp_busybox_link=/Programs/BusyBox/current/Commands/busybox
+    else
+      printf '%s: validation needs busybox for AUZiX wrapper shebangs\n' "${name}" >&2
+      exit 1
+    fi
+  fi
+  if [[ "${program}" == "${AUZIX_ROOT}/Programs/"* && ! -e "/Programs/${name}/current" ]]; then
+    if mkdir -p "/Programs/${name}" 2>/dev/null; then
+      ln -sfn "${program}" "/Programs/${name}/current"
+      temp_program_link="/Programs/${name}/current"
+    else
+      printf '%s: cannot create temporary /Programs/%s/current validation link; run builder as root or validate in a chroot\n' "${name}" "${name}" >&2
+      exit 1
+    fi
+  fi
   AUZIX_COMMAND_ROOT="${program}/Commands" \
   LD_LIBRARY_PATH="${libraries}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
     bash -o pipefail -ec "${smoke_command}"
+  if [[ -n "${temp_program_link}" ]]; then
+    rm -f "${temp_program_link}"
+  fi
+  if [[ -n "${temp_busybox_link}" ]]; then
+    rm -f "${temp_busybox_link}"
+  fi
 done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
 
 printf '[command-suite] built %s %s\n' "${name}" "${version}"

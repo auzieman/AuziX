@@ -19,12 +19,23 @@
   },
   "build": {
     "system": "configure-make",
+    "receipt_required": true,
+    "install_root": "/Work/Stage/Bash-5.2",
     "arguments": [
       "--prefix=/Programs/Bash/5.2",
       "--bindir=/Programs/Bash/5.2/Commands",
       "--libdir=/Programs/Bash/5.2/Libraries",
       "--sysconfdir=/System/Settings/bash",
       "--localstatedir=/System/State/bash"
+    ],
+    "configure": [
+      "./configure --prefix=/Programs/Bash/5.2 --bindir=/Programs/Bash/5.2/Commands --libdir=/Programs/Bash/5.2/Libraries --sysconfdir=/System/Settings/bash --localstatedir=/System/State/bash"
+    ],
+    "compile": [
+      "make"
+    ],
+    "install": [
+      "make DESTDIR=/Work/Stage/Bash-5.2 install"
     ],
     "environment": {
       "PATH": "/System/Tools:/Programs/Coreutils/Current/Commands"
@@ -50,4 +61,3 @@
   },
   "notes": "This example is a path contract, not a claim that unpatched bash already honors every path without help."
 }
-

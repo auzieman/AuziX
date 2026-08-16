@@ -3,6 +3,12 @@
 This directory records package intent; it is not proof that a package is
 published or runtime-ready.
 
+- `auzix-os.source.json` is the master AUZiX OS source contract.  It defines
+  canonical roots, compatibility alias policy, inherited bootstrap environment,
+  package extension rules, archive permission preservation, lifecycle phases,
+  and validation expectations.  Package builders, Lua package tooling, ISO
+  assembly, and validation containers should read this before adding local
+  path or permission logic.
 - `base-ports.manifest.json` owns bootstrap through the first EFL edge.
 - `extended-ports.manifest.json` orders storage/filesystem and OCI host ports.
 - `core-preinstall.queue.json` defines the package-built installer spine:
@@ -73,3 +79,56 @@ menu-clean under the package validation contract.
 Ollama receives only a failed target's manifest entry, command, log
 tail, linker evidence, and receipt. It may propose a bounded contract change;
 it never publishes packages or advances their state.
+# AUZiX package intents and source-backed porting
+
+## Evidence-first port loop
+
+Do not promote a desktop/service package from “archive exists” to
+“workstation-ready” by chasing one missing library or one live VM error at a
+time. The source of truth is:
+
+1. Debian source recipe (`debian/control`, `debian/rules`, install manifests,
+   maintainer helpers, tests).
+2. Debian binary lifecycle (`preinst`, `postinst`, `prerm`, `postrm`,
+   triggers, conffiles, DBus, Polkit, systemd/init, schemas, icons, desktop
+   entries, users/groups, capabilities).
+3. AUZiX path/runtime mapping.
+4. AUZiX package build.
+5. AUZiX validation container/root and vmid135 smoke.
+
+Use the script collection:
+
+```bash
+scripts/collect-debian-auzix-package-slice.sh <slice> <source-package> <binary-package>...
+```
+
+The script writes:
+
+```text
+out/package-slices/<slice>/source-guidebook/report/guidebook.md
+out/package-slices/<slice>/lifecycle/<binary>/report/lifecycle.md
+out/package-slices/<slice>/auzix-fragments/<binary>.auzix-fragment.json
+out/package-slices/<slice>/shell-fragments/<binary>.shell-fragments.json
+out/package-slices/<slice>/reports/slice.md
+```
+
+The shell fragments are `translate-only` evidence. AUZiX should convert those
+Debian maintainer-script decisions into narrow idempotent lifecycle hooks, not
+blindly execute raw Debian reconfigure logic.
+
+On the laptop, run this through the lab Docker context / builder container, not
+against the laptop shell. The laptop is the operator keyboard; build/extract
+work belongs on the lab builder path.
+
+Initial desktop-session slices captured:
+
+- `desktop-audio-session`: `pulseaudio`, `pulseaudio-utils`, `libpulse0`
+  revealed DBus, init/systemd compatibility, users/groups, `/etc/pulse`, XDG
+  autostart, and runtime directory assumptions.
+- `desktop-login-session`: `lightdm`, `lightdm-gtk-greeter` revealed DBus,
+  Polkit, systemd/init compatibility, capabilities, users/groups, and greeter
+  policy surfaces.
+
+These are not optional “nice to have” details. If AUZiX installs the binary but
+misses these lifecycle surfaces, packages can appear present while Efreet,
+LightDM, PulseAudio, Flatpak, Podman, or LibreOffice fail at runtime.

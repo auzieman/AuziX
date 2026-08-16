@@ -1,0 +1,36 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Firefox",
+  "package_name": "FirefoxFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub Firefox as a normal AUZiX browser launcher.",
+  "flatpak_ref": "org.mozilla.firefox",
+  "flatpak_command": "firefox",
+  "commands": [
+    {"name": "firefox", "description": "Launch Firefox through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Firefox",
+    "generic_name": "Web Browser",
+    "comment": "Browse the web",
+    "icon": "org.mozilla.firefox",
+    "terminal": false,
+    "categories": ["Network", "WebBrowser"],
+    "mime_types": [
+      "text/html",
+      "x-scheme-handler/http",
+      "x-scheme-handler/https"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Firefox/current/Commands/firefox --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-runtime-session",
+        "status": "open",
+        "message": "Firefox payload is managed by Flatpak; AUZiX must provide working user Flatpak state, DBus session, fonts, portals, and /var alias support."
+      }
+    ]
+  }
+}

@@ -41,16 +41,23 @@ end
 local validation_filter = [[
   . as $p
   | ($p | type == "object")
-  and (($p | keys - ["format", "target", "storage", "bootloader", "identity", "accounts", "packages", "execution", "frontend"] | length) == 0)
+  and (($p | keys - ["format", "target", "storage", "bootloader", "identity", "accounts", "packages", "desktop", "execution", "frontend"] | length) == 0)
   and ($p.format == "auzix-install-plan-v1")
   and ($p.target | type == "object")
   and (($p.target | keys - ["disk"] | length) == 0)
   and ($p.target.disk | type == "string" and test("^/dev/([A-Za-z0-9._:+-]+|disk/by-id/[A-Za-z0-9._:+-]+)$"))
   and ($p.storage | type == "object")
-  and (($p.storage | keys - ["filesystem", "layout", "home_percent"] | length) == 0)
+  and (($p.storage | keys - ["filesystem", "layout", "home_percent", "users_percent", "work_percent", "programs_percent", "mounts"] | length) == 0)
   and ($p.storage.filesystem == "ext4")
-  and ((($p.storage | has("layout")) | not) or ($p.storage.layout | IN("whole", "split")))
+  and ((($p.storage | has("layout")) | not) or ($p.storage.layout | IN("whole", "user-work-programs", "custom-percent")))
   and ((($p.storage | has("home_percent")) | not) or ($p.storage.home_percent | type == "number" and . >= 20 and . <= 80))
+  and ((($p.storage | has("users_percent")) | not) or ($p.storage.users_percent | type == "number" and . >= 10 and . <= 80))
+  and ((($p.storage | has("work_percent")) | not) or ($p.storage.work_percent | type == "number" and . >= 0 and . <= 80))
+  and ((($p.storage | has("programs_percent")) | not) or ($p.storage.programs_percent | type == "number" and . >= 0 and . <= 80))
+  and ((($p.storage | has("mounts")) | not) or (
+    ($p.storage.mounts | type == "array")
+    and all($p.storage.mounts[]; (.path | IN("/Home", "/Users", "/Work", "/Programs")) and (.role | IN("home", "users", "work", "programs")))
+  ))
   and ($p.bootloader | type == "object")
   and (($p.bootloader | keys - ["mode"] | length) == 0)
   and ($p.bootloader.mode == "grub" or $p.bootloader.mode == "iso")
@@ -60,6 +67,12 @@ local validation_filter = [[
   and ((($p.identity | has("username")) | not) or ($p.identity.username | type == "string" and test("^[a-z_][a-z0-9_-]{0,31}$")))
   and ((($p | has("accounts")) | not) or ($p.accounts.root_policy | IN("disabled", "same", "separate")))
   and ((($p | has("packages")) | not) or ($p.packages.selected | type == "array" and all(.[]; type == "string" and test("^[A-Za-z0-9._+-]+$"))))
+  and ((($p | has("desktop")) | not) or (
+    ($p.desktop | type == "object")
+    and (($p.desktop | keys - ["theme_profile", "wallpaper_profile"] | length) == 0)
+    and ((($p.desktop | has("theme_profile")) | not) or ($p.desktop.theme_profile | IN("vm135-dark-scifi", "vm135-retrowave", "vm135-classic-dark")))
+    and ((($p.desktop | has("wallpaper_profile")) | not) or ($p.desktop.wallpaper_profile | IN("foggy-trees", "blade-runner-cityscape", "tron-fight-for-the-user", "amiga-retro", "solid-dark")))
+  ))
   and ($p.execution | type == "object")
   and (($p.execution | keys - ["confirmed"] | length) == 0)
   and ($p.execution.confirmed | type == "boolean")
@@ -139,6 +152,7 @@ local function run(plan)
   local disk = field(plan, ".target.disk")
   local bootloader = field(plan, ".bootloader.mode")
   local command = table.concat({
+    "AUZIX_INSTALL_PLAN=" .. shell_quote(plan),
     shell_quote(executor), "--force", "--bootloader", shell_quote(bootloader), shell_quote(disk)
   }, " ")
   print("Executing confirmed install plan for " .. disk)
@@ -168,14 +182,9 @@ local function confirm_and_run(plan, expected_disk)
     return false
   end
   if field(plan, ".storage.layout // \"whole\"") ~= "whole" then
-    io.stderr:write("auzix-installer: split storage execution is not implemented\n")
+    io.stderr:write("auzix-installer: selected storage shape is recorded but not executable in this installer slice\n")
     return false
   end
-  if field(plan, ".packages.selected | length") ~= "0" then
-    io.stderr:write("auzix-installer: first-boot package execution is not implemented\n")
-    return false
-  end
-
   local confirmed = temp_path("confirmed-plan")
   if not confirmed then return false end
   local command = table.concat({
@@ -271,7 +280,11 @@ local function write_frontend_plan(output_plan, disk, bootloader, hostname, fron
   local username = arg[7] or "auzix"
   local root_policy = arg[8] or "disabled"
   local layout = arg[9] or "whole"
-  local home_percent = tonumber(arg[10]) or 60
+  local users_percent = tonumber(arg[10]) or 55
+  local work_percent = tonumber(arg[15]) or 25
+  local programs_percent = tonumber(arg[16]) or 15
+  local theme_profile = arg[17] or "vm135-dark-scifi"
+  local wallpaper_profile = arg[18] or "foggy-trees"
   local packages = arg[11] or ""
   local locale = arg[12] or "en_US.UTF-8"
   local timezone = arg[13] or "UTC"
@@ -295,19 +308,35 @@ local function write_frontend_plan(output_plan, disk, bootloader, hostname, fron
     "--arg username", shell_quote(username),
     "--arg root_policy", shell_quote(root_policy),
     "--arg layout", shell_quote(layout),
-    "--argjson home_percent", tostring(home_percent),
+    "--argjson users_percent", tostring(users_percent),
+    "--argjson work_percent", tostring(work_percent),
+    "--argjson programs_percent", tostring(programs_percent),
     "--arg packages", shell_quote(packages),
     "--arg locale", shell_quote(locale),
     "--arg timezone", shell_quote(timezone),
     "--arg keyboard", shell_quote(keyboard),
+    "--arg theme_profile", shell_quote(theme_profile),
+    "--arg wallpaper_profile", shell_quote(wallpaper_profile),
     shell_quote([[{
       format: "auzix-install-plan-v1",
       target: {disk: $disk},
-      storage: {filesystem: "ext4", layout: $layout, home_percent: $home_percent},
+      storage: {
+        filesystem: "ext4",
+        layout: $layout,
+        users_percent: $users_percent,
+        work_percent: $work_percent,
+        programs_percent: $programs_percent,
+        mounts: [
+          {path: "/Home", role: "home", percent: $users_percent},
+          {path: "/Work", role: "work", percent: $work_percent},
+          {path: "/Programs", role: "programs", percent: $programs_percent}
+        ]
+      },
       bootloader: {mode: $bootloader},
       identity: {hostname: $hostname, username: $username, locale: $locale, timezone: $timezone, keyboard: $keyboard},
       accounts: {root_policy: $root_policy},
       packages: {selected: ($packages | split(",") | map(select(length > 0)))},
+      desktop: {theme_profile: $theme_profile, wallpaper_profile: $wallpaper_profile},
       execution: {confirmed: false},
       frontend: $frontend
     }]]),

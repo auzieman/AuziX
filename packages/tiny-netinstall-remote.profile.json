@@ -48,7 +48,6 @@
     "Sudo",
     "CACerts",
     "Curl",
-    "Coreutils",
     "UtilLinux",
     "Iproute2",
     "E2fsprogs",
@@ -87,7 +86,9 @@
     "Install AUZiX base root and package tools.",
     "Refresh AUZiX package repository.",
     "Install selected package groups such as AuzixDesktopBase, AuzixOffice, AuzixContainerHost.",
+    "For unattended mode, consume a checked install-plan JSON and refuse unknown package groups or missing repository metadata.",
     "Write install receipts under /System/State/install/receipts.",
+    "Record selected package groups, repo index checksum, installer profile id, target disk, and post-install validation result in the install receipt.",
     "Reboot into installed root."
   ],
   "validation": {
@@ -103,10 +104,12 @@
       "ip addr shows an active non-loopback interface",
       "ssh root@target succeeds through the selected access profile",
       "auzix-pkg refresh reaches the configured repository",
+      "unattended install plan parses without invoking any GUI frontend",
       "mkfs.ext4, parted, mount, df, du, strace, and file are present"
     ],
     "explicit_non_goals": [
       "No LightDM/E/GUI acceptance in this profile",
+      "No AuzixInstallerEfl or AuzixPackageManagerEfl acceptance in this profile",
       "No LibreOffice/Flatpak/Podman demo acceptance in this profile"
     ]
   },

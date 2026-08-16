@@ -59,6 +59,33 @@ Binary intake is not the first truth for a port. Before a package can graduate
 past experimental/staging, the builder must prove the native Debian source
 recipe is understood well enough to explain the AUZiX port.
 
+For promoted packages, the source build/install contract is the package. A
+package is not considered correctly built merely because a donor payload was
+repacked. The normal path is:
+
+```text
+fetch source
+inspect Debian source recipe
+install/build dependency closure
+configure with AUZiX path values
+make/ninja/cmake/meson build
+make install DESTDIR=<stage> or equivalent
+capture staged manifest and checksums
+wrap/export only what the staged install produced
+run lifecycle hooks and validation probes
+```
+
+The builder must record the exact configure/build/install commands,
+environment, build system, source revision, dependency closure, staged install
+root, installed file manifest, checksums, and logs. If a package uses Autotools,
+CMake, Meson, Cargo, Go, or a custom system, the receipt must name the command
+equivalent of `configure`, `build`, and `install`.
+
+Binary repack output is allowed only as a bridge artifact unless it references a
+matching source-build receipt proving that the payload and lifecycle semantics
+were already produced by the correct build/install contract. Bridge artifacts
+must not replace source-built packages in workstation profiles by name.
+
 For each Debian-sourced package, the build worker records a guidebook report
 from the source package:
 
@@ -91,6 +118,21 @@ application packages while moving `.so`, `.bin`, `*.rdb`, `oosplash`, and other
 runtime program payloads into `libreoffice-core`. AUZiX LibreOffice wrappers
 must model that split before `ldd`/launch probes run; rediscovering
 `libXinerama.so.1` and friends one failure at a time is a pipeline bug.
+
+LibreOffice launcher acceptance is stricter than "a process stayed alive":
+
+- launcher-created state belongs under user-owned XDG paths, not root-owned
+  `/System/State` or `/System/Settings`;
+- wrapper-generated `fundamentalrc` must use a relative
+  `BRAND_BASE_DIR=${ORIGIN}/..` so the assembled AUZiX runtime cache is the
+  bootstrap root;
+- launchers should enter LibreOffice through its own `soffice`/module scripts
+  rather than bypassing them with a direct `soffice.bin` loader exec;
+- Impress and Draw use isolated `UserInstallation` profiles until the shared
+  LibreOffice broker/profile routing is proven not to reopen the previous
+  module;
+- GUI proof requires visible module behavior or exact E/X logs, not merely
+  `oosplash`/`soffice.bin` surviving.
 
 ## Runtime stack ladder
 
@@ -213,6 +255,29 @@ For each desktop package:
 5. Run a bounded GUI launch smoke under the active X/DBus environment when
    available. A package can be `installable` without this, but not
    `desktop-ready`.
+
+## Installer and package-manager frontend gate
+
+The installer and package manager must always keep a boring, scriptable path.
+The netboot/unattended profile defaults to SSH/TUI and must not require EFL,
+GTK, LightDM, or a running user desktop session.
+
+Graphical frontends such as `AuzixInstallerEfl` and
+`AuzixPackageManagerEfl` are promoted only after a fresh installed AUZiX user
+session proves:
+
+- CLI installer/package-manager commands work first;
+- the EFL frontend wrapper sets the required AUZiX runtime stack explicitly,
+  including library, data, icon/theme, and XDG paths;
+- the frontend writes cache/config/state only to user-owned or package-declared
+  state directories;
+- DBus/session/efreet failures are absent or cataloged as blocker evidence;
+- the frontend opens visibly from a direct command and from the E menu;
+- a failed GUI launch falls back to TUI or reports a precise failure without
+  hanging the installer or desktop session.
+
+Until those checks pass, EFL frontends remain post-install package-group work,
+not tiny-netinstall acceptance criteria.
 
 ## Reference desktop guidebook
 

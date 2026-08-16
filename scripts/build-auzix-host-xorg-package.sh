@@ -154,6 +154,9 @@ chmod 4755 "${RUNTIME_USR}/lib/xorg/Xorg.wrap" 2>/dev/null || true
 
 copy_dir_if_present /usr/lib/xorg/modules "${RUNTIME_USR}/lib/xorg/modules"
 copy_dir_if_present /usr/lib/xorg/modules "${NATIVE_XORG}/modules"
+if [[ -f /usr/lib/xorg/protocol.txt ]]; then
+  install -D -m 0644 /usr/lib/xorg/protocol.txt "${RUNTIME_USR}/lib/xorg/protocol.txt"
+fi
 copy_dir_if_present /usr/share/X11/xorg.conf.d "${RUNTIME_USR}/share/X11/xorg.conf.d"
 copy_dir_if_present /usr/share/X11/xkb "${RUNTIME_USR}/share/X11/xkb"
 copy_dir_if_present /usr/share/X11/xkb "${NATIVE_X11_SETTINGS}/xkb"
@@ -161,6 +164,9 @@ copy_dir_if_present /usr/share/fonts/X11 "${RUNTIME_USR}/share/fonts/X11"
 copy_dir_if_present /usr/share/fonts/truetype/dejavu "${RUNTIME_USR}/share/fonts/truetype/dejavu"
 copy_dir_if_present /usr/share/fonts/X11 "${NATIVE_FONTS}/X11"
 copy_dir_if_present /usr/share/fonts/truetype/dejavu "${NATIVE_FONTS}/truetype/dejavu"
+if [[ -d "${RUNTIME_USR}/share/fonts/X11" && ! -e "${NATIVE_FONTS}/X11" ]]; then
+  ln -s /System/Compatibility/usr/share/fonts/X11 "${NATIVE_FONTS}/X11"
+fi
 stage_libinput_driver
 stage_evdev_driver
 
@@ -175,11 +181,12 @@ cat > "${AUZIX_ROOT}/System/Settings/X11/xorg.conf" <<'EOF'
 Section "Files"
     ModulePath "/System/Drivers/Xorg/modules"
     ModulePath "/System/Compatibility/usr/lib/xorg/modules"
-    FontPath "/System/Fonts/X11/misc"
-    FontPath "/System/Fonts/X11/Type1"
-    FontPath "/System/Fonts/X11/75dpi"
-    FontPath "/System/Fonts/X11/100dpi"
     FontPath "/System/Fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/misc"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/Type1"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/75dpi"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/100dpi"
 EndSection
 
 Section "ServerFlags"

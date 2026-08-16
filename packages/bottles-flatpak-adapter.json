@@ -1,0 +1,31 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Bottles",
+  "package_name": "BottlesFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub Bottles as a normal AUZiX Windows compatibility launcher.",
+  "flatpak_ref": "com.usebottles.bottles",
+  "flatpak_command": "bottles",
+  "commands": [
+    {"name": "bottles", "description": "Launch Bottles through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Bottles",
+    "generic_name": "Windows Compatibility",
+    "comment": "Run Windows software and games in managed bottles",
+    "icon": "com.usebottles.bottles",
+    "terminal": false,
+    "categories": ["Game", "Emulator", "Utility"]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Bottles/current/Commands/bottles --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-wine-session",
+        "status": "open",
+        "message": "Bottles is Flatpak-managed and expects a working graphical/session bus, portals, user Flatpak state, and Wine/runtime payloads."
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "FSUAE",
+  "package_name": "FSUAEFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub FS-UAE as a normal AUZiX Amiga emulator launcher.",
+  "flatpak_ref": "net.fsuae.FS-UAE",
+  "flatpak_command": "fs-uae",
+  "commands": [
+    {"name": "fs-uae", "description": "Launch FS-UAE through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "FS-UAE",
+    "generic_name": "Amiga Emulator",
+    "comment": "Run Amiga software and games",
+    "icon": "net.fsuae.FS-UAE",
+    "terminal": false,
+    "categories": ["Game", "Emulator"]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/FSUAE/current/Commands/fs-uae --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-audio-input-session",
+        "status": "open",
+        "message": "FS-UAE is Flatpak-managed and expects a working graphical/audio/input session and user Flatpak state."
+      }
+    ]
+  }
+}

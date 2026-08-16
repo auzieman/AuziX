@@ -1,0 +1,100 @@
+# AUZiX userspace repair pass, 2026-08-11
+#
+# Tight rebuild/profile for the post-crash VM135 repair findings.
+# Use with scripts/run-auzix-trixie-intake.sh rather than the larger workstation
+# profile when lab time or patience is low.
+
+# Terminal/front-door regression: htop needs terminfo data, not just ncurses libs.
+ncurses-base
+ncurses-term
+htop
+
+# Core command surface missing or too sparse on VM135. BusyBox remains the
+# emergency spine, but a workstation build must expose the normal GNU/Linux
+# front doors too: sh/bash, ls/cat/df/du, ps/top/free/kill, mount/findmnt, etc.
+bash
+dash
+coreutils
+procps
+util-linux
+bsdutils
+file
+libmagic1t64
+nano
+less
+strace
+binutils
+python3
+python3-psutil
+python3-defusedxml
+glances
+
+# GTK/editor known-good restore. Geany worked before the crash/rebuild; rebuild
+# its common/data and GTK runtime closure with the improved dependency ladder.
+geany-common
+geany
+# l3afpad is blocked for now: on VM135 it repeatedly spawned/died and polluted
+# the menu/process state. Re-enable only after package recursion and launcher
+# validation are fixed.
+libcloudproviders0
+libatomic1
+libmount1
+libharfbuzz0b
+
+# GTK2 compatibility for HexChat/older desktop apps. GTK3 cannot satisfy
+# libgtk-x11-2.0.so.0.
+libgtk2.0-common
+libgtk2.0-0t64
+hexchat
+
+# EFL photo app known-good restore target.
+ephoto
+
+# Browser wrapper/runtime repair. Midori should not blindly use its bundled
+# Libraries directory ahead of AUZiX package libs.
+ca-certificates
+fontconfig
+fontconfig-config
+fonts-dejavu-core
+libnss3
+libnspr4
+
+# Prefer Flatpak Firefox/Opera for real browser demos until native Midori is
+# stable again. These are Flatpak payloads plus AUZiX adapter package targets,
+# not native browser source ports yet.
+
+# Flatpak local/user mode works; system installs need helper/system activation
+# surfaces.
+flatpak
+bubblewrap
+xdg-dbus-proxy
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+polkitd
+libpolkit-agent-1-0
+libpolkit-gobject-1-0
+gnupg
+gpg
+gpg-agent
+
+# Native IDE/editor baseline plus Flatpak IDE candidates.
+pluma
+gedit
+gedit-common
+libgtksourceview-4-0
+libgtksourceview-4-common
+
+# LibreOffice completion: Calc/Writer exist; Impress/Draw payloads are absent
+# despite common icons/assets.
+libreoffice-draw
+libreoffice-impress
+libreoffice-uiconfig-draw
+libreoffice-uiconfig-impress
+libbox2d2
+libcdr-0.1-1
+libfreehand-0.1-1
+libmspub-0.1-1
+libpagemaker-0.0-0
+libqxp-0.0-0
+libvisio-0.1-1
+libzmf-0.0-0

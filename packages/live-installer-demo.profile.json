@@ -1,0 +1,116 @@
+{
+  "format": "auzix-media-profile-v1",
+  "id": "live-installer-demo",
+  "description": "Lean but filmable AUZiX live installer media, currently being proven on ESXi: graphical installer surface, rescue terminal, browser, file manager, SSH, and enough debug/internet tooling to diagnose installs without dragging the full workstation payload into the ISO.",
+  "inherits_intent_from": "tiny-netinstall-remote",
+  "size_budget": {
+    "target": "sub-GB preferred, demo-lean acceptable",
+    "soft_warn_over_bytes": 1073741824,
+    "hard_fail_over_bytes": 2147483648,
+    "notes": "This profile may include Xorg/LightDM/Enlightenment and small GUI tools for the installer demo. Office suites, Flatpak applications, Podman demo images, large wallpaper packs, and workstation/media apps remain post-install package groups."
+  },
+  "boot_substrate": {
+    "same_as": "tiny-netinstall-remote",
+    "additional_requirement": "Graphical startup must never be the only recovery path; SSH and TTY remain first-class."
+  },
+  "installer_core_packages": [
+    "BusyBox",
+    "AuzixPackageTools",
+    "AuzixInstaller",
+    "OpenSSH",
+    "Sudo",
+    "CACerts",
+    "Curl",
+    "UtilLinux",
+    "Iproute2",
+    "E2fsprogs",
+    "Dosfstools",
+    "Parted",
+    "Strace",
+    "File",
+    "Less",
+    "Tar",
+    "Gzip",
+    "AuzixServiceRuntime"
+  ],
+  "graphical_installer_surface": {
+    "packages": [
+      "DBus",
+      "DBUSX11",
+      "DBusUserSession",
+      "Udev",
+      "Xorg",
+      "XTerm",
+      "LightDM",
+      "Enlightenment",
+      "AuzixDesktopIntegration"
+    ],
+    "launchers": [
+      "Install AUZiX",
+      "AUZiX Rescue Terminal",
+      "AUZiX Browser",
+      "AUZiX Files"
+    ],
+    "rules": [
+      "Use xterm before Terminology for installer/rescue shell until EFL terminal stability is clean.",
+      "The installer launcher must work from E menu and from /System/Tools/launch-auzix-installer.",
+      "If graphical startup fails, SSH and TTY must still expose auzix-installer."
+    ]
+  },
+  "small_internet_tools": [
+    "Midori",
+    "NetSurf"
+  ],
+  "debug_tools": [
+    "ip",
+    "curl",
+    "strace",
+    "file",
+    "df",
+    "du",
+    "less",
+    "tar",
+    "gzip"
+  ],
+  "explicit_non_goals": [
+    "No LibreOffice in the ISO",
+    "No Flatpak apps in the ISO",
+    "No Podman demo image payloads in the ISO",
+    "No large theme/wallpaper packs in the ISO",
+    "No one-off repaired user home fossilized as the installer contract"
+  ],
+  "validation": {
+    "media_static": [
+      "ISO contains the normal boot substrate and live squashfs",
+      "ISO contains installer plans including workstation-demo.json",
+      "ISO contains /System/Tools/launch-auzix-installer",
+      "ISO contains /System/Tools/auzix-existing-installer-preflight"
+    ],
+    "boot_smoke": [
+      "DHCP works",
+      "SSH works before GUI dependency",
+      "LightDM or live E session reaches a visible desktop",
+      "keyboard and mouse work in the graphical session",
+      "Install AUZiX launcher opens the safe installer frontend",
+      "AUZiX Rescue Terminal opens xterm",
+      "AUZiX Browser opens Midori or NetSurf",
+      "mkfs.ext4, parted, mount, df, du, strace, file, curl, and less are present"
+    ],
+    "install_smoke": [
+      "auzix-installer validate /System/Settings/installer/plans/workstation-demo.json",
+      "preflight proves ext4 scratch format",
+      "destructive disk install preserves install-plan.json and first-boot package queue",
+      "installed root boots or produces a clear failing gate receipt"
+    ]
+  },
+  "publication": {
+    "lab_first": "Publish build receipts and package repo to ns1 first.",
+    "public_mirror": "After lab validation, mirror blessed ISO/repo artifacts to Auzietek/IONOS. Current storage check shows roughly 200 GiB free on each Auzietek/IONOS host, enough for current repo and ISO shelves.",
+    "public_link_rule": "Use the Auzietek Community link policy; do not place raw Discord links in generated ISO/repo artifact headers."
+  },
+  "current_lab_fact": {
+    "date": "2026-08-15",
+    "target": "ESXi graphical live ISO",
+    "status": "new ISO is already booted/running with GUI; focus on live acceptance and installer behavior before treating this as only a future pipeline target"
+  }
+}

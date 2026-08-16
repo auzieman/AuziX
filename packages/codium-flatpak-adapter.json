@@ -1,0 +1,35 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Codium",
+  "package_name": "CodiumFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub VSCodium as a normal AUZiX IDE launcher.",
+  "flatpak_ref": "com.vscodium.codium",
+  "flatpak_command": "codium",
+  "commands": [
+    {"name": "codium", "description": "Launch VSCodium through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "VSCodium",
+    "generic_name": "Code Editor",
+    "comment": "Edit source code",
+    "icon": "com.vscodium.codium",
+    "terminal": false,
+    "categories": ["Development", "TextEditor", "IDE"],
+    "mime_types": [
+      "text/plain",
+      "inode/directory"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Codium/current/Commands/codium --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-runtime-session",
+        "status": "open",
+        "message": "VSCodium payload is managed by Flatpak; AUZiX must provide working user Flatpak state, DBus session, fonts, portals, and /var alias support."
+      }
+    ]
+  }
+}

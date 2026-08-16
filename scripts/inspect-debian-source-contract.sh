@@ -37,7 +37,15 @@ fetch_source() {
 }
 
 source_dir() {
-  find "${SRC_PARENT}" -mindepth 1 -maxdepth 1 -type d -name "${PACKAGE}-*" -print | sort | tail -n 1
+  local matched
+  matched="$(find "${SRC_PARENT}" -mindepth 1 -maxdepth 1 -type d -name "${PACKAGE}-*" -print | sort | tail -n 1)"
+  if [[ -n "${matched}" ]]; then
+    printf '%s\n' "${matched}"
+    return
+  fi
+  # apt-get source can legally choose a differently named source package for a
+  # binary package, e.g. binary "enlightenment" comes from source "e17".
+  find "${SRC_PARENT}" -mindepth 1 -maxdepth 1 -type d -print | sort | tail -n 1
 }
 
 fetch_source

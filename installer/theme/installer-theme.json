@@ -1,0 +1,40 @@
+{
+  "format": "auzix-installer-theme-v1",
+  "id": "blackknight-dark",
+  "name": "BlackKnight Dark",
+  "intent": "Crisp dark-mode AUZiX installer theme: readable, calm, slightly mythic, with optional Auzietek/BlackKnight shield-and-swords accents.",
+  "palette": {
+    "background": "#07111f",
+    "panel": "#101827",
+    "panel_alt": "#152235",
+    "text": "#e5edf7",
+    "muted_text": "#9fb0c6",
+    "accent": "#62d9ef",
+    "accent_2": "#82d4bb",
+    "warning": "#ffb86c",
+    "danger": "#ff6b6b",
+    "border": "#29415f"
+  },
+  "assets": {
+    "background": "/System/Settings/installer/theme/background-dark.png",
+    "shield_swords": "/System/Settings/installer/theme/mark-shield-swords.png",
+    "auzietek_mark": "/System/Settings/installer/theme/mark-auzietek.svg",
+    "blackknight_mark": "/System/Settings/installer/theme/mark-blackknight.svg",
+    "retro_boing_strip": "/System/Settings/installer/theme/retro-boing-strip.png"
+  },
+  "local_sources": {
+    "shield_swords": "/home/auzieman/Projects/auzietek/ChatGPT Image Aug 15, 2026, 03_04_47 PM.png",
+    "retro_boing_strip": "/home/auzieman/Projects/auzietek/ami.auztek/src/themes/boing-ball_resized_2048x100.png"
+  },
+  "fallback": {
+    "background": "solid background color",
+    "branding": "text header only",
+    "rule": "Missing art must not block installer launch."
+  },
+  "copy": {
+    "header": "BLACKKNIGHT // AUZiX DEPLOYMENT CONTROL",
+    "subtitle": "Build your AUZiX machine. Base first, extras after.",
+    "base_install": "Base gets the machine alive and recoverable.",
+    "extras": "Extras hydrate after install through AUZiX packages."
+  }
+}

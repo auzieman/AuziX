@@ -12,6 +12,7 @@ ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-lab-password}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-/mnt/ns1/AuziX/runtime/secrets/live-root-shadow}"
 BUILDER_IMAGE="${AUZIX_BUILDER_IMAGE:-auzix/builder:lab}"
 ISO_NAME="${AUZIX_ISO_NAME:-auzix-live-efl-candidate.iso}"
+BUILD_TARGET="${AUZIX_BUILD_TARGET:-strict-all}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RUN_NAME="auzix-live-build-${RUN_ID}"
 WORK_ROOT="${AUZIX_WORK_ROOT:-/var/lib/auzix-build}"
@@ -81,6 +82,7 @@ source_root=${SOURCE_ROOT}
 worker_snapshot=${work_source}
 builder_image=${BUILDER_IMAGE}
 iso_name=${ISO_NAME}
+build_target=${BUILD_TARGET}
 authorized_keys=runtime-mounted-public-key
 access_profile=${ACCESS_PROFILE}
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -90,7 +92,19 @@ publish_metadata
 log "building ${BUILDER_IMAGE}"
 docker build -t "${BUILDER_IMAGE}" -f "${work_source}/docker/builder/Dockerfile" "${work_source}" 2>&1 | tee -a "${work_log}"
 
-log "building standard live media: ${ISO_NAME}"
+case "${BUILD_TARGET}" in
+  strict-all)
+    build_command=(./scripts/build-auzix-strict-all.sh)
+    ;;
+  workstation-packages|package-rebuild)
+    build_command=(make auzix-workstation-package-rebuild)
+    ;;
+  *)
+    fail "unknown AUZIX_BUILD_TARGET=${BUILD_TARGET}; use strict-all or workstation-packages"
+    ;;
+esac
+
+log "running build target ${BUILD_TARGET}: ${build_command[*]}"
 docker run --rm --name "${RUN_NAME}" \
   -v "${work_source}:/workspace" \
   -v "${KEY_FILE}:/run/auzix-runtime/authorized_keys:ro" \
@@ -106,7 +120,19 @@ docker run --rm --name "${RUN_NAME}" \
   -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
   -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
   "${BUILDER_IMAGE}" \
-  ./scripts/build-auzix-strict-all.sh 2>&1 | tee -a "${work_log}"
+  "${build_command[@]}" 2>&1 | tee -a "${work_log}"
+
+if [[ "${BUILD_TARGET}" != "strict-all" ]]; then
+  [[ -d "${work_source}/artifacts/auzix/repo" ]] || fail "expected package repo is missing: ${work_source}/artifacts/auzix/repo"
+  install -d "${PUBLISH_DIR}/repo"
+  rsync -a "${work_source}/artifacts/auzix/repo/" "${PUBLISH_DIR}/repo/"
+  printf 'finished_at=%s\nstatus=pass\npackage_repo=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${PUBLISH_DIR}/repo" >>"${work_receipt}"
+  publish_metadata
+  trap - EXIT
+  log "PASS run_id=${RUN_ID} receipt=${receipt}"
+  exit 0
+fi
 
 [[ -s "${work_iso}" ]] || fail "expected ISO is missing: ${work_iso}"
 docker run --rm \

@@ -27,7 +27,8 @@ cat > "${AUZIX_ROOT}/System/Boot/StartSequence" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -u
 
-PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+PATH=/Programs/BusyBox/1.36.1/Commands:${PATH:-}
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
@@ -168,7 +169,7 @@ root:x:0:0:root:/Users/root:/System/Compatibility/bin/sh
 auzix:x:1000:1000:Auzix User:/Users/auzix:/System/Compatibility/bin/sh
 sshd:x:74:74:sshd privilege separation:/run/sshd:/System/Compatibility/bin/false
 messagebus:x:101:101:DBus message bus:/run/dbus:/System/Compatibility/bin/false
-lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatibility/bin/false
+lightdm:x:102:102:LightDM display manager:/var/lib/lightdm:/System/Compatibility/bin/false
 EOF
   fi
   if ! "${BB}" grep -q '^auzix:' /System/Settings/group 2>/dev/null; then
@@ -181,9 +182,9 @@ messagebus:x:101:
 lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
-input:x:104:root,auzix
-video:x:44:root,auzix
-render:x:105:root,auzix
+input:x:104:root,auzix,lightdm
+video:x:44:root,auzix,lightdm
+render:x:105:root,auzix,lightdm
 audio:x:29:root,auzix
 EOF
   fi
@@ -457,9 +458,9 @@ fix_session_permissions() {
     /Users/auzix/.elementary/config/standard \
     /Users/root
   if [ ! -s /Users/auzix/.e/e/config/standard/e.cfg ] &&
-     [ -d /usr/share/enlightenment/data/config/standard ]; then
+     [ -d /System/Compatibility/usr/share/enlightenment/data/config/standard ]; then
     "${BB}" mkdir -p /Users/auzix/.e/e/config
-    "${BB}" cp -a /usr/share/enlightenment/data/config/standard /Users/auzix/.e/e/config/ 2>/dev/null || true
+    "${BB}" cp -a /System/Compatibility/usr/share/enlightenment/data/config/standard /Users/auzix/.e/e/config/ 2>/dev/null || true
   fi
 	  if [ ! -s /Users/auzix/.e/e/config/profile.cfg ] &&
 	     command -v eet >/dev/null 2>&1; then
@@ -478,16 +479,16 @@ fix_session_permissions() {
   "${BB}" chown root:root /Users /Users/root 2>/dev/null || true
   "${BB}" chmod 0755 /Users /Users/root 2>/dev/null || true
   for helper in \
-    /usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system \
-    /usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_sys \
-    /usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_ckpasswd; do
+    /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system \
+    /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_sys \
+    /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_ckpasswd; do
     [ -e "${helper}" ] || continue
     "${BB}" chown root:root "${helper}" 2>/dev/null || true
     "${BB}" chmod 4755 "${helper}" 2>/dev/null || true
   done
-  if [ -d /usr/lib/x86_64-linux-gnu/enlightenment ] && [ ! -e /usr/lib/enlightenment ]; then
+  if [ -d /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment ] && [ ! -e /System/Compatibility/usr/lib/enlightenment ]; then
     "${BB}" mkdir -p /usr/lib
-    "${BB}" ln -s /usr/lib/x86_64-linux-gnu/enlightenment /usr/lib/enlightenment 2>/dev/null || true
+    "${BB}" ln -s /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment /System/Compatibility/usr/lib/enlightenment 2>/dev/null || true
   fi
   "${BB}" mkdir -p /run/user/1000
   "${BB}" chown 1000:1000 /run/user/1000 2>/dev/null || true
@@ -593,6 +594,26 @@ first_relative_pointer_event() {
   ' /proc/bus/input/devices 2>/dev/null
 }
 
+first_absolute_pointer_event() {
+  preferred_pattern="${1:-}"
+  "${BB}" awk -v pat="${preferred_pattern}" '
+    /^N: Name=/ { name=$0; event=""; has_abs=0; has_keys=0 }
+    /^H: Handlers=/ {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^event[0-9]+$/) event="/dev/input/" $i
+      }
+    }
+    /^B: KEY=/ && $3 != "0" { has_keys=1 }
+    /^B: ABS=/ && $3 != "0" { has_abs=1 }
+    /^$/ {
+      if (event != "" && has_abs && has_keys && (pat == "" || name ~ pat)) {
+        print event
+        exit
+      }
+    }
+  ' /proc/bus/input/devices 2>/dev/null
+}
+
 append_input_device() {
   ident="$1"
   event="$2"
@@ -610,25 +631,30 @@ EOF
 }
 
 write_xorg_config() {
+  input_mode="${AUZIX_XORG_INPUT_MODE:-auto}"
   keyboard_event="$(first_event_for_name "AT Translated Set 2 keyboard")"
-  tablet_event="$(first_event_for_name "QEMU QEMU USB Tablet")"
+  tablet_event="$(first_absolute_pointer_event "QEMU QEMU USB Tablet")"
+  [ -n "${tablet_event}" ] || tablet_event="$(first_absolute_pointer_event "VirtualPS/2 VMware VMMouse")"
+  [ -n "${tablet_event}" ] || tablet_event="$(first_absolute_pointer_event)"
   mouse_event="$(first_relative_pointer_event)"
-  [ -n "${mouse_event}" ] || mouse_event="$(first_event_for_name "VirtualPS/2 VMware VMMouse")"
   [ -n "${tablet_event}" ] || tablet_event="${mouse_event}"
+  [ -n "${mouse_event}" ] || mouse_event="$(first_event_for_name "VirtualPS/2 VMware VMMouse")"
   [ -n "${keyboard_event}" ] || keyboard_event=/dev/input/event0
-  [ -n "${mouse_event}" ] || mouse_event=/dev/input/event2
+  [ -n "${tablet_event}" ] || tablet_event=/dev/input/event2
+  [ -n "${mouse_event}" ] || mouse_event="${tablet_event}"
 
   "${BB}" mkdir -p /System/Settings/X11
-  if [ -e /System/Compatibility/usr/lib/xorg/modules/input/libinput_drv.so ]; then
+  if [ "${input_mode}" != "evdev-explicit" ]; then
     cat > /System/Settings/X11/xorg.conf <<EOF
 Section "Files"
     ModulePath "/System/Drivers/Xorg/modules"
     ModulePath "/System/Compatibility/usr/lib/xorg/modules"
-    FontPath "/System/Fonts/X11/misc"
-    FontPath "/System/Fonts/X11/Type1"
-    FontPath "/System/Fonts/X11/75dpi"
-    FontPath "/System/Fonts/X11/100dpi"
     FontPath "/System/Fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/misc"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/Type1"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/75dpi"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/100dpi"
 EndSection
 
 Section "ServerFlags"
@@ -659,7 +685,11 @@ Section "ServerLayout"
     Screen "AuzixScreen"
 EndSection
 EOF
-    log "xorg input=libinput-auto keyboard=${keyboard_event} tablet=${tablet_event} pointer=${mouse_event}"
+    if [ -e /System/Compatibility/usr/lib/xorg/modules/input/libinput_drv.so ]; then
+      log "xorg input=auto libinput=present keyboard=${keyboard_event} tablet=${tablet_event} pointer=${mouse_event}"
+    else
+      log "xorg input=auto libinput=missing udev-or-server-probe-required keyboard=${keyboard_event} tablet=${tablet_event} pointer=${mouse_event}"
+    fi
     return 0
   fi
 
@@ -667,11 +697,12 @@ EOF
 Section "Files"
     ModulePath "/System/Drivers/Xorg/modules"
     ModulePath "/System/Compatibility/usr/lib/xorg/modules"
-    FontPath "/System/Fonts/X11/misc"
-    FontPath "/System/Fonts/X11/Type1"
-    FontPath "/System/Fonts/X11/75dpi"
-    FontPath "/System/Fonts/X11/100dpi"
     FontPath "/System/Fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/truetype/dejavu"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/misc"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/Type1"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/75dpi"
+    FontPath "/System/Compatibility/usr/share/fonts/X11/100dpi"
 EndSection
 
 Section "ServerFlags"
@@ -813,6 +844,18 @@ start_hardware
 write_xorg_config
 console_note "stage: fixing session permissions"
 fix_session_permissions
+if [ -x /System/Tools/repair-auzix-desktop-session ]; then
+  console_note "stage: repairing desktop session contract"
+  if [ -x /Programs/BusyBox/current/Commands/busybox ]; then
+    /Programs/BusyBox/current/Commands/busybox timeout 25 \
+      /System/Tools/repair-auzix-desktop-session --boot-fast \
+      >/System/Logs/display/desktop-session-boot-repair.log 2>&1 || \
+      console_note "desktop: session repair timed out or failed; inspect /System/Logs/display/desktop-session-boot-repair.log"
+  else
+    /System/Tools/repair-auzix-desktop-session --boot-fast >/System/Logs/display/desktop-session-boot-repair.log 2>&1 || \
+      console_note "desktop: session repair failed; inspect /System/Logs/display/desktop-session-boot-repair.log"
+  fi
+fi
 console_note "stage: starting dbus"
 start_system_bus
 console_note "stage: starting network"
@@ -997,6 +1040,176 @@ prepare_enlightenment_background_path() {
   fi
 }
 
+mask_evas_gl_engines_root() {
+  [ "${AUZIX_MASK_GL_EVAS:-1}" = "1" ] || return 0
+  disabled_dir=/System/State/desktop/enlightenment/disabled-evas-engines
+  engine_root=/System/Compatibility/usr/lib/x86_64-linux-gnu/evas/modules/engines
+  [ -d "${engine_root}" ] || return 0
+  "${BB}" mkdir -p "${disabled_dir}" 2>/dev/null || true
+  for engine in gl_x11 gl_drm wayland_egl; do
+    if [ -d "${engine_root}/${engine}" ]; then
+      "${BB}" mv "${engine_root}/${engine}" "${disabled_dir}/${engine}" 2>/dev/null || true
+    fi
+  done
+}
+
+mask_unstable_enlightenment_modules_root() {
+  [ "${AUZIX_MASK_UNSTABLE_E_MODULES:-1}" = "1" ] || return 0
+  disabled_dir=/System/State/desktop/enlightenment/disabled-modules
+  module_root=/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules
+  "${BB}" mkdir -p "${disabled_dir}" /Users/auzix/.e/e/config/standard /Users/auzix/.e/e/config/default 2>/dev/null || true
+  for module in \
+    wizard \
+    connman \
+    bluez5 \
+    packagekit \
+    geolocation \
+    battery \
+    cpufreq \
+    temperature \
+    backlight \
+    emix \
+    wl_buffer \
+    wl_desktop_shell \
+    wl_drm \
+    wl_text_input \
+    wl_weekeyboard \
+    wl_wl \
+    wl_x11 \
+    xwayland; do
+    if [ -d "${module_root}/${module}" ]; then
+      "${BB}" mv "${module_root}/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+    fi
+    "${BB}" rm -f \
+      "/Users/auzix/.e/e/config/standard/module.${module}.cfg" \
+      "/Users/auzix/.e/e/config/default/module.${module}.cfg" \
+      "/Users/auzix/.e/e/config/module.${module}.cfg" 2>/dev/null || true
+  done
+  "${BB}" touch \
+    /System/State/desktop/enlightenment/vm-safe-modules-applied \
+    /System/State/desktop/enlightenment/wizard-disabled \
+    /Users/auzix/.e/e/config/standard/.auzix-wizard-disabled 2>/dev/null || true
+}
+
+prune_enlightenment_masked_modules_root() {
+  command -v eet >/dev/null 2>&1 || return 0
+  drop_modules=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation wizard emix everything-apps everything-files wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland "
+  "${BB}" mkdir -p /Work/Temp /System/State/desktop/enlightenment 2>/dev/null || true
+
+  for cfg in \
+    /Users/auzix/.e/e/config/standard/e.cfg \
+    /Users/auzix/.e/e/config/default/e.cfg \
+    /System/Compatibility/usr/share/enlightenment/data/config/standard/e.cfg \
+    /System/Compatibility/usr/share/enlightenment/data/config/default/e.cfg \
+    /usr/share/enlightenment/data/config/standard/e.cfg \
+    /usr/share/enlightenment/data/config/default/e.cfg
+  do
+    [ -s "${cfg}" ] || continue
+    stem="$("${BB}" basename "${cfg}")"
+    txt="/Work/Temp/${stem}.$$.$("${BB}" basename "$("${BB}" dirname "${cfg}")").txt"
+    safe="${txt}.safe"
+    new="${txt}.eet"
+    if eet -d "${cfg}" config "${txt}" 2>/dev/null; then
+      "${BB}" awk -v drop="${drop_modules}" '
+        /^        group "E_Config_Module" struct \{/ ||
+        /^                group "E_Config_Gadcon_Client" struct \{/ {
+          in_drop_block = 1
+          skip = 0
+          block = $0 "\n"
+          next
+        }
+        in_drop_block {
+          block = block $0 "\n"
+          if ($0 ~ /value "name" string: "/) {
+            name = $0
+            sub(/^.*value "name" string: "/, "", name)
+            sub(/";.*$/, "", name)
+            if (index(drop, " " name " ") > 0) skip = 1
+          }
+          if ($0 ~ /^[ ]*\}$/) {
+            if (!skip) printf "%s", block
+            in_drop_block = 0
+            block = ""
+          }
+          next
+        }
+        { print }
+      ' "${txt}" > "${safe}" 2>/dev/null || true
+      if [ -s "${safe}" ] &&
+         ! "${BB}" cmp -s "${txt}" "${safe}" 2>/dev/null &&
+         eet -e "${new}" config "${safe}" 0 2>/dev/null; then
+        "${BB}" cp -f "${cfg}" "${cfg}.pre-auzix-module-prune" 2>/dev/null || true
+        "${BB}" cp -f "${new}" "${cfg}" 2>/dev/null || true
+        echo "${cfg}" >> /System/State/desktop/enlightenment/pruned-module-configs 2>/dev/null || true
+      fi
+    fi
+    "${BB}" rm -f "${txt}" "${safe}" "${new}" 2>/dev/null || true
+  done
+}
+
+blast_stale_enlightenment_configs_root() {
+  [ "${AUZIX_BLAST_STALE_E_CONFIG:-1}" = "1" ] || return 0
+  stamp="$(date +%Y%m%dT%H%M%SZ 2>/dev/null || echo now)"
+  backup="/Users/auzix/.e/backup/stale-config-blast-${stamp}"
+  "${BB}" mkdir -p "${backup}" /System/State/desktop/enlightenment 2>/dev/null || true
+
+  for profile in default standard; do
+    dir="/Users/auzix/.e/e/config/${profile}"
+    [ -d "${dir}" ] || continue
+    if "${BB}" grep -R "wizard" "${dir}" >/dev/null 2>&1; then
+      "${BB}" mkdir -p "${backup}/${profile}" 2>/dev/null || true
+      "${BB}" cp -a "${dir}/." "${backup}/${profile}/" 2>/dev/null || true
+      "${BB}" rm -f "${dir}"/*.cfg "${dir}"/*.cfg.* 2>/dev/null || true
+      echo "${dir}" >> /System/State/desktop/enlightenment/blasted-stale-configs 2>/dev/null || true
+    fi
+  done
+}
+
+force_enlightenment_standard_profile_root() {
+  profile_file=/Users/auzix/.e/e/config/profile.cfg
+  profile_text=/Work/Temp/auzix-e-profile
+  "${BB}" mkdir -p /Users/auzix/.e/e/config /Users/auzix/.e/e/config/standard /Work/Temp 2>/dev/null || true
+  printf standard > "${profile_text}"
+  if command -v eet >/dev/null 2>&1; then
+    eet -i "${profile_file}" config "${profile_text}" 0 2>/dev/null || true
+  fi
+  "${BB}" rm -f "${profile_text}" 2>/dev/null || true
+}
+
+prepare_enlightenment_vm_safe_state() {
+  "${BB}" mkdir -p \
+    /System/State/desktop/enlightenment \
+    /Users/auzix/.cache/efreet \
+    /Users/auzix/.config \
+    /Users/auzix/.local/share \
+    /Users/auzix/.e/e/config/standard \
+    /Users/auzix/.elementary/config/standard 2>/dev/null || true
+  mask_evas_gl_engines_root
+  mask_unstable_enlightenment_modules_root
+  blast_stale_enlightenment_configs_root
+  prune_enlightenment_masked_modules_root
+  force_enlightenment_standard_profile_root
+  if [ -x /System/Tools/repair-e-state ]; then
+    AUZIX_RESET_E_THEME_STATE=0 \
+    AUZIX_SAFE_E_THEMES=1 \
+    AUZIX_MASK_GL_EVAS=1 \
+    AUZIX_MASK_UNSTABLE_E_MODULES=1 \
+      /System/Tools/repair-e-state /Users/auzix auzix >/System/Logs/display/repair-e-state.log 2>&1 || true
+  fi
+  "${BB}" chown -R 1000:1000 \
+    /Users/auzix/.cache \
+    /Users/auzix/.config \
+    /Users/auzix/.local \
+    /Users/auzix/.e \
+    /Users/auzix/.elementary 2>/dev/null || true
+  "${BB}" chmod -R u+rwX \
+    /Users/auzix/.cache \
+    /Users/auzix/.config \
+    /Users/auzix/.local \
+    /Users/auzix/.e \
+    /Users/auzix/.elementary 2>/dev/null || true
+}
+
 "${BB}" mkdir -p /run/auzix-iso /System/Settings/display/assets /System/Logs/display /System/State/display /Work/Temp
 if is_mounted /run/auzix-iso && ! live_media_ready; then
   unmount_live_media
@@ -1033,6 +1246,8 @@ if [ -n "${asset_dir}" ]; then
   "${BB}" chmod -R u+rwX /Users/auzix/.e/e/config 2>/dev/null || true
   "${BB}" chown -R 1000:1000 /Users/auzix/.e 2>/dev/null || true
 fi
+
+prepare_enlightenment_vm_safe_state
 
 if command -v pulseaudio >/dev/null 2>&1 || command -v pipewire >/dev/null 2>&1; then
   disabled_dir=/System/State/desktop/enlightenment/disabled-modules
@@ -1193,6 +1408,7 @@ while [ ! -e "${stop_flag}" ]; do
 
   HOME=/Users/auzix \
   XDG_RUNTIME_DIR=/run/user/1000 \
+  DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
   AUZIX_E_MODE="${mode}" \
   AUZIX_X_VT="${vt}" \
   /System/Tools/start-e
@@ -1279,7 +1495,9 @@ start_system_bus() {
   dbus-daemon --system --fork --nopidfile >/System/Logs/lightdm/dbus-system.log 2>&1 || true
 }
 
-"${BB}" mkdir -p /System/Logs/lightdm /System/State/lightdm/cache /run/lightdm /run/user /System/State/display 2>/dev/null || true
+"${BB}" chown root:root / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
+"${BB}" chmod 0755 / /System /System/Settings /System/Compatibility /Programs /Services /System/State /tmp 2>/dev/null || true
+"${BB}" mkdir -p /System/Logs/lightdm /System/State/lightdm/cache /var/lib/lightdm/data/lightdm /run/lightdm /run/user /System/State/display 2>/dev/null || true
 start_system_bus
 
 if "${BB}" ps | "${BB}" grep -E "[/]lightdm( |$)|[l]ightdm-gtk-greeter" >/dev/null 2>&1; then
@@ -1304,8 +1522,8 @@ if [ "${AUZIX_LIGHTDM_AUTOLOGIN:-0}" = "1" ] &&
   "${BB}" cp -f /System/Settings/lightdm/lightdm-autologin.conf.template /System/Settings/lightdm/lightdm.conf 2>/dev/null || true
 fi
 
-"${BB}" chown -R lightdm:lightdm /System/State/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
-"${BB}" chmod 0755 /System/State/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
+"${BB}" chown -R lightdm:lightdm /System/State/lightdm /var/lib/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
+"${BB}" chmod 0755 /System/State/lightdm /var/lib/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
 
 echo "lightdm-stage=starting" >>"${log}"
 exec /System/Compatibility/sbin/lightdm --config /System/Settings/lightdm/lightdm.conf --debug >>"${log}" 2>&1
@@ -1347,6 +1565,24 @@ ensure_dbus_machine_id() {
 ensure_dbus_machine_id
 /System/Tools/prepare-livecd-state
 
+# The seeded Enlightenment profile can contain directories copied from package
+# payloads/root-owned live assets.  Do the ownership normalization while this
+# stage is still root; start-enlightenment-session runs as the desktop user and
+# cannot repair root-owned E config directories later.  If this drifts, E reaches
+# MAIN LOOP and then fails writing e_randr2.cfg.tmp during first display setup.
+"${BB}" chown -R 1000:1000 \
+  /Users/auzix/.cache \
+  /Users/auzix/.config \
+  /Users/auzix/.local \
+  /Users/auzix/.e \
+  /Users/auzix/.elementary 2>/dev/null || true
+"${BB}" chmod -R u+rwX \
+  /Users/auzix/.cache \
+  /Users/auzix/.config \
+  /Users/auzix/.local \
+  /Users/auzix/.e \
+  /Users/auzix/.elementary 2>/dev/null || true
+
 manager="${AUZIX_DISPLAY_MANAGER:-}"
 if [ -z "${manager}" ] && [ -s /System/Settings/display/autostart ]; then
   manager="$("${BB}" head -n 1 /System/Settings/display/autostart 2>/dev/null || true)"
@@ -1372,6 +1608,7 @@ mode="${AUZIX_E_MODE:-x11}"
 vt="${AUZIX_X_VT:-7}"
 "${BB}" rm -f /System/State/display/stop-gui 2>/dev/null || true
 env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${mode} AUZIX_X_VT=${vt}"
+env="${env} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
 "${BB}" openvt -c "${vt}" -s -- "${BB}" su auzix -c "${env} /System/Tools/start-e-supervisor" \
   >/System/Logs/display/openvt.log 2>&1 &
 echo "gui-stage=starting mode=${mode} vt=${vt}"
@@ -1385,6 +1622,9 @@ set -u
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
+
+"${BB}" chown root:root / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
+"${BB}" chmod 0755 / /System /System/Settings /System/Compatibility /Programs /Services /System/State /tmp 2>/dev/null || true
 
 /System/Boot/StartSequence
 
@@ -1581,6 +1821,15 @@ load_virtio_drm() {
     kernel/drivers/gpu/drm/virtio/virtio-gpu.ko
 }
 
+load_vmware_drm() {
+  load_path_best_effort \
+    kernel/drivers/gpu/drm/drm.ko \
+    kernel/drivers/gpu/drm/drm_kms_helper.ko \
+    kernel/drivers/gpu/drm/ttm/ttm.ko \
+    kernel/drivers/gpu/drm/drm_ttm_helper.ko \
+    kernel/drivers/gpu/drm/vmwgfx/vmwgfx.ko
+}
+
 load_intel_hda() {
   load_path_best_effort \
     kernel/drivers/leds/trigger/ledtrig-audio.ko \
@@ -1619,6 +1868,7 @@ for dev in /sys/bus/pci/devices/*; do
         0x1234:0x1111) load_bochs_drm ;;
         0x1b36:0x0100) load_best_effort qxl ;;
         0x1af4:*) load_virtio_drm ;;
+        0x15ad:*) load_vmware_drm ;;
         *) load_bochs_drm; load_best_effort qxl; load_virtio_drm ;;
       esac
       ;;
@@ -1765,28 +2015,89 @@ Name=Other
 Icon=applications-other
 EOF_DIRECTORY
 
+cat > "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -eu
+
+PATH=/System/Compatibility/bin:/Programs/XTerm/current/Commands:/Programs/Terminology/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
+export PATH
+export HOME="${HOME:-/Users/auzix}"
+
+if command -v xterm >/dev/null 2>&1; then
+  exec xterm -T "AUZiX Rescue Terminal" -e /System/Compatibility/bin/sh -lc \
+    'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh'
+fi
+
+exec terminology -e /System/Compatibility/bin/sh -lc \
+  'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh'
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal"
+
+cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-browser" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -eu
+
+PATH=/System/Compatibility/bin:/Programs/Midori/current/Commands:/Programs/NetSurf/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
+export PATH
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Settings/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+
+url="${1:-https://auzietek.com}"
+if command -v midori >/dev/null 2>&1; then
+  exec midori "${url}"
+fi
+if command -v netsurf-gtk >/dev/null 2>&1; then
+  exec netsurf-gtk "${url}"
+fi
+
+exec /System/Compatibility/bin/sh -lc "echo No browser found for ${url}; exec /System/Compatibility/bin/sh"
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-browser"
+
+cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-files" <<'SCRIPT'
+#!/System/Compatibility/bin/sh
+set -eu
+
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+PATH=/System/Compatibility/bin:/Programs/Enlightenment/current/Commands:/Programs/Enlightenment/0.27.1/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
+export PATH
+
+target="${1:-/Users/auzix}"
+if command -v enlightenment_filemanager >/dev/null 2>&1; then
+  exec enlightenment_filemanager "${target}"
+fi
+if command -v enlightenment_open >/dev/null 2>&1; then
+  exec enlightenment_open "${target}"
+fi
+
+exec /System/Tools/launch-rescue-terminal
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-files"
+
 cat > "${AUZIX_ROOT}/System/Tools/start-enlightenment-session" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -u
 
-PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/0.27.1/Commands:/System/Compatibility/usr/bin
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+PATH=/Programs/BusyBox/1.36.1/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/0.27.1/Commands:${PATH:-}
 export PATH
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 export HOME="${HOME:-/Users/auzix}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/usr/local/share:/usr/share}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/usr/local/share:/usr/share}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg:/etc/xdg}"
-export E_PREFIX="${E_PREFIX:-/usr}"
-export E_BIN_DIR="${E_BIN_DIR:-/usr/bin}"
-export E_LIB_DIR="${E_LIB_DIR:-/usr/lib/x86_64-linux-gnu}"
-export E_DATA_DIR="${E_DATA_DIR:-/usr/share/enlightenment}"
+export E_PREFIX="${E_PREFIX:-/System/Compatibility/usr}"
+export E_BIN_DIR="${E_BIN_DIR:-/System/Compatibility/usr/bin}"
+export E_LIB_DIR="${E_LIB_DIR:-/System/Compatibility/usr/lib/x86_64-linux-gnu}"
+export E_DATA_DIR="${E_DATA_DIR:-/System/Compatibility/usr/share/enlightenment}"
 export E_CONF_DIR="${E_CONF_DIR:-/System/Settings/desktop/enlightenment}"
 export E_HOME_DIR="${E_HOME_DIR:-${HOME}/.e/e}"
 export ELEMENTARY_THEME="${ELEMENTARY_THEME:-default}"
@@ -1800,7 +2111,7 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
-export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
+export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
 export E_START="${E_START:-1}"
 export E_MODULE_TUNING="${E_MODULE_TUNING:-vm-safe}"
 export AUZIX_MASK_GL_EVAS="${AUZIX_MASK_GL_EVAS:-1}"
@@ -1848,6 +2159,79 @@ mask_unstable_enlightenment_modules() {
     "${BB}" rm -f "${HOME}/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
   "${BB}" touch /System/State/desktop/enlightenment/vm-safe-modules-applied 2>/dev/null || true
+}
+
+prune_enlightenment_masked_modules() {
+  command -v eet >/dev/null 2>&1 || return 0
+  drop_modules=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation wizard emix everything-apps everything-files wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland "
+  "${BB}" mkdir -p "${XDG_CACHE_HOME:-${HOME}/.cache}" /System/State/desktop/enlightenment 2>/dev/null || true
+
+  for cfg in \
+    "${HOME}/.e/e/config/standard/e.cfg" \
+    "${HOME}/.e/e/config/default/e.cfg" \
+    /System/Compatibility/usr/share/enlightenment/data/config/standard/e.cfg \
+    /System/Compatibility/usr/share/enlightenment/data/config/default/e.cfg \
+    /usr/share/enlightenment/data/config/standard/e.cfg \
+    /usr/share/enlightenment/data/config/default/e.cfg
+  do
+    [ -s "${cfg}" ] || continue
+    txt="${XDG_CACHE_HOME:-${HOME}/.cache}/e-module-prune.$$.$("${BB}" basename "$("${BB}" dirname "${cfg}")").txt"
+    safe="${txt}.safe"
+    new="${txt}.eet"
+    if eet -d "${cfg}" config "${txt}" 2>/dev/null; then
+      "${BB}" awk -v drop="${drop_modules}" '
+        /^        group "E_Config_Module" struct \{/ ||
+        /^                group "E_Config_Gadcon_Client" struct \{/ {
+          in_drop_block = 1
+          skip = 0
+          block = $0 "\n"
+          next
+        }
+        in_drop_block {
+          block = block $0 "\n"
+          if ($0 ~ /value "name" string: "/) {
+            name = $0
+            sub(/^.*value "name" string: "/, "", name)
+            sub(/";.*$/, "", name)
+            if (index(drop, " " name " ") > 0) skip = 1
+          }
+          if ($0 ~ /^[ ]*\}$/) {
+            if (!skip) printf "%s", block
+            in_drop_block = 0
+            block = ""
+          }
+          next
+        }
+        { print }
+      ' "${txt}" > "${safe}" 2>/dev/null || true
+      if [ -s "${safe}" ] &&
+         ! "${BB}" cmp -s "${txt}" "${safe}" 2>/dev/null &&
+         eet -e "${new}" config "${safe}" 0 2>/dev/null; then
+        "${BB}" cp -f "${cfg}" "${cfg}.pre-auzix-module-prune" 2>/dev/null || true
+        "${BB}" cp -f "${new}" "${cfg}" 2>/dev/null || true
+        echo "${cfg}" >> /System/State/desktop/enlightenment/pruned-module-configs 2>/dev/null || true
+      fi
+    fi
+    "${BB}" rm -f "${txt}" "${safe}" "${new}" 2>/dev/null || true
+  done
+}
+
+blast_stale_enlightenment_configs() {
+  [ "${AUZIX_BLAST_STALE_E_CONFIG:-1}" = "1" ] || return 0
+  stamp="$(date +%Y%m%dT%H%M%SZ 2>/dev/null || echo now)"
+  backup="${HOME}/.e/backup/stale-config-blast-${stamp}"
+  "${BB}" mkdir -p "${backup}" /System/State/desktop/enlightenment 2>/dev/null || true
+
+  for profile in default standard; do
+    dir="${HOME}/.e/e/config/${profile}"
+    [ -d "${dir}" ] || continue
+    if "${BB}" grep -R "wizard" "${dir}" >/dev/null 2>&1; then
+      "${BB}" mkdir -p "${backup}/${profile}" 2>/dev/null || true
+      "${BB}" cp -a "${dir}/." "${backup}/${profile}/" 2>/dev/null || true
+      "${BB}" rm -f "${dir}"/*.cfg "${dir}"/*.cfg.* 2>/dev/null || true
+      echo "${dir}" >> /System/State/desktop/enlightenment/blasted-stale-configs 2>/dev/null || true
+    fi
+  done
 }
 
 disable_enlightenment_first_run_wizard() {
@@ -1908,7 +2292,7 @@ normalize_enlightenment_profile() {
     e_txt="${XDG_CACHE_HOME:-${HOME}/.cache}/e.cfg.txt"
     e_new="${XDG_CACHE_HOME:-${HOME}/.cache}/e.cfg.new"
     if eet -d "${profile_dir}/e.cfg" config "${e_txt}" 2>/dev/null; then
-      "${BB}" awk -v drop=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation wizard wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland " '
+      "${BB}" awk -v drop=" battery cpufreq temperature backlight connman bluez5 packagekit geolocation wizard emix everything-apps everything-files wl_buffer wl_desktop_shell wl_drm wl_text_input wl_weekeyboard wl_wl wl_x11 xwayland " '
         /^        group "E_Config_Module" struct \{/ ||
         /^                group "E_Config_Gadcon_Client" struct \{/ {
           in_drop_block = 1
@@ -1949,6 +2333,9 @@ normalize_enlightenment_profile() {
     "${profile_dir}/module.bluez5.cfg" \
     "${profile_dir}/module.packagekit.cfg" \
     "${profile_dir}/module.geolocation.cfg" \
+    "${profile_dir}/module.emix.cfg" \
+    "${profile_dir}/module.everything-apps.cfg" \
+    "${profile_dir}/module.everything-files.cfg" \
     "${profile_dir}/module.wizard.cfg" 2>/dev/null || true
   "${BB}" chown -R "$(id -u 2>/dev/null || echo 1000):$(id -g 2>/dev/null || echo 1000)" \
     "${HOME}/.e" 2>/dev/null || true
@@ -1971,8 +2358,12 @@ normalize_enlightenment_profile() {
 
 mask_evas_gl_engines
 mask_unstable_enlightenment_modules
+blast_stale_enlightenment_configs
+prune_enlightenment_masked_modules
 disable_enlightenment_first_run_wizard
 normalize_enlightenment_profile
+blast_stale_enlightenment_configs
+prune_enlightenment_masked_modules
 disable_enlightenment_first_run_wizard
 
 start_efreet_session() {
@@ -1986,6 +2377,20 @@ start_efreet_session() {
   "${BB}" sleep 1
 }
 
+ensure_dbus_session() {
+  "${BB}" mkdir -p "${XDG_RUNTIME_DIR}" 2>/dev/null || true
+  "${BB}" chown "$(id -u 2>/dev/null || echo 1000):$(id -g 2>/dev/null || echo 1000)" "${XDG_RUNTIME_DIR}" 2>/dev/null || true
+  "${BB}" chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
+  if [ -S "${XDG_RUNTIME_DIR}/bus" ]; then
+    return 0
+  fi
+  if command -v dbus-daemon >/dev/null 2>&1; then
+    dbus-daemon --session --address="${DBUS_SESSION_BUS_ADDRESS}" --fork --nopidfile \
+      >>/System/Logs/display/dbus-session.log 2>&1 || true
+  fi
+}
+
+ensure_dbus_session
 start_efreet_session
 
 if command -v pulseaudio >/dev/null 2>&1 || command -v pipewire >/dev/null 2>&1; then
@@ -2038,7 +2443,8 @@ cat > "${AUZIX_ROOT}/System/Tools/start-e" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -u
 
-PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/Programs/Xorg/current/Commands:/Programs/Xorg/host/Commands:/Programs/EFL/current/Commands:/Programs/EFL/host/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/current/Commands:/Programs/Enlightenment/host/Commands:/Programs/Enlightenment/0.27.1/Commands:/System/Compatibility/usr/bin:/System/Compatibility/bin
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+PATH=/Programs/BusyBox/1.36.1/Commands:/Programs/Xorg/current/Commands:/Programs/Xorg/host/Commands:/Programs/EFL/current/Commands:/Programs/EFL/host/Commands:/Programs/EFL/1.28.1/Commands:/Programs/Enlightenment/current/Commands:/Programs/Enlightenment/host/Commands:/Programs/Enlightenment/0.27.1/Commands:${PATH:-}
 export PATH
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
@@ -2054,7 +2460,7 @@ export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-x11}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/usr/local/share:/usr/share}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/usr/local/share:/usr/share}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg:/etc/xdg}"
 export XORG_RUN_AS_USER_OK="${XORG_RUN_AS_USER_OK:-1}"
 export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/current/Commands}"
@@ -2069,7 +2475,7 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
-export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
+export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
 export LANG="${LANG:-C}"
 export LC_ALL="${LC_ALL:-C}"
 "${BB}" mkdir -p /System/Logs/display /System/State/display /Work/Temp /dev/shm 2>/dev/null || true
@@ -2088,9 +2494,9 @@ if [ "${HOME}" = "/Users/auzix" ]; then
     /Users/auzix/.e/e \
     /Users/auzix/.elementary/config/standard 2>/dev/null || true
   if [ ! -s /Users/auzix/.e/e/config/standard/e.cfg ] &&
-     [ -d /usr/share/enlightenment/data/config/standard ]; then
+     [ -d /System/Compatibility/usr/share/enlightenment/data/config/standard ]; then
     "${BB}" mkdir -p /Users/auzix/.e/e/config
-    "${BB}" cp -a /usr/share/enlightenment/data/config/standard /Users/auzix/.e/e/config/ 2>/dev/null || true
+    "${BB}" cp -a /System/Compatibility/usr/share/enlightenment/data/config/standard /Users/auzix/.e/e/config/ 2>/dev/null || true
   fi
   if [ ! -s /Users/auzix/.e/e/config/profile.cfg ] &&
      command -v eet >/dev/null 2>&1; then
@@ -2406,6 +2812,115 @@ chown_path() {
   done
 }
 
+link_file() {
+  source_path="$1"
+  target_file="$2"
+  [ -e "${source_path}" ] || return 0
+  target_abs="$(target_path "${target_file}")"
+  "${BB}" mkdir -p "$("${BB}" dirname "${target_abs}")" 2>/dev/null || true
+  if [ -e "${target_abs}" ] && [ ! -L "${target_abs}" ]; then
+    "${BB}" mv "${target_abs}" "${target_abs}.before-auzix-finalizer" 2>/dev/null || true
+  fi
+  "${BB}" ln -sfn "${source_path}" "${target_abs}" 2>/dev/null || true
+}
+
+link_tree_files() {
+  source_dir="$1"
+  target_dir="$2"
+  [ -d "${source_dir}" ] || return 0
+  "${BB}" find "${source_dir}" -type f 2>/dev/null | while IFS= read -r source_file; do
+    rel="${source_file#${source_dir}/}"
+    link_file "${source_file}" "${target_dir}/${rel}"
+  done
+}
+
+ensure_busybox_applets() {
+  busybox_bin="$(target_path /Programs/BusyBox/current/Commands/busybox)"
+  [ -x "${busybox_bin}" ] || busybox_bin="$(target_path /Programs/BusyBox/1.36.1/Commands/busybox)"
+  [ -x "${busybox_bin}" ] || return 0
+  mkdir_p /System/Compatibility/bin
+  for applet in \
+    sh ash cat ls pwd whoami id env printenv echo true false test expr \
+    grep egrep fgrep sed awk cut tr sort uniq head tail wc \
+    ps kill killall sleep date uname hostname dmesg \
+    mkdir rmdir touch chmod chown chgrp ln cp mv rm basename dirname readlink realpath \
+    find xargs tar gzip gunzip zcat ar dd stat df du free mount umount sync \
+    less more vi which; do
+    target_abs="$(target_path "/System/Compatibility/bin/${applet}")"
+    if [ ! -e "${target_abs}" ] || [ -L "${target_abs}" ]; then
+      "${BB}" ln -sfn "${busybox_bin}" "${target_abs}" 2>/dev/null || true
+    fi
+  done
+}
+
+refresh_program_surfaces() {
+  programs_root="$(target_path /Programs)"
+  [ -d "${programs_root}" ] || return 0
+
+  mkdir_p \
+    /System/Compatibility/usr/share/applications \
+    /System/Compatibility/usr/share/dbus-1/services \
+    /System/Compatibility/usr/share/dbus-1/system-services \
+    /System/Compatibility/usr/share/dbus-1/system.d \
+    /System/Compatibility/usr/share/glib-2.0/schemas \
+    /System/Compatibility/usr/libexec \
+    /System/Compatibility/usr/lib/x86_64-linux-gnu \
+    /System/Compatibility/lib/x86_64-linux-gnu \
+    /System/Compatibility/usr/bin \
+    /System/Compatibility/bin \
+    /usr/libexec \
+    /usr/bin
+
+  for rootfs in "${programs_root}"/*/current/RootFS; do
+    [ -d "${rootfs}" ] || continue
+
+    link_tree_files "${rootfs}/usr/share/applications" /System/Compatibility/usr/share/applications
+    link_tree_files "${rootfs}/usr/share/dbus-1/services" /System/Compatibility/usr/share/dbus-1/services
+    link_tree_files "${rootfs}/usr/share/dbus-1/system-services" /System/Compatibility/usr/share/dbus-1/system-services
+    link_tree_files "${rootfs}/usr/share/dbus-1/system.d" /System/Compatibility/usr/share/dbus-1/system.d
+    link_tree_files "${rootfs}/usr/share/glib-2.0/schemas" /System/Compatibility/usr/share/glib-2.0/schemas
+    link_tree_files "${rootfs}/usr/libexec" /System/Compatibility/usr/libexec
+    link_tree_files "${rootfs}/usr/libexec" /usr/libexec
+
+    # DBus-activated helpers often execute directly from /usr/libexec and do
+    # not inherit AUZiX command-wrapper library ladders. Keep the conventional
+    # compatibility lib directories pointing at the newest installed package
+    # payloads so services such as Flatpak portals, Pluma, and GTK helpers do
+    # not fail one library at a time.
+    for libdir in "${rootfs}/usr/lib/x86_64-linux-gnu" "${rootfs}/lib/x86_64-linux-gnu"; do
+      [ -d "${libdir}" ] || continue
+      "${BB}" find "${libdir}" -maxdepth 1 -type f -name '*.so*' 2>/dev/null | while IFS= read -r libfile; do
+        base="$("${BB}" basename "${libfile}")"
+        link_file "${libfile}" "/System/Compatibility/usr/lib/x86_64-linux-gnu/${base}"
+        link_file "${libfile}" "/System/Compatibility/lib/x86_64-linux-gnu/${base}"
+      done
+      "${BB}" find "${libdir}" -maxdepth 1 -type l -name '*.so*' 2>/dev/null | while IFS= read -r liblink; do
+        resolved="$("${BB}" readlink -f "${liblink}" 2>/dev/null || true)"
+        [ -n "${resolved}" ] || continue
+        base="$("${BB}" basename "${liblink}")"
+        link_file "${resolved}" "/System/Compatibility/usr/lib/x86_64-linux-gnu/${base}"
+        link_file "${resolved}" "/System/Compatibility/lib/x86_64-linux-gnu/${base}"
+      done
+    done
+  done
+
+  # Debian's libglib2.0-bin exposes /usr/bin/glib-compile-schemas as a symlink
+  # to a binary shipped by libglib2.0-0t64. Preserve that cross-package target
+  # explicitly; otherwise schema compilation appears present but execs as
+  # "not found".
+  for schema_compiler in \
+    "${programs_root}/Libglib200t64/current/RootFS/usr/lib/x86_64-linux-gnu/glib-2.0/glib-compile-schemas" \
+    "${programs_root}/Libglib20Bin/current/RootFS/usr/lib/x86_64-linux-gnu/glib-2.0/glib-compile-schemas" \
+    "${programs_root}/Libglib20Bin/current/RootFS/usr/bin/glib-compile-schemas"; do
+    if [ -x "${schema_compiler}" ]; then
+      link_file "${schema_compiler}" /System/Compatibility/usr/bin/glib-compile-schemas
+      link_file "${schema_compiler}" /usr/bin/glib-compile-schemas
+      "${schema_compiler}" "$(target_path /System/Compatibility/usr/share/glib-2.0/schemas)" >/dev/null 2>&1 || true
+      break
+    fi
+  done
+}
+
 mkdir_p \
   /Users \
   /Users/root \
@@ -2477,6 +2992,9 @@ fi
 if [ -d "$(target_path /System/Compatibility/usr/libexec/sudo)" ]; then
   chown_path 0:0 /System/Compatibility/usr/libexec/sudo
 fi
+
+ensure_busybox_applets
+refresh_program_surfaces
 
 printf 'finalized-installed-root=%s\n' "${TARGET}"
 SCRIPT
@@ -2602,7 +3120,7 @@ if [ -n "${expected_sha}" ] && command -v sha256sum >/dev/null 2>&1; then
 fi
 
 "${BB}" mkdir -p "${target_root}"
-"${BB}" tar -xzf "${package}" -C "${target_root}"
+"${BB}" tar -xzpf "${package}" -C "${target_root}"
 if [ -x "${target_root%/}/System/Tools/finalize-installed-root" ]; then
   "${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"
 fi
@@ -2832,7 +3350,12 @@ elif [ -n "${mke2fs}" ]; then
   "${mke2fs}" -F -t ext4 -L AUZIXROOT "${partition}"
   root_fstype=ext4
 else
-  echo "WARNING: ext4 tooling is unavailable; falling back to non-journaled ext2." >&2
+  if [ "${AUZIX_ALLOW_EXT2_FALLBACK:-0}" != "1" ]; then
+    echo "ext4 tooling is unavailable; refusing normal install." >&2
+    echo "Install E2fsprogs in the live environment first, or set AUZIX_ALLOW_EXT2_FALLBACK=1 for emergency ext2 mode." >&2
+    exit 1
+  fi
+  echo "WARNING: ext4 tooling is unavailable; emergency AUZIX_ALLOW_EXT2_FALLBACK=1 selected, falling back to non-journaled ext2." >&2
   "${BB}" mkfs.ext2 -F -L AUZIXROOT "${partition}"
 fi
 
@@ -2880,6 +3403,24 @@ if [ -s /Work/InstallTarget/System/Settings/packages/installed.json ]; then
   "${BB}" cp /Work/InstallTarget/System/Settings/packages/installed.json \
     /Work/InstallTarget/System/State/install/installed-packages.json 2>/dev/null || true
 fi
+if [ -n "${AUZIX_INSTALL_PLAN:-}" ] && [ -s "${AUZIX_INSTALL_PLAN}" ]; then
+  "${BB}" mkdir -p \
+    /Work/InstallTarget/System/Settings/install \
+    /Work/InstallTarget/System/Settings/packages \
+    /Work/InstallTarget/System/State/install
+  "${BB}" cp "${AUZIX_INSTALL_PLAN}" \
+    /Work/InstallTarget/System/Settings/install/install-plan.json 2>/dev/null || true
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.packages.selected[]? // empty' "${AUZIX_INSTALL_PLAN}" \
+      > /Work/InstallTarget/System/Settings/packages/first-boot-selection.list 2>/dev/null || true
+    jq -c '{format:"auzix-first-boot-package-queue-v1", selected:(.packages.selected // []), source_plan:"/System/Settings/install/install-plan.json"}' \
+      "${AUZIX_INSTALL_PLAN}" \
+      > /Work/InstallTarget/System/Settings/packages/first-boot-queue.json 2>/dev/null || true
+  else
+    echo "jq missing in live root; preserved install plan but did not derive first-boot package queue." \
+      > /Work/InstallTarget/System/State/install/package-queue-warning.txt
+  fi
+fi
 (
   cd /Work/InstallTarget
   find System/PackageDB -maxdepth 1 -type f -name '*.json' -print 2>/dev/null | sort
@@ -2912,11 +3453,18 @@ echo "Next boot argument: auzix.root=${partition}"
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-disk"
+if [ -f "${ROOT_DIR}/scripts/auzix-existing-installer-preflight.sh" ]; then
+  cp "${ROOT_DIR}/scripts/auzix-existing-installer-preflight.sh" \
+    "${AUZIX_ROOT}/System/Tools/auzix-existing-installer-preflight"
+  chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-existing-installer-preflight"
+fi
 
 cat > "${AUZIX_ROOT}/System/Settings/install/live-tools.txt" <<'TXT'
 auzix-install-disk transposes the live strict root to local storage.
 Use --bootloader grub for an experimental BIOS GRUB install when grub-install
 is available inside the live image.
+Use auzix-existing-installer-preflight before destructive disk installs to prove
+the live preflight spine and to sanity-check /Work/InstallTarget after install.
 TXT
 
 cat > "${AUZIX_ROOT}/System/Settings/display/e27-stage.txt" <<'TXT'

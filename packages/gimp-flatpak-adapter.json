@@ -1,0 +1,38 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "GIMP",
+  "package_name": "GIMPFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub GIMP as a normal AUZiX image editor launcher.",
+  "flatpak_ref": "org.gimp.GIMP",
+  "flatpak_command": "gimp",
+  "commands": [
+    {"name": "gimp", "description": "Launch GIMP through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "GIMP",
+    "generic_name": "Image Editor",
+    "comment": "Create and edit images",
+    "icon": "org.gimp.GIMP",
+    "terminal": false,
+    "categories": ["Graphics", "RasterGraphics", "Photography"],
+    "mime_types": [
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/tiff",
+      "image/webp"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/GIMP/current/Commands/gimp --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-graphics-session",
+        "status": "open",
+        "message": "GIMP is Flatpak-managed and expects a working graphical session, fonts, portals, and user Flatpak state."
+      }
+    ]
+  }
+}

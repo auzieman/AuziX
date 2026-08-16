@@ -1,0 +1,137 @@
+{
+  "format": "auzix-os-source-contract-v1",
+  "name": "AUZiX",
+  "version": "alpha",
+  "purpose": "Canonical inherited OS bootstrap, path, archive, permission, and lifecycle contract for AUZiX packages, live media, installers, containers, and validation roots.",
+  "root_contract": {
+    "canonical_roots": {
+      "system": "/System",
+      "programs": "/Programs",
+      "services": "/Services",
+      "stacks": "/Stacks",
+      "work": "/Work",
+      "users": "/Users",
+      "volumes": "/Volumes",
+      "network": "/Network"
+    },
+    "compatibility_roots": {
+      "root": "/System/Compatibility",
+      "usr": "/System/Compatibility/usr",
+      "etc": "/System/Settings",
+      "var": "/System/State",
+      "log": "/System/Logs",
+      "cache": "/System/Cache"
+    },
+    "legacy_alias_policy": {
+      "role": "guard-rail-only",
+      "rule": "AUZiX-authored scripts and package contracts prefer canonical /System paths; classic /usr, /bin, /lib, /etc, and /var aliases exist only for upstream software that hardwires legacy paths.",
+      "allowed_as_fallback": ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/var"],
+      "must_not_be_primary_in": [
+        "boot scripts",
+        "display/session scripts",
+        "installer scripts",
+        "package lifecycle hooks",
+        "AUZiX-native launchers"
+      ]
+    }
+  },
+  "bootstrap_environment": {
+    "source_file": "/System/Settings/auzix-paths.sh",
+    "interactive_shim": "/System/Settings/environment.sh",
+    "inheritance_rule": "Every AUZiX-authored process entrypoint sources /System/Settings/auzix-paths.sh first, then package launchers extend rather than replace it.",
+    "exports": {
+      "PATH": [
+        "/System/Compatibility/bin",
+        "/System/Compatibility/sbin",
+        "/System/Compatibility/usr/bin",
+        "/System/Compatibility/usr/sbin",
+        "/Programs/*/current/Commands",
+        "/Programs/*/*/Commands"
+      ],
+      "LD_LIBRARY_PATH": [
+        "/System/Compatibility/usr/lib/x86_64-linux-gnu",
+        "/System/Compatibility/lib/x86_64-linux-gnu",
+        "/System/Compatibility/lib64",
+        "/System/Libraries"
+      ],
+      "XDG_DATA_DIRS": [
+        "/System/Compatibility/usr/local/share",
+        "/System/Compatibility/usr/share",
+        "/Programs/Enlightenment/host/Resources/share",
+        "/Programs/EFL/host/Resources/share"
+      ],
+      "XDG_CONFIG_DIRS": [
+        "/System/Settings/xdg",
+        "/System/Compatibility/etc/xdg"
+      ],
+      "E_PREFIX": "/System/Compatibility/usr",
+      "E_BIN_DIR": "/System/Compatibility/usr/bin",
+      "E_LIB_DIR": "/System/Compatibility/usr/lib/x86_64-linux-gnu",
+      "E_DATA_DIR": "/System/Compatibility/usr/share/enlightenment",
+      "E_CONF_DIR": "/System/Settings/desktop/enlightenment",
+      "XKB_BINDIR": "/Programs/Xorg/current/Commands",
+      "XKB_CONFIG_ROOT": "/System/Settings/X11/xkb",
+      "XLOCALEDIR": "/System/Compatibility/usr/share/X11/locale",
+      "GCONV_PATH": [
+        "/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv",
+        "/System/Compatibility/lib/x86_64-linux-gnu/gconv"
+      ],
+      "SSL_CERT_DIR": "/etc/ssl/certs",
+      "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+      "CURL_CA_BUNDLE": "$SSL_CERT_FILE",
+      "REQUESTS_CA_BUNDLE": "$SSL_CERT_FILE"
+    }
+  },
+  "package_inheritance": {
+    "runtime_environment": {
+      "rule": "Packages prepend their own Commands, Libraries, resources, schemas, typelibs, and data paths to the bootstrap environment; they do not erase the root environment.",
+      "prepend_examples": {
+        "PATH": ["/Programs/<Package>/current/Commands"],
+        "LD_LIBRARY_PATH": ["/Programs/<Package>/current/Libraries"],
+        "XDG_DATA_DIRS": ["/Programs/<Package>/current/Resources/usr/share"],
+        "GSETTINGS_SCHEMA_DIR": ["/Programs/<Package>/current/Resources/usr/share/glib-2.0/schemas"],
+        "GI_TYPELIB_PATH": ["/Programs/<Package>/current/Libraries/girepository-1.0"]
+      }
+    },
+    "lifecycle": {
+      "pre_install": "Runs before payload extraction for users, groups, target directories, state directories, and compatibility alias preparation.",
+      "post_install": "Runs after payload extraction for cache compilation, schemas, MIME, icons, desktop menu refresh, service state, permissions reconciliation, and validation markers.",
+      "fix": "Idempotent lifecycle reconciliation for already-installed packages; must report drift and avoid destructive changes."
+    },
+    "lua_direction": {
+      "module": "/Programs/AuzixPackageTools/current/Resources/auzix_paths.lua",
+      "reason": "Lua package/install tooling should read this contract and emit shell/bootstrap environment, lifecycle execution plans, and validation probes from the same source instead of duplicating path strings."
+    }
+  },
+  "archive_policy": {
+    "create": {
+      "numeric_owner": true,
+      "preserve_mode": true,
+      "preserve_symlink_targets": true,
+      "normalizing_owner_group_to_root": "forbidden unless AUZIX_PACKAGE_NORMALIZE_OWNERS=1 is explicitly set for a throwaway/dev bridge artifact"
+    },
+    "extract": {
+      "preserve_permissions": true,
+      "root_extract_uses": "tar -p style extraction",
+      "must_preserve": ["uid", "gid", "mode", "setuid", "setgid", "sticky", "symlink_target"]
+    },
+    "metadata": {
+      "sidecar_format": "auzix-package-metadata-tsv-v1",
+      "records": ["path", "type", "mode", "uid", "gid", "user", "group", "flags", "target"]
+    }
+  },
+  "validation": {
+    "root_checks": [
+      "/System/Settings/auzix-paths.sh exists",
+      "/System/Settings/environment.sh sources /System/Settings/auzix-paths.sh",
+      "root and desktop sessions expose non-empty LD_LIBRARY_PATH",
+      "boot/display/installer entrypoints source the bootstrap contract",
+      "package archives have metadata sidecars",
+      "installed packages preserve permissions and ownership"
+    ],
+    "reference_hosts": {
+      "debian_trixie": "vmid132",
+      "auzix_validation": "vmid135"
+    }
+  }
+}

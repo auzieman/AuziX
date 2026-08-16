@@ -1,0 +1,41 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Shotwell",
+  "package_name": "ShotwellFlatpakAdapter",
+  "version": "0.32.17",
+  "description": "Expose Flathub Shotwell as a normal AUZiX photo organizer launcher.",
+  "flatpak_ref": "org.gnome.Shotwell",
+  "flatpak_command": "shotwell",
+  "commands": [
+    {"name": "shotwell", "description": "Launch the Shotwell photo organizer through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Shotwell",
+    "generic_name": "Photo Manager",
+    "comment": "Organize photos and publish them to the web",
+    "icon": "org.gnome.Shotwell",
+    "terminal": false,
+    "categories": ["Graphics", "Photography", "GNOME", "GTK"],
+    "mime_types": [
+      "image/jpeg",
+      "image/png",
+      "image/tiff",
+      "image/bmp",
+      "image/gif",
+      "image/webp",
+      "image/x-canon-cr2",
+      "image/x-nikon-nef"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Shotwell/current/Commands/shotwell --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-document-portal-fuse",
+        "status": "open",
+        "message": "Shotwell launches, but Flatpak document portal integration needs a coherent KernelModules package with fuse.ko loadable."
+      }
+    ]
+  }
+}

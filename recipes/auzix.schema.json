@@ -95,11 +95,37 @@
             "type": "string"
           }
         },
+        "configure": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compile": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "install": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "install_root": {
+          "type": "string",
+          "description": "Staging root used by DESTDIR or the build-system equivalent before AUZiX packaging."
+        },
         "environment": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "receipt_required": {
+          "type": "boolean",
+          "description": "When true, promotion requires recorded configure/build/install command lines, environment, logs, staged manifest, and checksums."
         }
       }
     },
@@ -151,4 +177,3 @@
     }
   }
 }
-

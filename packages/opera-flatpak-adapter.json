@@ -1,0 +1,36 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "Opera",
+  "package_name": "OperaFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub Opera as a normal AUZiX browser launcher.",
+  "flatpak_ref": "com.opera.Opera",
+  "flatpak_command": "opera",
+  "commands": [
+    {"name": "opera", "description": "Launch Opera through AUZiX program paths."}
+  ],
+  "desktop": {
+    "name": "Opera",
+    "generic_name": "Web Browser",
+    "comment": "Browse the web with Opera",
+    "icon": "com.opera.Opera",
+    "terminal": false,
+    "categories": ["Network", "WebBrowser"],
+    "mime_types": [
+      "text/html",
+      "x-scheme-handler/http",
+      "x-scheme-handler/https"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/Opera/current/Commands/opera --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-runtime-session",
+        "status": "open",
+        "message": "Opera payload is managed by Flatpak; AUZiX must provide working user Flatpak state, DBus session, fonts, portals, and /var alias support."
+      }
+    ]
+  }
+}

@@ -80,6 +80,7 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Settings/lightdm" \
   "${AUZIX_ROOT}/System/Settings/pam.d" \
   "${AUZIX_ROOT}/System/State/lightdm/cache" \
+  "${AUZIX_ROOT}/System/State/lib/lightdm/data/lightdm" \
   "${AUZIX_ROOT}/System/Logs/lightdm" \
   "${AUZIX_ROOT}/Services/display-manager" \
   "${AUZIX_ROOT}/Programs/Enlightenment/host/Resources/share/xsessions" \
@@ -155,7 +156,7 @@ greeters-directory=/System/Compatibility/usr/share/xgreeters:/usr/share/xgreeter
 
 [Seat:*]
 user-session=enlightenment-auzix
-session-wrapper=/System/Tools/lightdm-session-wrapper
+session-wrapper=/System/Tools/lightdm-auzix-session
 greeter-session=lightdm-gtk-greeter
 xserver-command=/System/Compatibility/bin/Xorg -config /System/Settings/X11/xorg.conf -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
 EOF
@@ -173,7 +174,7 @@ user-session=enlightenment-auzix
 autologin-user=auzix
 autologin-user-timeout=0
 autologin-session=enlightenment-auzix
-session-wrapper=/System/Tools/lightdm-session-wrapper
+session-wrapper=/System/Tools/lightdm-auzix-session
 greeter-session=lightdm-gtk-greeter
 xserver-command=/System/Compatibility/bin/Xorg -config /System/Settings/X11/xorg.conf -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
 EOF

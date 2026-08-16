@@ -351,14 +351,20 @@ for path in "${installer_paths[@]}"; do
 done
 
 installer_jq="$(resolve_program_current_path "/Programs/AuzixPackageTools/current/Commands/jq.real")"
-if [[ -x "${installer_jq}" ]]; then
-  if "${installer_jq}" -e '.format == "auzix-install-plan-v1"' \
+installer_jq_program="$(dirname "$(dirname "${installer_jq}")")"
+installer_jq_loader="${installer_jq_program}/Libraries/ld-linux-x86-64.so.2"
+installer_jq_libs="${installer_jq_program}/Libraries"
+run_installer_jq() {
+  "${installer_jq_loader}" --library-path "${installer_jq_libs}" "${installer_jq}" "$@"
+}
+if [[ -x "${installer_jq}" && -x "${installer_jq_loader}" ]]; then
+  if run_installer_jq -e '.format == "auzix-install-plan-v1"' \
     "${AUZIX_ROOT}/System/Settings/installer/plans/default.json" >/dev/null; then
     pass "default install plan uses auzix-install-plan-v1"
   else
     fail "default install plan format is invalid"
   fi
-  if "${installer_jq}" -e '
+  if run_installer_jq -e '
     .format == "auzix-installer-questions-v1"
     and .plan_format == "auzix-install-plan-v1"
     and any(.questions[]; .id == "target_disk")

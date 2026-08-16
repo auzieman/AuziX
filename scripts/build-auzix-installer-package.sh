@@ -93,11 +93,11 @@ DIALOG_SOURCE="${WORK_DIR}/extract/usr/bin/dialog"
 mkdir -p \
   "${LUA_PROGRAM}/Commands" "${LUA_PROGRAM}/Libraries" \
   "${DIALOG_PROGRAM}/Commands" "${DIALOG_PROGRAM}/Libraries" \
-  "${INSTALLER_PROGRAM}/Commands" "${INSTALLER_PROGRAM}/Frontends" "${INSTALLER_PROGRAM}/Resources/plans" \
+  "${INSTALLER_PROGRAM}/Commands" "${INSTALLER_PROGRAM}/Frontends" "${INSTALLER_PROGRAM}/Resources/plans" "${INSTALLER_PROGRAM}/Resources/theme" \
   "${RUNTIME_LIB}" "${RUNTIME_LIB64}" \
   "${AUZIX_ROOT}/System/Compatibility/bin" "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
   "${AUZIX_ROOT}/System/Compatibility/usr/share/applications" \
-  "${AUZIX_ROOT}/System/Settings/installer/plans" "${AUZIX_ROOT}/System/State/installer" \
+  "${AUZIX_ROOT}/System/Settings/installer/plans" "${AUZIX_ROOT}/System/Settings/installer/theme" "${AUZIX_ROOT}/System/State/installer" \
   "${AUZIX_ROOT}/System/PackageDB" "${AUZIX_ROOT}/System/Tools"
 
 install -m 0755 "${LUA_SOURCE}" "${LUA_PROGRAM}/Commands/lua.real"
@@ -114,6 +114,7 @@ install -m 0755 "${DIALOG_SOURCE}" "${DIALOG_PROGRAM}/Commands/dialog.real"
 copy_runtime_deps "${DIALOG_SOURCE}" "${DIALOG_PROGRAM}"
 cat >"${DIALOG_PROGRAM}/Commands/dialog" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
 export TERM="${TERM:-xterm}"
 export LD_LIBRARY_PATH="/Programs/Dialog/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 exec /Programs/Dialog/current/Commands/dialog.real "$@"
@@ -124,10 +125,29 @@ install -m 0644 "${ROOT_DIR}/installer/auzix-installer.lua" "${INSTALLER_PROGRAM
 install -m 0644 "${ROOT_DIR}/installer/auzix-package-setup.lua" "${INSTALLER_PROGRAM}/Resources/auzix-package-setup.lua"
 install -m 0644 "${ROOT_DIR}/installer/install-plan.schema.json" "${INSTALLER_PROGRAM}/Resources/install-plan.schema.json"
 install -m 0644 "${ROOT_DIR}/installer/questions.json" "${INSTALLER_PROGRAM}/Resources/questions.json"
-install -m 0644 "${ROOT_DIR}/installer/plans/default.json" "${INSTALLER_PROGRAM}/Resources/plans/default.json"
+for plan in "${ROOT_DIR}"/installer/plans/*.json; do
+  install -m 0644 "${plan}" "${INSTALLER_PROGRAM}/Resources/plans/$(basename "${plan}")"
+done
 install -m 0644 "${ROOT_DIR}/installer/install-plan.schema.json" "${AUZIX_ROOT}/System/Settings/installer/install-plan.schema.json"
 install -m 0644 "${ROOT_DIR}/installer/questions.json" "${AUZIX_ROOT}/System/Settings/installer/questions.json"
-install -m 0644 "${ROOT_DIR}/installer/plans/default.json" "${AUZIX_ROOT}/System/Settings/installer/plans/default.json"
+for plan in "${ROOT_DIR}"/installer/plans/*.json; do
+  install -m 0644 "${plan}" "${AUZIX_ROOT}/System/Settings/installer/plans/$(basename "${plan}")"
+done
+if [[ -d "${ROOT_DIR}/installer/theme" ]]; then
+  find "${ROOT_DIR}/installer/theme" -maxdepth 2 -type f | while IFS= read -r theme_file; do
+    rel="${theme_file#"${ROOT_DIR}/installer/theme/"}"
+    case "${rel}" in
+      assets/*)
+        install -D -m 0644 "${theme_file}" "${INSTALLER_PROGRAM}/Resources/theme/$(basename "${theme_file}")"
+        install -D -m 0644 "${theme_file}" "${AUZIX_ROOT}/System/Settings/installer/theme/$(basename "${theme_file}")"
+        ;;
+      *)
+        install -D -m 0644 "${theme_file}" "${INSTALLER_PROGRAM}/Resources/theme/${rel}"
+        install -D -m 0644 "${theme_file}" "${AUZIX_ROOT}/System/Settings/installer/theme/${rel}"
+        ;;
+    esac
+  done
+fi
 
 cat >"${INSTALLER_PROGRAM}/Commands/auzix-installer" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
@@ -151,15 +171,44 @@ cat >"${INSTALLER_PROGRAM}/Commands/auzix-installer-gui" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -eu
 
-for frontend in \
-  /Programs/AuzixInstaller/current/Frontends/efl \
-  /Programs/AuzixInstaller/current/Frontends/gtk; do
-  if [ -x "${frontend}" ]; then
-    exec "${frontend}" \
-      --questions /System/Settings/installer/questions.json \
-      --schema /System/Settings/installer/install-plan.schema.json "$@"
-  fi
-done
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+
+case "${AUZIX_INSTALLER_FRONTEND:-safe}" in
+  efl)
+    frontend=/Programs/AuzixInstaller/current/Frontends/efl
+    if [ -x "${frontend}" ]; then
+      exec "${frontend}" \
+        --questions /System/Settings/installer/questions.json \
+        --schema /System/Settings/installer/install-plan.schema.json "$@"
+    fi
+    echo "Requested EFL installer frontend is not installed; falling back to TUI." >&2
+    ;;
+  gtk)
+    frontend=/Programs/AuzixInstaller/current/Frontends/gtk
+    if [ -x "${frontend}" ]; then
+      exec "${frontend}" \
+        --questions /System/Settings/installer/questions.json \
+        --schema /System/Settings/installer/install-plan.schema.json "$@"
+    fi
+    echo "Requested GTK installer frontend is not installed; falling back to TUI." >&2
+    ;;
+  auto)
+    for frontend in \
+      /Programs/AuzixInstaller/current/Frontends/efl \
+      /Programs/AuzixInstaller/current/Frontends/gtk; do
+      if [ -x "${frontend}" ]; then
+        exec "${frontend}" \
+          --questions /System/Settings/installer/questions.json \
+          --schema /System/Settings/installer/install-plan.schema.json "$@"
+      fi
+    done
+    ;;
+  safe|tui|"")
+    ;;
+  *)
+    echo "Unknown AUZIX_INSTALLER_FRONTEND=${AUZIX_INSTALLER_FRONTEND}; falling back to TUI." >&2
+    ;;
+esac
 
 echo "No graphical installer frontend is installed; starting the dialog frontend." >&2
 exec /Programs/AuzixInstaller/current/Commands/auzix-installer tui "$@"
@@ -170,8 +219,14 @@ cat >"${INSTALLER_PROGRAM}/Commands/launch-auzix-installer" <<'SCRIPT'
 #!/System/Compatibility/bin/sh
 set -eu
 
-PATH=/System/Compatibility/bin:/Programs/BusyBox/current/Commands:/Programs/Terminology/current/Commands:/Programs/XTerm/current/Commands:/Programs/AuzixInstaller/current/Commands:/System/Compatibility/usr/bin:/usr/bin:/bin
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+PATH=/Programs/BusyBox/current/Commands:/Programs/XTerm/current/Commands:/Programs/Terminology/current/Commands:/Programs/AuzixInstaller/current/Commands:${PATH:-}
 export PATH
+export AUZIX_INSTALLER_FRONTEND="${AUZIX_INSTALLER_FRONTEND:-auto}"
+export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
+export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
+export ELM_ACCEL="${ELM_ACCEL:-none}"
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 
 if [ "${1:-}" = "--autostart" ]; then
   shift
@@ -183,11 +238,14 @@ mkdir -p "${log_dir}" 2>/dev/null || true
 log_file="${log_dir}/installer-launch.log"
 
 if [ -n "${DISPLAY:-}" ]; then
-  if command -v terminology >/dev/null 2>&1; then
-    exec terminology -e /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
+  if [ -x /Programs/AuzixInstaller/current/Frontends/efl ]; then
+    exec /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
   fi
   if command -v xterm >/dev/null 2>&1; then
     exec xterm -T "Install AuziX" -e /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
+  fi
+  if command -v terminology >/dev/null 2>&1; then
+    exec terminology -e /System/Tools/auzix-installer-gui "$@" >>"${log_file}" 2>&1
   fi
 fi
 
@@ -275,6 +333,11 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixInstaller-${INSTALLER_VERSION}.auzix.j
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/launch-auzix-installer",
     "/Programs/AuzixInstaller/${INSTALLER_VERSION}/Commands/auzix-package-setup"
   ],
+  "theme": {
+    "settings": "/System/Settings/installer/theme/installer-theme.json",
+    "mark": "/System/Settings/installer/theme/mark-shield-swords.png",
+    "fallback": "Text-only dark theme when artwork is absent"
+  },
   "compatibility_exports": [
     "/System/Tools/auzix-installer",
     "/System/Tools/auzix-installer-gui",

@@ -22,11 +22,19 @@
           "notes": "Packages Lua, dialog, the JSON plan engine, and graphical frontend dispatch."
         },
         {
+          "id": "Udev",
+          "tier": "runtime",
+          "state": "ready",
+          "script": "scripts/build-auzix-udev-package.sh",
+          "depends": [],
+          "notes": "Device discovery substrate for Xorg/libinput auto-probe before any graphical session starts."
+        },
+        {
           "id": "Xorg",
           "tier": "runtime",
           "state": "ready",
           "script": "scripts/build-auzix-host-xorg-package.sh",
-          "depends": [],
+          "depends": ["Udev"],
           "notes": "Current VM-safe display path for the installer and Enlightenment session."
         },
         {
@@ -74,18 +82,18 @@
         {
           "id": "AuzixInstallerEfl",
           "tier": "frontend",
-          "state": "first-pass",
+          "state": "needs-revalidation",
           "depends": ["AuzixInstaller", "Enlightenment"],
           "script": "scripts/build-auzix-installer-efl-package.sh",
-          "notes": "Preferred native Enlightenment frontend. First pass emits an unconfirmed guarded plan through the existing installer contract."
+          "notes": "Preferred native Enlightenment frontend after validation, but not the default netboot path yet. Demo follow-up found EFL frontends can regress when package permissions, EFL data paths, DBus/session state, or efreet caches drift. Must launch visibly from a fresh installed user session and emit an unconfirmed guarded plan before promotion."
         },
         {
           "id": "AuzixPackageManagerEfl",
           "tier": "frontend",
-          "state": "first-pass",
+          "state": "needs-revalidation",
           "depends": ["AuzixPackageTools", "Enlightenment"],
           "script": "scripts/build-auzix-package-manager-efl-package.sh",
-          "notes": "Thin native EFL frontend for refresh, available-package queries, and auzix-pkg install transactions."
+          "notes": "Thin native EFL frontend for refresh, available-package queries, and auzix-pkg install transactions. Gate behind CLI auzix-pkg success plus visible EFL launch, correct user-owned cache/config writes, and no duplicate or dead menu entries."
         }
       ]
     }

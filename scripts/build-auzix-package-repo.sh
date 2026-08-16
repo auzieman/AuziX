@@ -10,6 +10,7 @@ PREVIOUS_INDEX="${REPO_DIR}/index.json"
 PREVIOUS_PACKAGE_DIR="${REPO_DIR}/packages"
 MANIFEST_DIR="${AUZIX_ROOT}/System/Settings/packages"
 STACK_DIR="${AUZIX_ROOT}/Stacks/desktop-core"
+NORMALIZE_OWNERS="${AUZIX_PACKAGE_NORMALIZE_OWNERS:-0}"
 
 log() {
   printf '[auzix-repo] %s\n' "$*" >&2
@@ -62,7 +63,7 @@ receipt_paths() {
 
 package_receipt() {
   local receipt="$1"
-  local name version package_name package_path tmp_list rel_path size sha
+  local name version package_name package_path tmp_list rel_path size sha normalized_owners_json metadata_path
 
   name="$(jq -r '.name // empty' "${receipt}")"
   version="$(jq -r '.version // "unknown"' "${receipt}")"
@@ -73,6 +74,7 @@ package_receipt() {
 
   package_name="$(safe_name "${name}-${version}").auzix.tar.gz"
   package_path="${PACKAGE_DIR}/${package_name}"
+  metadata_path="${package_path%.tar.gz}.metadata.tsv"
   tmp_list="$(mktemp)"
 
   rel_path="${receipt#${AUZIX_ROOT}/}"
@@ -106,15 +108,53 @@ package_receipt() {
     return 0
   fi
 
-  tar \
-    --directory "${AUZIX_ROOT}" \
-    --sort=name \
-    --mtime='UTC 2026-01-01' \
-    --owner=0 \
-    --group=0 \
-    --numeric-owner \
-    -czf "${package_path}" \
-    --files-from "${tmp_list}"
+  log "Packaging ${name}-${version} -> ${package_name}"
+
+  {
+    printf 'path\ttype\tmode\tuid\tgid\tuser\tgroup\tflags\ttarget\n'
+    while IFS= read -r rel_path; do
+      full_path="${AUZIX_ROOT}/${rel_path}"
+      [[ -e "${full_path}" || -L "${full_path}" ]] || continue
+      type="$(stat -c '%F' "${full_path}")"
+      mode="$(stat -c '%a' "${full_path}")"
+      uid="$(stat -c '%u' "${full_path}")"
+      gid="$(stat -c '%g' "${full_path}")"
+      user="$(stat -c '%U' "${full_path}")"
+      group="$(stat -c '%G' "${full_path}")"
+      flags=()
+      if [[ "${mode}" =~ ^[4567] ]]; then
+        case "${mode:0:1}" in
+          4) flags+=(setuid) ;;
+          5) flags+=(setuid sticky) ;;
+          6) flags+=(setuid setgid) ;;
+          7) flags+=(setuid setgid sticky) ;;
+        esac
+      fi
+      target=""
+      if [[ -L "${full_path}" ]]; then
+        target="$(readlink "${full_path}")"
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "/${rel_path}" "${type}" "${mode}" "${uid}" "${gid}" "${user}" "${group}" \
+        "$(IFS=,; printf '%s' "${flags[*]:-}")" "${target}"
+    done <"${tmp_list}"
+  } >"${metadata_path}"
+
+  tar_args=(
+    --directory "${AUZIX_ROOT}"
+    --sort=name
+    --mtime='UTC 2026-01-01'
+    --numeric-owner
+  )
+  if [[ "${NORMALIZE_OWNERS}" == "1" ]]; then
+    log "WARNING: normalizing owners for ${name}-${version}; package ownership semantics will be lost unless permissions metadata restores them"
+    tar_args+=(--owner=0 --group=0)
+    normalized_owners_json=true
+  else
+    normalized_owners_json=false
+  fi
+
+  tar "${tar_args[@]}" -czf "${package_path}" --files-from "${tmp_list}"
 
   size="$(stat -c '%s' "${package_path}")"
   sha="$(sha256sum "${package_path}" | awk '{print $1}')"
@@ -126,6 +166,7 @@ package_receipt() {
     --arg package "${package_name}" \
     --arg sha256 "${sha}" \
     --argjson size "${size}" \
+    --argjson normalized_owners "${normalized_owners_json}" \
     --arg receipt_path "/${receipt#${AUZIX_ROOT}/}" \
     --slurpfile receipt_json "${receipt}" \
     '{
@@ -149,6 +190,15 @@ package_receipt() {
       runtime_ladder: ($receipt_json[0].runtime_ladder // null),
       runtime_environment: ($receipt_json[0].runtime_environment // null),
       permissions: ($receipt_json[0].permissions // null),
+      archive_policy: {
+        numeric_owner: true,
+        normalized_owners: $normalized_owners
+      },
+      metadata: {
+        path: ($package | sub("\\.tar\\.gz$"; ".metadata.tsv")),
+        format: "auzix-package-metadata-tsv-v1",
+        preserves: ["mode", "uid", "gid", "setuid", "setgid", "sticky", "symlink_target"]
+      },
       validation: ($receipt_json[0].validation // null),
       source: ($receipt_json[0].source // {})
     }'

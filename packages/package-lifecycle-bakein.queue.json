@@ -1,0 +1,101 @@
+{
+  "format": "auzix-package-lifecycle-bakein-queue-v1",
+  "purpose": "Promote proven lifecycle fragments into AUZiX package metadata and rebuild or repackage the affected packages.",
+  "policy": {
+    "do_not_reconfigure_world": true,
+    "prefer_source_build_over_repackage": true,
+    "treat_binary_repack_as_bridge_only": true,
+    "treat_package_as_build_install_receipt_plus_payload_plus_metadata": true,
+    "use_debian_evidence_first": true,
+    "require_configure_build_install_receipt": true,
+    "require_idempotent_hooks": true,
+    "require_validation_probe": true,
+    "write_receipts": true
+  },
+  "inputs": [
+    "packages/lifecycle-fragments/desktop-session.stack.json",
+    "out/package-slices/*/auzix-fragments/*.json",
+    "packages/auzix-pkg-lifecycle.contract.md"
+  ],
+  "outputs": [
+    "/Programs/<Package>/<Version>/Package/lifecycle.json",
+    "/System/PackageDB/<Package>-<Version>.auzix.json",
+    "out/pipeline-receipts/package-lifecycle-bakein/*.json"
+  ],
+  "tracks": [
+    {
+      "id": "repackage",
+      "when": "Temporary bridge/rescue only, or the source-build receipt already proves this exact payload was produced by the correct configure/build/install contract.",
+      "steps": [
+        "load existing package artifact",
+        "mark migration stage as bridge/staging unless a matching source-build receipt exists",
+        "preserve payload tgz unless validation proves payload defect",
+        "merge lifecycle.json from promoted fragments",
+        "apply AUZiX path/export matrix",
+        "add or update command wrappers and desktop entries",
+        "add validation probes and receipt expectations",
+        "refresh package index",
+        "run install plus setup validation in AUZiX validation host"
+      ]
+    },
+    {
+      "id": "rebuild",
+      "when": "The binary payload has incorrect paths, missing linked libraries, wrong compile-time assumptions, or non-portable hardwired paths.",
+      "steps": [
+        "inspect Debian source contract",
+        "extract configure/build/install arguments",
+        "run the native Debian build once as a guidebook when needed",
+        "apply AUZiX path policy before build output is packaged",
+        "run configure/cmake/meson with AUZiX prefix, sysconfdir, localstatedir, libdir, bindir, and pkg-config values",
+        "run make/ninja build",
+        "run make/ninja install into a staging root with DESTDIR or the build-system equivalent",
+        "record configure/build/install command lines, environment, logs, staged file manifest, and checksums",
+        "build dependencies in dependency order",
+        "run strings, ldd, stat, command smoke, and lifecycle setup probes",
+        "publish only if validation passes"
+      ]
+    }
+  ],
+  "initial_candidates": [
+    {
+      "package": "Dbus",
+      "track": "repackage",
+      "reason": "Desktop stack needs authoritative system/session bus lifecycle setup and status probes."
+    },
+    {
+      "package": "Polkit",
+      "track": "repackage",
+      "reason": "Flatpak, LightDM, and privileged desktop tools need policies and daemon readiness."
+    },
+    {
+      "package": "LightDM",
+      "track": "repackage",
+      "reason": "Greeter, PAM, X11 session, input-device groups, and session handoff need repeatable setup."
+    },
+    {
+      "package": "EFL",
+      "track": "repackage",
+      "reason": "Efreet, icons, MIME, desktop database, and cache refresh hooks explain many menu/launcher regressions."
+    },
+    {
+      "package": "Enlightenment",
+      "track": "repackage",
+      "reason": "Session wrapper, XDG path export, theme/menu cache, and validation probes need to live with the package."
+    },
+    {
+      "package": "Flatpak",
+      "track": "repackage",
+      "reason": "System helper, portals, remotes, dbus, polkit, and /var compatibility assumptions must be explicit."
+    },
+    {
+      "package": "LibreOffice",
+      "track": "rebuild",
+      "reason": "CLI tools work partially, but Impress/Draw/library and launcher failures suggest payload and wrapper validation still need a clean source-contract pass."
+    },
+    {
+      "package": "Midori",
+      "track": "rebuild",
+      "reason": "Runtime crashes, CA/font drift, and sandbox warnings need source and runtime lifecycle evidence before another blind package pass."
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# AUZiX vmid135 clean workstation hydration profile.
+#
+# Purpose:
+#   Recreate the useful Sunday/r4 workstation state from packages after the
+#   installed root reaches SSH, while preserving Debian package semantics with
+#   AUZiX paths.
+#
+# Rules:
+#   - Install in tiers.
+#   - Preflight ext4 tooling before future partition/format actions.
+#   - Apply package hooks/generated-state triggers after packages land.
+#   - Do not publish broad launchers before their front-door probes pass.
+#   - Keep native Debian/glibc-dependent tools out of the early live lane
+#     until the loader/compatibility aliases are proven for the current boot.
+
+[installer-preflight]
+E2fsprogs
+Dosfstools
+UtilLinux
+Parted
+
+[base-runtime]
+AuzixServiceRuntime
+Udev
+DBus
+DBUSX11
+DBusUserSession
+
+[desktop-session]
+Xorg
+Enlightenment
+LibefreetBin
+Terminology
+XTerm
+LightDM
+
+[desktop-generated-state]
+SharedMimeInfo
+DesktopFileUtils
+Libglib20Bin
+GTKUpdateIconCache
+AuzixDesktopIntegration
+
+[diagnostics-post-spine]
+File
+Strace
+
+[container-host]
+ContainersCommon
+Conmon
+Crun
+Netavark
+AardvarkDNS
+Podman
+
+[office-proof]
+LibreOfficeCommon
+LibreOfficeCore
+LibreOfficeWriter
+LibreOfficeCalc
+LibreOfficeImpress
+LibreOfficeDraw
+AbiWord
+Gnumeric
+Pluma
+Galculator
+# L3afpad is intentionally excluded from the VM135 demo/workstation profile.
+# It repeatedly spawned/died through the current package recursion/launcher
+# path and should not be reintroduced until its package validation is fixed.

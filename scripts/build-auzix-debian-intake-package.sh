@@ -88,18 +88,38 @@ debian_package_has_candidate() {
     awk '/Candidate:/ { if ($2 != "(none)") found = 1 } END { exit found ? 0 : 1 }'
 }
 
+auzix_dependency_alternative_score() {
+  local package="$1"
+  case "${package}" in
+    opensysusers|systemd-standalone-sysusers|systemd-standalone-tmpfiles)
+      printf '0\n'
+      ;;
+    systemd)
+      printf '90\n'
+      ;;
+    *)
+      printf '10\n'
+      ;;
+  esac
+}
+
 debian_depends_to_package_lines() {
   local depends_text="$1"
-  local dep alternative clean selected
+  local dep alternative clean selected selected_score score
   tr ',' '\n' <<<"${depends_text}" |
     while IFS= read -r dep; do
       selected=""
+      selected_score=999
       while IFS= read -r alternative; do
         clean="$(clean_debian_dep_atom <<<"${alternative}")"
         [[ "${clean}" =~ ^[a-z0-9][a-z0-9+_.-]*$ ]] || continue
         if debian_package_has_candidate "${clean}"; then
-          selected="${clean}"
-          break
+          score="$(auzix_dependency_alternative_score "${clean}")"
+          if [[ "${score}" -lt "${selected_score}" ]]; then
+            selected="${clean}"
+            selected_score="${score}"
+          fi
+          continue
         fi
         [[ -n "${selected}" ]] || selected="${clean}"
       done < <(tr '|' '\n' <<<"${dep}")
@@ -314,9 +334,12 @@ done
 
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}/debs" "${WORK_DIR}/extract"
+chmod 0755 "${ROOT_DIR}/out" "${ROOT_DIR}/out/auzix-packages" \
+  "${ROOT_DIR}/out/auzix-packages/trixie" "${WORK_DIR}" "${WORK_DIR}/debs" \
+  "${WORK_DIR}/extract" 2>/dev/null || true
 (
   cd "${WORK_DIR}/debs"
-  apt-get download "${DEBIAN_PACKAGE}" >/dev/null
+  apt-get -o APT::Sandbox::User=root download "${DEBIAN_PACKAGE}" >/dev/null
 )
 
 deb_path="$(find "${WORK_DIR}/debs" -maxdepth 1 -type f -name '*.deb' -print -quit)"
@@ -355,6 +378,26 @@ if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" 
 fi
 native_depends_words="$(native_installed_depends_closure_words "${native_depends_words}" "${AUZIX_ROOT}/System/PackageDB")"
 native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+validation_library_paths_json="$(
+  {
+    printf '/Programs/%s/%s/RootFS/usr/lib/x86_64-linux-gnu\n' "${native_name:-UNKNOWN}" "${safe_version:-UNKNOWN}"
+    printf '/Programs/%s/%s/RootFS/usr/lib\n' "${native_name:-UNKNOWN}" "${safe_version:-UNKNOWN}"
+    printf '/Programs/%s/%s/RootFS/lib/x86_64-linux-gnu\n' "${native_name:-UNKNOWN}" "${safe_version:-UNKNOWN}"
+    printf '/Programs/%s/%s/RootFS/lib\n' "${native_name:-UNKNOWN}" "${safe_version:-UNKNOWN}"
+    tr ' ' '\n' <<<"${native_depends_words}" |
+      while IFS= read -r runtime_package; do
+        [[ -n "${runtime_package}" ]] || continue
+        printf '/Programs/%s/current/RootFS/usr/lib/x86_64-linux-gnu\n' "${runtime_package}"
+        printf '/Programs/%s/current/RootFS/usr/lib\n' "${runtime_package}"
+        printf '/Programs/%s/current/RootFS/lib/x86_64-linux-gnu\n' "${runtime_package}"
+        printf '/Programs/%s/current/RootFS/lib\n' "${runtime_package}"
+      done
+    printf '/System/Compatibility/usr/lib/x86_64-linux-gnu\n'
+    printf '/System/Compatibility/lib/x86_64-linux-gnu\n'
+    printf '/System/Compatibility/lib64\n'
+    printf '/System/Libraries\n'
+  } | awk '!seen[$0]++' | jq -R -s 'split("\n") | map(select(length > 0))'
+)"
 program_root="${AUZIX_ROOT}/Programs/${native_name}/${safe_version}"
 receipt_path="${AUZIX_ROOT}/System/PackageDB/${native_name}-${safe_version}.auzix.json"
 legacy_program_root="${AUZIX_ROOT}/Programs/DebianPackages/${package_name}/${safe_version}"
@@ -377,10 +420,16 @@ if [[ "${AUZIX_TRIXIE_OVERWRITE_NATIVE:-0}" != "1" ]]; then
 fi
 
 dpkg-deb -x "${deb_path}" "${WORK_DIR}/extract"
+rm -rf "${WORK_DIR}/control"
+mkdir -p "${WORK_DIR}/control"
+dpkg-deb -e "${deb_path}" "${WORK_DIR}/control" 2>/dev/null || true
 rm -rf "${program_root}" "${legacy_program_root}"
 rm -f "${receipt_path}" "${legacy_receipt_path}"
 mkdir -p "${program_root}/RootFS" "${program_root}/Metadata" "${program_root}/Commands"
 rsync -a "${WORK_DIR}/extract/" "${program_root}/RootFS/"
+if [[ -d "${WORK_DIR}/control" ]]; then
+  rsync -a "${WORK_DIR}/control/" "${program_root}/Metadata/debian-control-dir/"
+fi
 rewrite_common_payload_paths "${program_root}/RootFS"
 if [[ "${native_name}" == LibreOffice* ]]; then
   rm -rf "${program_root}/RootFS/etc/apparmor.d"
@@ -416,6 +465,62 @@ if [[ "${native_name}" == LibreOffice* ]]; then
   done < <(find "${program_root}/RootFS" -type l -print)
 fi
 dpkg-deb -f "${deb_path}" >"${program_root}/Metadata/debian-control.txt"
+dpkg-deb -c "${deb_path}" |
+  awk '
+    {
+      path = $NF
+      sub(/^\.\//, "", path)
+      if (path != "." && path != "") print "/" path
+    }
+  ' | sort -u >"${program_root}/Metadata/debian-payload.list"
+if [[ -s "${program_root}/Metadata/debian-control-dir/md5sums" ]]; then
+  cp -f "${program_root}/Metadata/debian-control-dir/md5sums" \
+    "${program_root}/Metadata/debian-payload.md5sums"
+else
+  : >"${program_root}/Metadata/debian-payload.md5sums"
+fi
+maintainer_surfaces_json="$(
+  if [[ -d "${program_root}/Metadata/debian-control-dir" ]]; then
+    find "${program_root}/Metadata/debian-control-dir" -maxdepth 1 -type f \
+      \( -name 'preinst' -o -name 'postinst' -o -name 'prerm' -o -name 'postrm' \
+        -o -name 'triggers' -o -name 'conffiles' -o -name 'config' -o -name 'templates' \) \
+      -printf '%f\n' |
+      awk -v native_name="${native_name}" -v safe_version="${safe_version}" \
+        '{ printf "/Programs/%s/%s/Metadata/debian-control-dir/%s\n", native_name, safe_version, $0 }' |
+      sort | jq -R -s 'split("\n") | map(select(length > 0))'
+  else
+    jq -n '[]'
+  fi
+)"
+debian_payload_manifest_json="$(
+  jq -Rn '
+    [inputs | select(length > 0) |
+      {
+        debian_path: .,
+        auzix_payload_path: ("RootFS" + .),
+        owner_source: "debian archive data.tar / dpkg -L equivalent"
+      }]
+  ' <"${program_root}/Metadata/debian-payload.list"
+)"
+debian_md5sums_json="$(
+  awk '
+    NF >= 2 {
+      checksum = $1
+      $1 = ""
+      sub(/^[[:space:]]+/, "")
+      print checksum "\t/" $0
+    }
+  ' "${program_root}/Metadata/debian-payload.md5sums" |
+    jq -Rn '
+      [inputs | select(length > 0) |
+        split("\t") |
+        {
+          md5: .[0],
+          debian_path: .[1],
+          auzix_payload_path: ("RootFS" + .[1])
+        }]
+    '
+)"
 ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
 commands_json='[]'
@@ -435,8 +540,8 @@ prefix="/Programs/${native_name}/current"
 rootfs="\${prefix}/RootFS"
 common="/Programs/LibreOfficeCommon/current/RootFS"
 core="/Programs/LibreOfficeCore/current/RootFS"
-state="/System/State/libreoffice"
-settings="/System/Settings/libreoffice"
+state="\${XDG_CACHE_HOME:-\${HOME:-/Users/root}/.cache}/auzix-libreoffice"
+settings="\${XDG_CONFIG_HOME:-\${HOME:-/Users/root}/.config}/auzix-libreoffice-settings"
 program="\${state}/program"
 share="\${state}/share"
 presets="\${state}/presets"
@@ -450,7 +555,10 @@ lo_settings_roots="\${common}/etc/libreoffice \${rootfs}/etc/libreoffice"
 for runtime_package in \${runtime_packages}; do
   runtime_root="/Programs/\${runtime_package}/current/RootFS"
   [ -d "\${runtime_root}" ] || continue
-  runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
+  [ -d "\${runtime_root}/usr/lib/x86_64-linux-gnu" ] && runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu"
+  [ -d "\${runtime_root}/lib/x86_64-linux-gnu" ] && runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/lib/x86_64-linux-gnu"
+  [ -d "\${runtime_root}/usr/lib" ] && runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib"
+  [ -d "\${runtime_root}/lib" ] && runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/lib"
   [ -d "\${runtime_root}/usr/share/fonts" ] && font_dirs="\${font_dirs} \${runtime_root}/usr/share/fonts"
   [ -d "\${runtime_root}/usr/lib/libreoffice/share" ] && lo_share_roots="\${lo_share_roots} \${runtime_root}/usr/lib/libreoffice/share"
   [ -d "\${runtime_root}/usr/share/libreoffice" ] && lo_share_roots="\${lo_share_roots} \${runtime_root}/usr/share/libreoffice"
@@ -480,6 +588,14 @@ for source_dir in \\
     fi
   done
 done
+if [ -e "\${program}/fundamentalrc" ]; then
+  if [ -L "\${program}/fundamentalrc" ]; then
+    fundamental_source="\$("${BB}" readlink "\${program}/fundamentalrc")"
+    "\${BB}" rm -f "\${program}/fundamentalrc"
+    "\${BB}" cp "\${fundamental_source}" "\${program}/fundamentalrc"
+  fi
+  "\${BB}" sed -i 's#^BRAND_BASE_DIR=.*#BRAND_BASE_DIR=\${ORIGIN}/..#' "\${program}/fundamentalrc"
+fi
 for source_dir in \${lo_share_roots}; do
   [ -d "\${source_dir}" ] || continue
   (cd "\${source_dir}" && "\${BB}" find . -type d -print) | while IFS= read -r rel_dir; do
@@ -532,7 +648,7 @@ export LOGNAME="\${LOGNAME:-\${USER}}"
 export TMPDIR="\${TMPDIR:-/Work/Temp}"
 "\${BB}" mkdir -p "\${HOME}" "\${XDG_CONFIG_HOME}" "\${TMPDIR}" "\${XDG_CONFIG_HOME}/libreoffice/4/user"
 if [ -n "\${font_dirs}" ]; then
-  "\${BB}" mkdir -p /System/Settings/fonts /System/Cache/fontconfig
+  "\${BB}" mkdir -p "\${XDG_CONFIG_HOME}/fontconfig" "\${HOME}/.cache/fontconfig"
   {
     echo '<?xml version="1.0"?>'
     echo '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">'
@@ -540,22 +656,42 @@ if [ -n "\${font_dirs}" ]; then
     for font_dir in \${font_dirs}; do
       echo "  <dir>\${font_dir}</dir>"
     done
-    echo '  <cachedir>/System/Cache/fontconfig</cachedir>'
+    echo "  <cachedir>\${HOME}/.cache/fontconfig</cachedir>"
     echo '</fontconfig>'
-  } >/System/Settings/fonts/fonts.conf
-  export FONTCONFIG_FILE="/System/Settings/fonts/fonts.conf"
-  export FONTCONFIG_PATH="/System/Settings/fonts"
+  } >"\${XDG_CONFIG_HOME}/fontconfig/fonts.conf"
+  export FONTCONFIG_FILE="\${XDG_CONFIG_HOME}/fontconfig/fonts.conf"
+  export FONTCONFIG_PATH="\${XDG_CONFIG_HOME}/fontconfig"
 fi
-export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
+export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
-export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
-runtime_loader="/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
-if [ -x "\${runtime_loader}" ] && [ -x "\${program}/soffice.bin" ]; then
-  exec "\${runtime_loader}" --library-path "\${LD_LIBRARY_PATH}" "\${program}/soffice.bin" ${libreoffice_mode} "\$@"
-fi
-exec "\${program}/soffice" ${libreoffice_mode} "\$@"
+export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+runtime_loader=""
+for candidate_loader in \
+  "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2" \
+  "/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
+  "/Programs/Libc6/current/RootFS/lib64/ld-linux-x86-64.so.2" \
+  "/Programs/Libc6/current/RootFS/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"; do
+  if [ -x "\${candidate_loader}" ]; then
+    runtime_loader="\${candidate_loader}"
+    break
+  fi
+done
+user_installation_arg=""
+case "${libreoffice_mode}" in
+  --impress)
+    user_installation_arg="-env:UserInstallation=file://\${XDG_CONFIG_HOME}/libreoffice-impress"
+    exec "\${program}/simpress" "\${user_installation_arg}" "\$@"
+    ;;
+  --draw)
+    user_installation_arg="-env:UserInstallation=file://\${XDG_CONFIG_HOME}/libreoffice-draw"
+    exec "\${program}/sdraw" "\${user_installation_arg}" "\$@"
+    ;;
+  *)
+    exec "\${program}/soffice" ${libreoffice_mode} "\$@"
+    ;;
+esac
 EOF
   else
     command_loader_tail='if [ -n "${runtime_loader}" ]; then
@@ -577,32 +713,101 @@ runtime_schema_path=""
 runtime_gi_path=""
 runtime_lib_path=""
 runtime_loader=""
+append_existing_path() {
+  variable_name="\$1"
+  candidate_path="\$2"
+  [ -d "\${candidate_path}" ] || return 0
+  eval "current_value=\\\${\${variable_name}:-}"
+  case ":\${current_value}:" in
+    *":\${candidate_path}:"*) return 0 ;;
+  esac
+  if [ -n "\${current_value}" ]; then
+    eval "\${variable_name}=\\\${current_value}:\${candidate_path}"
+  else
+    eval "\${variable_name}=\${candidate_path}"
+  fi
+}
 for runtime_package in \${runtime_packages}; do
   runtime_root="/Programs/\${runtime_package}/current/RootFS"
   [ -d "\${runtime_root}" ] || continue
-  runtime_bin_path="\${runtime_bin_path}:\${runtime_root}/usr/bin:\${runtime_root}/usr/sbin:\${runtime_root}/bin:\${runtime_root}/sbin"
-  runtime_data_path="\${runtime_data_path}:\${runtime_root}/usr/share"
-  runtime_schema_path="\${runtime_schema_path}:\${runtime_root}/usr/share/glib-2.0/schemas"
-  runtime_gi_path="\${runtime_gi_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${runtime_root}/usr/lib/girepository-1.0"
-  runtime_lib_path="\${runtime_lib_path}:\${runtime_root}/usr/lib/x86_64-linux-gnu:\${runtime_root}/usr/lib:\${runtime_root}/lib/x86_64-linux-gnu:\${runtime_root}/lib"
-  if [ -z "\${runtime_loader}" ] && [ -x "\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" ]; then
-    runtime_loader="\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+  append_existing_path runtime_bin_path "\${runtime_root}/usr/bin"
+  append_existing_path runtime_bin_path "\${runtime_root}/usr/sbin"
+  append_existing_path runtime_bin_path "\${runtime_root}/bin"
+  append_existing_path runtime_bin_path "\${runtime_root}/sbin"
+  append_existing_path runtime_data_path "\${runtime_root}/usr/share"
+  append_existing_path runtime_schema_path "\${runtime_root}/usr/share/glib-2.0/schemas"
+  append_existing_path runtime_gi_path "\${runtime_root}/usr/lib/x86_64-linux-gnu/girepository-1.0"
+  append_existing_path runtime_gi_path "\${runtime_root}/usr/lib/girepository-1.0"
+  append_existing_path runtime_lib_path "\${runtime_root}/usr/lib/x86_64-linux-gnu"
+  append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
+  append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
+  append_existing_path runtime_lib_path "\${runtime_root}/lib"
+  if [ -z "\${runtime_loader}" ]; then
+    for candidate_loader in \
+      "\${runtime_root}/usr/lib64/ld-linux-x86-64.so.2" \
+      "\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
+      "\${runtime_root}/lib64/ld-linux-x86-64.so.2" \
+      "\${runtime_root}/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"; do
+      if [ -x "\${candidate_loader}" ]; then
+        runtime_loader="\${candidate_loader}"
+        break
+      fi
+    done
   fi
 done
-export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin\${runtime_bin_path}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin\${PATH:+:\${PATH}}"
-export XDG_DATA_DIRS="\${rootfs}/usr/share\${runtime_data_path}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
-export GSETTINGS_SCHEMA_DIR="\${rootfs}/usr/share/glib-2.0/schemas\${runtime_schema_path}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
-export GI_TYPELIB_PATH="\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0:\${rootfs}/usr/lib/girepository-1.0\${runtime_gi_path}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
-export LD_LIBRARY_PATH="\${prefix}/Libraries:\${rootfs}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${rootfs}/lib/x86_64-linux-gnu:\${rootfs}/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+if [ -d /Programs ]; then
+  for runtime_root in /Programs/*/current/RootFS; do
+    [ -d "\${runtime_root}" ] || continue
+    append_existing_path runtime_lib_path "\${runtime_root}/usr/lib/x86_64-linux-gnu"
+    append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
+    append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
+    append_existing_path runtime_lib_path "\${runtime_root}/lib"
+  done
+fi
+own_bin_path=""
+own_data_path=""
+own_schema_path=""
+own_gi_path=""
+own_lib_path=""
+append_existing_path own_bin_path "\${prefix}/Commands"
+append_existing_path own_bin_path "\${rootfs}/usr/bin"
+append_existing_path own_bin_path "\${rootfs}/usr/sbin"
+append_existing_path own_bin_path "\${rootfs}/bin"
+append_existing_path own_bin_path "\${rootfs}/sbin"
+append_existing_path own_data_path "\${rootfs}/usr/share"
+append_existing_path own_schema_path "\${rootfs}/usr/share/glib-2.0/schemas"
+append_existing_path own_gi_path "\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0"
+append_existing_path own_gi_path "\${rootfs}/usr/lib/girepository-1.0"
+append_existing_path own_lib_path "\${prefix}/Libraries"
+append_existing_path own_lib_path "\${rootfs}/usr/lib/x86_64-linux-gnu"
+append_existing_path own_lib_path "\${rootfs}/usr/lib"
+append_existing_path own_lib_path "\${rootfs}/lib/x86_64-linux-gnu"
+append_existing_path own_lib_path "\${rootfs}/lib"
+append_existing_path own_lib_path "/System/Compatibility/usr/lib/x86_64-linux-gnu"
+append_existing_path own_lib_path "/System/Compatibility/lib/x86_64-linux-gnu"
+append_existing_path own_lib_path "/System/Compatibility/lib64"
+append_existing_path own_lib_path "/System/Libraries"
+export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin\${PATH:+:\${PATH}}"
+export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
+export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
+export LD_LIBRARY_PATH="\${own_lib_path}\${runtime_lib_path:+:\${runtime_lib_path}}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 ${command_loader_tail}
 EOF
   fi
   chmod 0755 "${program_root}/Commands/${command_base}"
-  mkdir -p "${AUZIX_ROOT}/System/Compatibility/bin" "${AUZIX_ROOT}/System/Compatibility/usr/bin"
+  mkdir -p "${AUZIX_ROOT}/System/Compatibility/bin" \
+    "${AUZIX_ROOT}/System/Compatibility/usr/bin" \
+    "${AUZIX_ROOT}/System/Compatibility/sbin" \
+    "${AUZIX_ROOT}/System/Compatibility/usr/sbin"
   ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
     "${AUZIX_ROOT}/System/Compatibility/bin/${command_base}"
   ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
     "${AUZIX_ROOT}/System/Compatibility/usr/bin/${command_base}"
+  ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
+    "${AUZIX_ROOT}/System/Compatibility/sbin/${command_base}"
+  ln -sfn "/Programs/${native_name}/current/Commands/${command_base}" \
+    "${AUZIX_ROOT}/System/Compatibility/usr/sbin/${command_base}"
   commands_json="$(
     jq -cn --argjson current "${commands_json}" \
       --arg command "/Programs/${native_name}/${safe_version}/Commands/${command_base}" \
@@ -612,7 +817,9 @@ EOF
     jq -cn --argjson current "${compatibility_exports_json}" \
       --arg bin "/System/Compatibility/bin/${command_base}" \
       --arg usrbin "/System/Compatibility/usr/bin/${command_base}" \
-      '$current + [$bin, $usrbin]'
+      --arg sbin "/System/Compatibility/sbin/${command_base}" \
+      --arg usrsbin "/System/Compatibility/usr/sbin/${command_base}" \
+      '$current + [$bin, $usrbin, $sbin, $usrsbin]'
   )"
 done < <(
   find "${program_root}/RootFS" -type f \
@@ -634,6 +841,18 @@ while IFS= read -r rel_desktop; do
     -e "s#^(TryExec=)([^[:space:]/]+).*#\\1${desktop_exec_target}#" \
     -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1${desktop_exec_target}\\3#" \
     "${program_root}/RootFS/${rel_desktop}" >"${desktop_target}"
+  if [[ "${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}" != "1" ]]; then
+    if grep -q '^NoDisplay=' "${desktop_target}"; then
+      sed -i -E 's/^NoDisplay=.*/NoDisplay=true/' "${desktop_target}"
+    else
+      printf 'NoDisplay=true\n' >>"${desktop_target}"
+    fi
+    if grep -q '^X-AUZiX-Launcher-State=' "${desktop_target}"; then
+      sed -i -E 's/^X-AUZiX-Launcher-State=.*/X-AUZiX-Launcher-State=quarantined-unvalidated/' "${desktop_target}"
+    else
+      printf 'X-AUZiX-Launcher-State=quarantined-unvalidated\n' >>"${desktop_target}"
+    fi
+  fi
   chmod 0644 "${desktop_target}"
   compatibility_exports_json="$(
     jq -cn --argjson current "${compatibility_exports_json}" \
@@ -680,6 +899,32 @@ done < <(
       sed 's#^#usr/lib/systemd/user/#'
   } | sort
 )
+while IFS= read -r rel_surface; do
+  [[ -n "${rel_surface}" ]] || continue
+  surface_target="${AUZIX_ROOT}/System/Compatibility/${rel_surface}"
+  mkdir -p "$(dirname "${surface_target}")"
+  rsync -a "${program_root}/RootFS/${rel_surface}" "${surface_target}"
+  compatibility_exports_json="$(
+    jq -cn --argjson current "${compatibility_exports_json}" \
+      --arg surface "/System/Compatibility/${rel_surface}" \
+      '$current + [$surface]'
+  )"
+done < <(
+  {
+    find "${program_root}/RootFS/usr/share/dbus-1/system-services" -maxdepth 1 \
+      -type f -name '*.service' -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/share/dbus-1/system-services/#'
+    find "${program_root}/RootFS/usr/share/dbus-1/system.d" -maxdepth 1 \
+      -type f -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/share/dbus-1/system.d/#'
+    find "${program_root}/RootFS/usr/share/glib-2.0/schemas" -maxdepth 1 \
+      -type f -name '*.xml' -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/share/glib-2.0/schemas/#'
+    find "${program_root}/RootFS/usr/libexec" -maxdepth 1 \
+      -type f -perm /111 -printf '%P\n' 2>/dev/null |
+      sed 's#^#usr/libexec/#'
+  } | sort
+)
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
 command_count="$(jq 'length' <<<"${commands_json}")"
@@ -691,6 +936,17 @@ package_kind="program"
 if [[ "${command_count}" -eq 0 ]]; then
   package_kind="staging"
 fi
+
+manifest_json_dir="$(mktemp -d)"
+trap 'rm -rf "${manifest_json_dir}"' EXIT
+printf '%s\n' "${native_depends_json}" >"${manifest_json_dir}/depends.json"
+printf '%s\n' "${native_recommends_json}" >"${manifest_json_dir}/recommends.json"
+printf '%s\n' "${commands_json}" >"${manifest_json_dir}/commands.json"
+printf '%s\n' "${compatibility_exports_json}" >"${manifest_json_dir}/compatibility_exports.json"
+printf '%s\n' "${maintainer_surfaces_json}" >"${manifest_json_dir}/maintainer_surfaces.json"
+printf '%s\n' "${debian_payload_manifest_json}" >"${manifest_json_dir}/debian_payload_manifest.json"
+printf '%s\n' "${debian_md5sums_json}" >"${manifest_json_dir}/debian_md5sums.json"
+printf '%s\n' "${validation_library_paths_json}" >"${manifest_json_dir}/validation_library_paths.json"
 
 jq -n \
   --arg name "${native_name}" \
@@ -706,12 +962,16 @@ jq -n \
   --arg prefix "/Programs/${native_name}/${safe_version}" \
   --arg current "/Programs/${native_name}/current" \
   --arg repack_class "${repack_class}" \
-  --argjson depends "${native_depends_json}" \
-  --argjson recommends "${native_recommends_json}" \
-  --argjson commands "${commands_json}" \
-  --argjson compatibility_exports "${compatibility_exports_json}" \
+  --slurpfile depends "${manifest_json_dir}/depends.json" \
+  --slurpfile recommends "${manifest_json_dir}/recommends.json" \
+  --slurpfile commands "${manifest_json_dir}/commands.json" \
+  --slurpfile compatibility_exports "${manifest_json_dir}/compatibility_exports.json" \
+  --slurpfile maintainer_surfaces "${manifest_json_dir}/maintainer_surfaces.json" \
+  --slurpfile debian_payload_manifest "${manifest_json_dir}/debian_payload_manifest.json" \
+  --slurpfile debian_md5sums "${manifest_json_dir}/debian_md5sums.json" \
   --argjson payload_file_count "${payload_file_count}" \
   --argjson payload_size_bytes "${payload_size_bytes}" \
+  --slurpfile validation_library_paths "${manifest_json_dir}/validation_library_paths.json" \
   '{
     name: $name,
     version: $version,
@@ -719,14 +979,31 @@ jq -n \
     migration_stage: "stage-1-auzix-native-repack",
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
-    depends: $depends,
-    recommends: $recommends,
-    commands: $commands,
-    compatibility_exports: $compatibility_exports,
+    depends: $depends[0],
+    recommends: $recommends[0],
+    commands: $commands[0],
+    compatibility_exports: $compatibility_exports[0],
     runtime_ladder: {
       local_rootfs: true,
-      dependency_packages: $depends,
+      dependency_packages: $depends[0],
       system_surfaces: ["/System/Libraries", "/System/Compatibility", "/System/Settings"]
+    },
+    maintainer_surfaces: $maintainer_surfaces[0],
+    debian_package_db: {
+      list_file: ($prefix + "/Metadata/debian-payload.list"),
+      md5sums_file: ($prefix + "/Metadata/debian-payload.md5sums"),
+      payload_manifest: $debian_payload_manifest[0],
+      md5sums: $debian_md5sums[0]
+    },
+    validation: {
+      loader: "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2",
+      loader_candidates: [
+        "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2",
+        "/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "/Programs/Libc6/current/RootFS/lib64/ld-linux-x86-64.so.2",
+        "/Programs/Libc6/current/RootFS/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+      ],
+      library_paths: $validation_library_paths[0]
     },
     description: $description,
     source: {
@@ -737,10 +1014,13 @@ jq -n \
       version: $source_version,
       architecture: $source_architecture,
       control_file: ($prefix + "/Metadata/debian-control.txt"),
+      control_dir: ($prefix + "/Metadata/debian-control-dir"),
+      payload_list: ($prefix + "/Metadata/debian-payload.list"),
+      payload_md5sums: ($prefix + "/Metadata/debian-payload.md5sums"),
       upstream_depends: $upstream_depends,
       upstream_recommends: $upstream_recommends,
-      upstream_depends_native: $depends,
-      upstream_recommends_native: $recommends,
+      upstream_depends_native: $depends[0],
+      upstream_recommends_native: $recommends[0],
       payload_file_count: $payload_file_count,
       payload_size_bytes: $payload_size_bytes,
       repack_class: $repack_class

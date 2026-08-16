@@ -195,15 +195,57 @@ else
 fi
 chmod 0700 "${AUZIX_ROOT}/Users/root/.ssh"
 
+cat > "${AUZIX_ROOT}/System/Settings/auzix-paths.sh" <<'EOF'
+# Canonical AUZiX bootstrap path contract.
+#
+# This file is intentionally sourced by login shells, rescue shells, LightDM,
+# X11/E startup helpers, installer launchers, and package/app wrappers.  The
+# AUZiX paths come first; classic paths are retained only as compatibility
+# aliases for upstream software that still hardwires them.
+
+AUZIX_COMPAT="${AUZIX_COMPAT:-/System/Compatibility}"
+AUZIX_COMPAT_USR="${AUZIX_COMPAT_USR:-${AUZIX_COMPAT}/usr}"
+AUZIX_ARCH_LIB="${AUZIX_ARCH_LIB:-${AUZIX_COMPAT_USR}/lib/x86_64-linux-gnu}"
+AUZIX_BASE_PATH="${AUZIX_COMPAT}/bin:${AUZIX_COMPAT}/sbin:${AUZIX_COMPAT_USR}/bin:${AUZIX_COMPAT_USR}/sbin"
+
+AUZIX_COMMAND_PATH="${AUZIX_BASE_PATH}"
+for auzix_commands in /Programs/*/current/Commands /Programs/*/*/Commands; do
+  [ -d "${auzix_commands}" ] || continue
+  case ":${AUZIX_COMMAND_PATH}:" in
+    *":${auzix_commands}:"*) ;;
+    *) AUZIX_COMMAND_PATH="${AUZIX_COMMAND_PATH}:${auzix_commands}" ;;
+  esac
+done
+export PATH="${AUZIX_COMMAND_PATH}${PATH:+:${PATH}}"
+
+export LD_LIBRARY_PATH="${AUZIX_ARCH_LIB}:${AUZIX_COMPAT}/lib/x86_64-linux-gnu:${AUZIX_COMPAT}/lib64:/System/Libraries${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export XDG_DATA_DIRS="${AUZIX_COMPAT_USR}/local/share:${AUZIX_COMPAT_USR}/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}:/usr/local/share:/usr/share"
+export XDG_CONFIG_DIRS="/System/Settings/xdg:${AUZIX_COMPAT}/etc/xdg${XDG_CONFIG_DIRS:+:${XDG_CONFIG_DIRS}}:/etc/xdg"
+
+export XORG_RUN_AS_USER_OK="${XORG_RUN_AS_USER_OK:-1}"
+export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/current/Commands}"
+export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/System/Settings/X11/xkb}"
+export XLOCALEDIR="${XLOCALEDIR:-${AUZIX_COMPAT_USR}/share/X11/locale}"
+
+export E_PREFIX="${E_PREFIX:-${AUZIX_COMPAT_USR}}"
+export E_BIN_DIR="${E_BIN_DIR:-${AUZIX_COMPAT_USR}/bin}"
+export E_LIB_DIR="${E_LIB_DIR:-${AUZIX_ARCH_LIB}}"
+export E_DATA_DIR="${E_DATA_DIR:-${AUZIX_COMPAT_USR}/share/enlightenment}"
+export E_CONF_DIR="${E_CONF_DIR:-/System/Settings/desktop/enlightenment}"
+
+export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export GCONV_PATH="${GCONV_PATH:-${AUZIX_ARCH_LIB}/gconv:${AUZIX_COMPAT}/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
+
+unset AUZIX_COMMAND_PATH AUZIX_BASE_PATH AUZIX_COMPAT AUZIX_COMPAT_USR AUZIX_ARCH_LIB auzix_commands
+EOF
+chmod 0644 "${AUZIX_ROOT}/System/Settings/auzix-paths.sh"
+
 cat > "${AUZIX_ROOT}/System/Settings/environment.sh" <<'EOF'
 # Canonical AUZiX interactive command environment.
-AUZIX_COMMAND_PATH=/System/Compatibility/bin:/System/Compatibility/sbin
-for auzix_commands in /Programs/*/current/Commands; do
-  [ -d "${auzix_commands}" ] || continue
-  AUZIX_COMMAND_PATH="${AUZIX_COMMAND_PATH}:${auzix_commands}"
-done
-export PATH="${AUZIX_COMMAND_PATH}"
-unset AUZIX_COMMAND_PATH auzix_commands
+. /System/Settings/auzix-paths.sh
 EOF
 chmod 0644 "${AUZIX_ROOT}/System/Settings/environment.sh"
 
@@ -251,7 +293,7 @@ root:x:0:0:root:/Users/root:/System/Compatibility/bin/bash
 auzix:x:1000:1000:Auzix User:/Users/auzix:/System/Compatibility/bin/bash
 sshd:x:74:74:sshd privilege separation:/run/sshd:/System/Compatibility/bin/false
 messagebus:x:101:101:DBus message bus:/run/dbus:/System/Compatibility/bin/false
-lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatibility/bin/false
+lightdm:x:102:102:LightDM display manager:/var/lib/lightdm:/System/Compatibility/bin/false
 EOF
 
 cat > "${AUZIX_ROOT}/System/Settings/group" <<'EOF'
@@ -263,9 +305,9 @@ messagebus:x:101:
 lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
-input:x:104:root,auzix
-video:x:44:root,auzix
-render:x:105:root,auzix
+input:x:104:root,auzix,lightdm
+video:x:44:root,auzix,lightdm
+render:x:105:root,auzix,lightdm
 audio:x:29:root,auzix
 EOF
 
@@ -355,6 +397,7 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Bash-${BASH_VERSION}.auzix.json" <<EOF
     "/System/Compatibility/bin/bash"
   ],
   "settings": [
+    "/System/Settings/auzix-paths.sh",
     "/System/Settings/environment.sh",
     "/System/Settings/subuid",
     "/System/Settings/subgid",

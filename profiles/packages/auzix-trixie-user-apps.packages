@@ -24,7 +24,8 @@ cargo
 alacritty
 geany
 kitty
-l3afpad
+# l3afpad is blocked until its AUZiX wrapper/menu validation stops
+# spawn/die looping on VM135.
 micro
 nano
 pluma

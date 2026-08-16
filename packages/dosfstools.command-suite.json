@@ -9,5 +9,5 @@
     {"name": "fsck.fat", "host_command": "fsck.fat"},
     {"name": "fatlabel", "host_command": "fatlabel"}
   ],
-  "validation": {"smoke_commands": ["truncate -s 4M /tmp/auzix-fat-smoke.img && $AUZIX_COMMAND_ROOT/mkfs.fat.real -I -n AUZIXTEST /tmp/auzix-fat-smoke.img", "$AUZIX_COMMAND_ROOT/fsck.fat.real -n /tmp/auzix-fat-smoke.img", "$AUZIX_COMMAND_ROOT/fatlabel.real /tmp/auzix-fat-smoke.img | grep -F AUZIXTEST"]}
+  "validation": {"smoke_commands": ["img=/tmp/auzix-fat-smoke-$$.img; trap 'rm -f \"$img\"' EXIT; truncate -s 4M \"$img\" && $AUZIX_COMMAND_ROOT/mkfs.fat -I -n AUZIXTEST \"$img\" && $AUZIX_COMMAND_ROOT/fsck.fat -n \"$img\" && $AUZIX_COMMAND_ROOT/fatlabel \"$img\" | grep -F AUZIXTEST"]}
 }

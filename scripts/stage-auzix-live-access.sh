@@ -10,6 +10,7 @@ AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-iso/iso/AuzixRoot}"
 ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-lab-password}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-}"
 AUTHORIZED_KEYS_SOURCE="${AUZIX_AUTHORIZED_KEYS_SOURCE:-}"
+SSH_KEYGEN="${AUZIX_SSH_KEYGEN:-$(command -v ssh-keygen || true)}"
 
 fail() { printf '[auzix-live-access] FAIL: %s\n' "$*" >&2; exit 1; }
 log() { printf '[auzix-live-access] %s\n' "$*"; }
@@ -57,6 +58,16 @@ mkdir -p \
   "${AUZIX_ROOT}/Users/root/.ssh" \
   "${AUZIX_ROOT}/Users/auzix/.ssh" \
   "${AUZIX_ROOT}/System/State/ssh"
+if [[ ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_ed25519_key" ]]; then
+  [[ -x "${SSH_KEYGEN}" ]] || fail 'ssh host key missing and ssh-keygen is unavailable'
+  "${SSH_KEYGEN}" -q -t ed25519 -N '' \
+    -f "${AUZIX_ROOT}/System/State/ssh/ssh_host_ed25519_key"
+fi
+if [[ ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_rsa_key" ]]; then
+  [[ -x "${SSH_KEYGEN}" ]] || fail 'ssh host key missing and ssh-keygen is unavailable'
+  "${SSH_KEYGEN}" -q -t rsa -b 3072 -N '' \
+    -f "${AUZIX_ROOT}/System/State/ssh/ssh_host_rsa_key"
+fi
 if [[ -n "${AUTHORIZED_KEYS_SOURCE}" && -s "${AUTHORIZED_KEYS_SOURCE}" ]]; then
   install -m 0600 "${AUTHORIZED_KEYS_SOURCE}" "${AUZIX_ROOT}/Users/root/.ssh/authorized_keys"
   install -m 0600 "${AUTHORIZED_KEYS_SOURCE}" "${AUZIX_ROOT}/Users/auzix/.ssh/authorized_keys"

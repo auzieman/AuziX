@@ -5,8 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LUA_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/Lua/current")")"
 INSTALLER_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/AuzixInstaller/current")")"
+PKGTOOLS_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/AuzixPackageTools/current")")"
 LUA_REAL="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Commands/lua.real"
 LUA_LIBS="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Libraries"
+LUA_LOADER="${LUA_LIBS}/ld-linux-x86-64.so.2"
+JQ_REAL="${AUZIX_ROOT}/Programs/AuzixPackageTools/${PKGTOOLS_CURRENT}/Commands/jq.real"
+JQ_LIBS="${AUZIX_ROOT}/Programs/AuzixPackageTools/${PKGTOOLS_CURRENT}/Libraries"
+JQ_LOADER="${JQ_LIBS}/ld-linux-x86-64.so.2"
 INSTALLER_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-installer.lua"
 PACKAGE_SETUP_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-package-setup.lua"
 DEFAULT_PLAN="${AUZIX_ROOT}/System/Settings/installer/plans/default.json"
@@ -14,7 +19,7 @@ QUESTIONS="${AUZIX_ROOT}/System/Settings/installer/questions.json"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 
-for path in "${LUA_REAL}" "${INSTALLER_LUA}" "${PACKAGE_SETUP_LUA}" "${DEFAULT_PLAN}"; do
+for path in "${LUA_REAL}" "${LUA_LOADER}" "${JQ_REAL}" "${JQ_LOADER}" "${INSTALLER_LUA}" "${PACKAGE_SETUP_LUA}" "${DEFAULT_PLAN}"; do
   [[ -e "${path}" ]] || {
     printf 'Installer test prerequisite is missing: %s\n' "${path}" >&2
     exit 1
@@ -22,42 +27,47 @@ for path in "${LUA_REAL}" "${INSTALLER_LUA}" "${PACKAGE_SETUP_LUA}" "${DEFAULT_P
 done
 
 run_installer() {
-  LD_LIBRARY_PATH="${LUA_LIBS}:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64" \
-    AUZIX_ROOT="${AUZIX_ROOT}" \
-    AUZIX_JQ="$(command -v jq)" \
+  AUZIX_ROOT="${AUZIX_ROOT}" \
+    AUZIX_JQ="${WORK_DIR}/jq" \
     AUZIX_INSTALL_EXECUTOR="${WORK_DIR}/fake-install-disk" \
-    "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
 }
 
 run_package_setup() {
-  LD_LIBRARY_PATH="${LUA_LIBS}:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64" \
-    AUZIX_ROOT="${AUZIX_ROOT}" \
+  AUZIX_ROOT="${AUZIX_ROOT}" \
     TMPDIR="${WORK_DIR}/missing/package-setup-temp" \
     AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
     AUZIX_PKG="${WORK_DIR}/fake-auzix-pkg" \
     AUZIX_PKG_PREFIX="" \
     AUZIX_TEST_PACKAGE_LOG="${WORK_DIR}/package.log" \
-    "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
 }
 
 run_tui_installer() {
   local temp_dir="${WORK_DIR}/missing/dialog-temp"
-  LD_LIBRARY_PATH="${LUA_LIBS}:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64" \
-    AUZIX_ROOT="${AUZIX_ROOT}" \
+  AUZIX_ROOT="${AUZIX_ROOT}" \
     TMPDIR="${temp_dir}" \
-    AUZIX_JQ="$(command -v jq)" \
+    AUZIX_JQ="${WORK_DIR}/jq" \
     AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
     AUZIX_INSTALLER_DISKS="/dev/vdz,/dev/vdy" \
     AUZIX_INSTALL_EXECUTOR="${WORK_DIR}/fake-install-disk" \
-    "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
 }
 
 cat >"${WORK_DIR}/fake-install-disk" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$@" >"${AUZIX_TEST_EXECUTOR_LOG}"
+printf '%s\n' "${AUZIX_INSTALL_PLAN:-}" >"${AUZIX_TEST_EXECUTOR_LOG}.plan"
 SCRIPT
 chmod 0755 "${WORK_DIR}/fake-install-disk"
+
+cat >"${WORK_DIR}/jq" <<SCRIPT
+#!/usr/bin/env bash
+set -euo pipefail
+exec "${JQ_LOADER}" --library-path "${JQ_LIBS}" "${JQ_REAL}" "\$@"
+SCRIPT
+chmod 0755 "${WORK_DIR}/jq"
 
 cat >"${WORK_DIR}/fake-dialog" <<'SCRIPT'
 #!/usr/bin/env bash
@@ -98,19 +108,19 @@ if run_installer run "${DEFAULT_PLAN}" >/dev/null 2>&1; then
   exit 1
 fi
 
-jq '.target.disk = "not-a-device"' "${DEFAULT_PLAN}" >"${WORK_DIR}/invalid.json"
+"${WORK_DIR}/jq" '.target.disk = "not-a-device"' "${DEFAULT_PLAN}" >"${WORK_DIR}/invalid.json"
 if run_installer validate "${WORK_DIR}/invalid.json" >/dev/null 2>&1; then
   echo "Invalid disk path passed validation." >&2
   exit 1
 fi
 
-jq '.unexpected = "ignored"' "${DEFAULT_PLAN}" >"${WORK_DIR}/extra-field.json"
+"${WORK_DIR}/jq" '.unexpected = "ignored"' "${DEFAULT_PLAN}" >"${WORK_DIR}/extra-field.json"
 if run_installer validate "${WORK_DIR}/extra-field.json" >/dev/null 2>&1; then
   echo "Unknown install plan field passed validation." >&2
   exit 1
 fi
 
-jq '
+"${WORK_DIR}/jq" '
   .target.disk = "/dev/vdz"
   | .bootloader.mode = "iso"
   | .execution.confirmed = true
@@ -126,9 +136,10 @@ iso
 /dev/vdz
 EOF
 cmp "${WORK_DIR}/expected.log" "${WORK_DIR}/executor.log"
+grep -Fx "${WORK_DIR}/confirmed.json" "${WORK_DIR}/executor.log.plan" >/dev/null
 
 run_tui_installer tui-plan "${WORK_DIR}/tui-plan.json" >/dev/null
-jq -e '
+"${WORK_DIR}/jq" -e '
   .target.disk == "/dev/vdz"
   and .bootloader.mode == "iso"
   and .identity.hostname == "installer-test"
@@ -137,7 +148,7 @@ jq -e '
 ' "${WORK_DIR}/tui-plan.json" >/dev/null
 
 run_tui_installer plan "${WORK_DIR}/graphical-plan.json" /dev/vda grub auzix graphical >/dev/null
-jq -e '
+"${WORK_DIR}/jq" -e '
   .execution.confirmed == false
   and .frontend == "graphical"
   and .target.disk == "/dev/vda"
@@ -146,7 +157,13 @@ jq -e '
 ' "${WORK_DIR}/graphical-plan.json" >/dev/null
 [[ ! -e "${WORK_DIR}/executor.log" ]] || rm -f "${WORK_DIR}/executor.log"
 
-run_tui_installer execute "${WORK_DIR}/graphical-plan.json" /dev/vda >/dev/null
+if run_installer run "${WORK_DIR}/graphical-plan.json" >/dev/null 2>&1; then
+  echo "Unconfirmed graphical plan was executed." >&2
+  exit 1
+fi
+"${WORK_DIR}/jq" '.execution.confirmed = true' \
+  "${WORK_DIR}/graphical-plan.json" >"${WORK_DIR}/graphical-confirmed.json"
+run_installer run "${WORK_DIR}/graphical-confirmed.json" >/dev/null
 cat >"${WORK_DIR}/expected-graphical.log" <<'EOF'
 --force
 --bootloader
@@ -154,19 +171,20 @@ grub
 /dev/vda
 EOF
 cmp "${WORK_DIR}/expected-graphical.log" "${WORK_DIR}/executor.log"
-if run_tui_installer execute "${WORK_DIR}/graphical-plan.json" /dev/vdb >/dev/null 2>&1; then
-  echo "Graphical execution accepted a disk that was not reviewed." >&2
-  exit 1
-fi
-jq '.packages.selected = ["Gnumeric"]' "${WORK_DIR}/graphical-plan.json" >"${WORK_DIR}/graphical-packages.json"
-if run_tui_installer execute "${WORK_DIR}/graphical-packages.json" /dev/vda >/dev/null 2>&1; then
-  echo "Graphical execution accepted unimplemented first-boot packages." >&2
-  exit 1
-fi
+grep -Fx "${WORK_DIR}/graphical-confirmed.json" "${WORK_DIR}/executor.log.plan" >/dev/null
+rm -f "${WORK_DIR}/executor.log"
+
+"${WORK_DIR}/jq" '
+  .packages.selected = ["Gnumeric"]
+  | .execution.confirmed = true
+' "${WORK_DIR}/graphical-plan.json" >"${WORK_DIR}/graphical-packages-confirmed.json"
+run_installer run "${WORK_DIR}/graphical-packages-confirmed.json" >/dev/null
+cmp "${WORK_DIR}/expected-graphical.log" "${WORK_DIR}/executor.log"
+grep -Fx "${WORK_DIR}/graphical-packages-confirmed.json" "${WORK_DIR}/executor.log.plan" >/dev/null
 rm -f "${WORK_DIR}/executor.log"
 
 run_tui_installer tui "${WORK_DIR}/confirmed-tui-plan.json" >/dev/null
-jq -e '.execution.confirmed == true' "${WORK_DIR}/confirmed-tui-plan.json" >/dev/null
+"${WORK_DIR}/jq" -e '.execution.confirmed == true' "${WORK_DIR}/confirmed-tui-plan.json" >/dev/null
 cmp "${WORK_DIR}/expected.log" "${WORK_DIR}/executor.log"
 
 rm -f "${WORK_DIR}/executor.log"
@@ -175,10 +193,10 @@ if AUZIX_TEST_DIALOG_CONFIRM=1 \
   echo "Cancelled TUI plan was executed." >&2
   exit 1
 fi
-jq -e '.execution.confirmed == false' "${WORK_DIR}/cancelled-tui-plan.json" >/dev/null
+"${WORK_DIR}/jq" -e '.execution.confirmed == false' "${WORK_DIR}/cancelled-tui-plan.json" >/dev/null
 [[ ! -e "${WORK_DIR}/executor.log" ]]
 
-jq -e '
+"${WORK_DIR}/jq" -e '
   .format == "auzix-installer-questions-v1"
   and ([.questions[].id] | index("target_disk") != null)
   and ([.questions[].id] | index("confirmed") != null)

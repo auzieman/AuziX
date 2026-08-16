@@ -1,0 +1,74 @@
+{
+  "id": "esxi-workstation-media",
+  "name": "AUZiX ESXi workstation media validation",
+  "host_reference": {
+    "alias": "lab-esxi",
+    "management_ip": "10.20.0.114",
+    "observed_platform": "Dell PowerEdge R630",
+    "observed_hypervisor": "VMware ESXi 8.0.3",
+    "datastore": "datastore1",
+    "network": "VM Network"
+  },
+  "intent": "Validate AUZiX as a graphical/media workstation guest on ESXi, with emphasis on video, input, audio, and remote support behavior.",
+  "vm_shape": {
+    "name": "auzix-esxi-workstation-media-01",
+    "vcpus": 8,
+    "memory_mb": 16384,
+    "disk_gb_minimum": 160,
+    "disk_gb_preferred": 250,
+    "firmware": "efi",
+    "network_adapter": "vmxnet3",
+    "storage_preference": ["pvscsi", "sata"],
+    "video_preference": "VMware SVGA/vmwgfx or modesetting path with stable Enlightenment compositing; 3D acceleration is a bonus only when the ESXi host/client path exposes it",
+    "audio_preference": "Expose an HDA-compatible virtual audio device when available; otherwise validate audio through remote-support tooling such as RustDesk"
+  },
+  "boot_requirements": [
+    "initramfs attempts vmw_pvscsi for VMware paravirtual storage",
+    "initramfs attempts vmxnet3 for VMware paravirtual networking",
+    "ISO boots in EFI mode",
+    "DHCP works on VM Network",
+    "SSH/TUI recovery remains available even if graphics fails"
+  ],
+  "graphical_requirements": [
+    "VMware SVGA/DRM path attempts vmwgfx when PCI vendor 0x15ad is detected",
+    "If ESXi does not expose guest 3D acceleration, validation focuses on compositor stability, resolution changes, and software-rendered desktop responsiveness",
+    "X11 can start with the existing AUZiX display stack",
+    "LightDM accepts keyboard and mouse input",
+    "Enlightenment reaches a usable session",
+    "resolution changes do not wedge the desktop session"
+  ],
+  "media_requirements": [
+    "audio device is detected when ESXi VM hardware exposes HDA-compatible audio",
+    "ALSA/PulseAudio session starts without root-owned user state",
+    "Firefox or Flatpak browser can render a page",
+    "Clementine or another media player can see user music files",
+    "LibreOffice Impress can open a sample deck visibly"
+  ],
+  "post_install_package_groups": [
+    "AuzixDesktopBase",
+    "AuzixOffice",
+    "AuzixFlatpakDesktop",
+    "AuzixContainerHost",
+    "AuzixRemoteSupport",
+    "AuzixWorkstationMedia"
+  ],
+  "remote_support_targets": [
+    {
+      "id": "RustDeskServer",
+      "state": "planned-package-port",
+      "placement": "BKC/lab service first, AUZiX native package later",
+      "notes": "Self-hosted hbbs/hbbr lane for controlled remote desktop rendezvous/relay."
+    },
+    {
+      "id": "RustDeskClient",
+      "state": "planned-package-port",
+      "placement": "AUZiX workstation package; Flatpak/AppImage adapter acceptable as a bridge before native Rust build",
+      "notes": "Candidate remote desktop path for smoother filming/support than noVNC, with audio and basic accelerated desktop rendering as validation goals."
+    }
+  ],
+  "non_goals": [
+    "Do not make ESXi guest polish a tiny-netinstall requirement",
+    "Do not require RustDesk or open-vm-tools before base install proof",
+    "Do not treat noVNC/Proxmox behavior as proof of ESXi media behavior"
+  ]
+}

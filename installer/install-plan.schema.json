@@ -36,12 +36,53 @@
           "enum": ["ext4"]
         },
         "layout": {
-          "enum": ["whole", "split"]
+          "enum": ["whole", "user-work-programs", "custom-percent"]
         },
         "home_percent": {
           "type": "integer",
           "minimum": 20,
           "maximum": 80
+        },
+        "users_percent": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 80
+        },
+        "work_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "programs_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 80
+        },
+        "mounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "role"],
+            "properties": {
+              "path": {
+                "enum": ["/Home", "/Users", "/Work", "/Programs"]
+              },
+              "role": {
+                "enum": ["home", "users", "work", "programs"]
+              },
+              "percent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 80
+              },
+              "size": {
+                "type": "string",
+                "pattern": "^[0-9]+(M|G|T)$"
+              }
+            }
+          },
+          "uniqueItems": true
         }
       }
     },
@@ -82,6 +123,14 @@
       "required": ["selected"],
       "properties": {
         "selected": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z0-9._+-]+$"}, "uniqueItems": true}
+      }
+    },
+    "desktop": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "theme_profile": {"enum": ["vm135-dark-scifi", "vm135-retrowave", "vm135-classic-dark"]},
+        "wallpaper_profile": {"enum": ["foggy-trees", "blade-runner-cityscape", "tron-fight-for-the-user", "amiga-retro", "solid-dark"]}
       }
     },
     "execution": {

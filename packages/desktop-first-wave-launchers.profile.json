@@ -1,0 +1,154 @@
+{
+  "format": "auzix-desktop-launcher-profile-v1",
+  "name": "first-wave-filmable-desktop",
+  "purpose": "Publish a small set of known/semi-good AUZiX desktop launchers while quarantining duplicates and failed donor entries.",
+  "policy": {
+    "installed_does_not_mean_visible": true,
+    "one_visible_launcher_per_target": true,
+    "prefer_auzix_program_front_door": true,
+    "collect_enlightenment_logs_on_failure": true,
+    "hide_non_targets": false
+  },
+  "quarantine_desktop_files": [
+    "auzix-LibreOfficeCalc-libreoffice-calc.desktop",
+    "auzix-LibreOfficeDraw-libreoffice-draw.desktop",
+    "auzix-LibreOfficeImpress-libreoffice-impress.desktop",
+    "auzix-LibreOfficeWriter-libreoffice-writer.desktop",
+    "auzix-LibreOfficeCommon-libreoffice-startcenter.desktop",
+    "auzix-LibreOfficeCommon-libreoffice-xsltfilter.desktop",
+    "libreoffice-calc.desktop",
+    "libreoffice-draw.desktop",
+    "libreoffice-impress.desktop",
+    "libreoffice-startcenter.desktop",
+    "libreoffice-writer.desktop",
+    "auzix-netsurf.desktop",
+    "netsurf-gtk.desktop",
+    "auzix-Geany-geany.desktop",
+    "geany.desktop",
+    "auzix-Gnumeric-org.gnumeric.gnumeric.desktop",
+    "org.gnumeric.gnumeric.desktop",
+    "auzix-Htop-htop.desktop",
+    "htop.desktop",
+    "auzix-L3afpad-l3afpad.desktop",
+    "l3afpad.desktop",
+    "leafpad.desktop",
+    "auzix-Hexchat-io.github.Hexchat.desktop",
+    "io.github.Hexchat.desktop",
+    "auzix-XdgDesktopPortalGTK-xdg-desktop-portal-gtk.desktop",
+    "auzix-Python313-python3.13.desktop",
+    "auzix-terminal.desktop",
+    "terminology.desktop"
+  ],
+  "targets": [
+    {
+      "id": "flatpak-firefox",
+      "name": "Firefox",
+      "desktop_names": ["Firefox", "Mozilla Firefox"],
+      "desktop_files": ["org.mozilla.firefox.desktop"],
+      "command": "/Programs/Firefox/current/Commands/firefox",
+      "probe": ["--version"],
+      "categories": ["Network", "WebBrowser"],
+      "icon": "org.mozilla.firefox"
+    },
+    {
+      "id": "flatpak-sublime",
+      "name": "Sublime Text",
+      "desktop_names": ["Sublime Text"],
+      "desktop_files": ["com.sublimehq.SublimeText.desktop"],
+      "command": "/Programs/SublimeText/current/Commands/sublime_text",
+      "probe": ["--version"],
+      "categories": ["Development", "TextEditor", "IDE"],
+      "icon": "com.sublimehq.SublimeText"
+    },
+    {
+      "id": "gedit",
+      "name": "Gedit",
+      "desktop_names": ["Text Editor", "Gedit", "gedit"],
+      "desktop_files": ["org.gnome.gedit.desktop", "gedit.desktop"],
+      "command": "/Programs/Gedit/current/Commands/gedit",
+      "probe": ["--version"],
+      "categories": ["Development", "TextEditor"],
+      "icon": "org.gnome.gedit"
+    },
+    {
+      "id": "libreoffice-startcenter",
+      "name": "LibreOffice",
+      "desktop_names": ["LibreOffice"],
+      "desktop_files": ["auzix-libreoffice-startcenter.desktop", "libreoffice-startcenter.desktop"],
+      "command": "/Programs/LibreOfficeCommon/current/Commands/loffice",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office"],
+      "icon": "libreoffice-startcenter"
+    },
+    {
+      "id": "libreoffice-writer",
+      "name": "LibreOffice Writer",
+      "desktop_names": ["LibreOffice Writer"],
+      "desktop_files": ["auzix-libreoffice-writer.desktop", "auzix-LibreOfficeWriter-libreoffice-writer.desktop", "libreoffice-writer.desktop"],
+      "command": "/Programs/LibreOfficeWriter/current/Commands/lowriter",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "WordProcessor"],
+      "icon": "libreoffice-writer"
+    },
+    {
+      "id": "libreoffice-calc",
+      "name": "LibreOffice Calc",
+      "desktop_names": ["LibreOffice Calc"],
+      "desktop_files": ["auzix-libreoffice-calc.desktop", "auzix-LibreOfficeCalc-libreoffice-calc.desktop", "libreoffice-calc.desktop"],
+      "command": "/Programs/LibreOfficeCalc/current/Commands/localc",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "Spreadsheet"],
+      "icon": "libreoffice-calc"
+    },
+    {
+      "id": "libreoffice-impress",
+      "name": "LibreOffice Impress",
+      "desktop_names": ["LibreOffice Impress"],
+      "desktop_files": ["auzix-libreoffice-impress.desktop", "auzix-LibreOfficeImpress-libreoffice-impress.desktop", "libreoffice-impress.desktop"],
+      "command": "/Programs/LibreOfficeImpress/current/Commands/loimpress",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "Presentation"],
+      "icon": "libreoffice-impress"
+    },
+    {
+      "id": "libreoffice-draw",
+      "name": "LibreOffice Draw",
+      "desktop_names": ["LibreOffice Draw"],
+      "desktop_files": ["auzix-libreoffice-draw.desktop", "auzix-LibreOfficeDraw-libreoffice-draw.desktop", "libreoffice-draw.desktop"],
+      "command": "/Programs/LibreOfficeDraw/current/Commands/lodraw",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "Graphics", "VectorGraphics"],
+      "icon": "libreoffice-draw"
+    },
+    {
+      "id": "libreoffice-math",
+      "name": "LibreOffice Math",
+      "desktop_names": ["LibreOffice Math"],
+      "desktop_files": ["auzix-libreoffice-math.desktop", "libreoffice-math.desktop"],
+      "command": "/Programs/LibreOfficeMath/current/Commands/lomath",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "Education", "Science"],
+      "icon": "libreoffice-math"
+    },
+    {
+      "id": "libreoffice-base",
+      "name": "LibreOffice Base",
+      "desktop_names": ["LibreOffice Base"],
+      "desktop_files": ["auzix-libreoffice-base.desktop", "libreoffice-base.desktop"],
+      "command": "/Programs/LibreOfficeBase/current/Commands/lobase",
+      "probe": ["--headless", "--version"],
+      "categories": ["Office", "Database"],
+      "icon": "libreoffice-base"
+    },
+    {
+      "id": "midori",
+      "name": "Midori",
+      "desktop_names": ["Midori"],
+      "desktop_files": ["auzix-midori.desktop", "midori.desktop"],
+      "command": "/Programs/Midori/current/Commands/midori",
+      "probe": ["--version"],
+      "categories": ["Network", "WebBrowser"],
+      "icon": "web-browser"
+    }
+  ]
+}

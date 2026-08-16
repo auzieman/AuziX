@@ -25,6 +25,18 @@
       ]
     },
     {
+      "id": "storage_layout",
+      "plan_path": ".storage.layout",
+      "type": "choice",
+      "label": "Storage shape",
+      "default": "whole",
+      "choices": [
+        {"value": "whole", "label": "Simple: one AUZiX root"},
+        {"value": "user-work-programs", "label": "User install: split /Home, /Work, /Programs"},
+        {"value": "custom-percent", "label": "Custom percentages"}
+      ]
+    },
+    {
       "id": "bootloader",
       "plan_path": ".bootloader.mode",
       "type": "choice",

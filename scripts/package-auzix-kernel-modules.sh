@@ -163,6 +163,7 @@ graphics_module_names=(
   ttm
   bochs
   qxl
+  vmwgfx
   virtio-gpu
   virtio_dma_buf
   evdev
@@ -198,6 +199,9 @@ container_host_module_names=(
   br_netfilter
   veth
   tun
+  fuse
+  cuse
+  virtiofs
   nfnetlink
   nf_tables
   nft_chain_nat
@@ -249,6 +253,16 @@ if [[ "${INCLUDE_CONTAINER_HOST}" == "1" ]]; then
       exit 1
     fi
   done
+  # Flatpak's document portal and many developer desktop tools require a real
+  # kernel FUSE mount at /run/user/<uid>/doc.  A package that preserves
+  # modules.dep but drops kernel/fs/fuse/fuse.ko creates a convincing-looking
+  # but broken desktop, so fail here while the build still has the source tree.
+  for required_fuse_module in fuse; do
+    if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_fuse_module}.ko" -print -quit | grep -q .; then
+      printf 'Required desktop/container FUSE module was not packaged: %s\n' "${required_fuse_module}" >&2
+      exit 1
+    fi
+  done
 fi
 
 # Keep a few historical exact paths as a fallback for kernels where aliases
@@ -258,7 +272,8 @@ for module in \
   kernel/drivers/virtio/virtio_ring.ko \
   kernel/drivers/virtio/virtio_pci.ko \
   kernel/drivers/block/virtio_blk.ko \
-  kernel/drivers/net/virtio_net.ko
+  kernel/drivers/net/virtio_net.ko \
+  kernel/drivers/gpu/drm/vmwgfx/vmwgfx.ko
 do
   copy_module_path "${module}"
 done

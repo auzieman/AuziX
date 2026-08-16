@@ -79,6 +79,49 @@ copy_root_payload() {
   )
 }
 
+validate_live_root_ownership() {
+  local root="$1"
+  local path uid gid mode
+
+  for path in \
+    Users/auzix \
+    Users/auzix/.e \
+    Users/auzix/.e/e/config \
+    Users/auzix/.elementary \
+    Users/auzix/.cache \
+    Users/auzix/.config \
+    Users/auzix/.local; do
+    if [[ ! -e "${root}/${path}" ]]; then
+      printf 'Live root ownership gate failed: missing /%s\n' "${path}" >&2
+      exit 1
+    fi
+    uid="$(stat -c '%u' "${root}/${path}")"
+    gid="$(stat -c '%g' "${root}/${path}")"
+    mode="$(stat -c '%a' "${root}/${path}")"
+    if [[ "${uid}:${gid}" != "1000:1000" ]]; then
+      printf 'Live root ownership gate failed: /%s owner=%s:%s expected=1000:1000\n' \
+        "${path}" "${uid}" "${gid}" >&2
+      exit 1
+    fi
+    case "${mode}" in
+      7??|?7?|??7|75?|70?|77?) ;;
+      *)
+        printf 'Live root ownership gate failed: /%s mode=%s is not writable by owner\n' \
+          "${path}" "${mode}" >&2
+        exit 1
+        ;;
+    esac
+  done
+
+  if find "${root}/Users/auzix" -xdev \( -user 0 -o -group 0 \) -print -quit 2>/dev/null | grep -q .; then
+    printf 'Live root ownership gate failed: root-owned entries remain under /Users/auzix\n' >&2
+    find "${root}/Users/auzix" -xdev \( -user 0 -o -group 0 \) -maxdepth 5 -print 2>/dev/null | head -50 >&2
+    exit 1
+  fi
+
+  log "live root user ownership gate passed"
+}
+
 select_kernel() {
   if [[ -n "${KERNEL_IMAGE}" ]]; then
     return
@@ -237,6 +280,7 @@ load_storage_and_net() {
     e1000 \
     e1000e \
     pcnet32 \
+    vmw_pvscsi \
     vmxnet3 \
     r8169
   do
@@ -559,6 +603,7 @@ Stage them onto an installed root or package store with stage-auzix-enlightenmen
 Set AUZIX_INCLUDE_LIVE_ASSETS=1 only for media where a large ISO payload is acceptable.
 EOF
     fi
+    validate_live_root_ownership "${WORK_DIR}/rootfs-stage"
     mksquashfs "${WORK_DIR}/rootfs-stage" "${WORK_DIR}/iso/live/auzix-root.squashfs" \
       -noappend -comp gzip >/dev/null
     test -s "${WORK_DIR}/iso/live/auzix-root.squashfs"

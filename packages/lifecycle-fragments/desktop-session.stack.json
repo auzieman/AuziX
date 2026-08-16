@@ -1,0 +1,116 @@
+{
+  "format": "auzix-lifecycle-fragment-stack-v1",
+  "stack": "desktop-session",
+  "purpose": "Reusable first-install and fix fragments for AUZiX graphical desktop hosts.",
+  "evidence_sources": [
+    "packages/desktop-lifecycle-farming.queue.json",
+    "packages/desktop-lifecycle-triage.contract.md",
+    "packages/auzix-pkg-lifecycle.contract.md",
+    "out/package-slices/*/auzix-fragments/*.json"
+  ],
+  "order": [
+    "dbus",
+    "polkit",
+    "login-session",
+    "efl",
+    "enlightenment",
+    "audio-session",
+    "xdg-portals",
+    "flatpak",
+    "desktop-apps"
+  ],
+  "fragments": [
+    {
+      "id": "desktop.dbus.runtime",
+      "surface": "dbus",
+      "mode": ["setup", "fix", "status"],
+      "expected": [
+        "/run/dbus/system_bus_socket exists",
+        "system bus daemon is running",
+        "package exported dbus-1 service directories are visible through AUZiX path policy"
+      ],
+      "hooks": [
+        "state.ensure-dir",
+        "dbus.install-service",
+        "dbus.ensure-system-bus",
+        "validation.probe"
+      ],
+      "promotion_target": "Dbus lifecycle metadata"
+    },
+    {
+      "id": "desktop.polkit.runtime",
+      "surface": "polkit",
+      "mode": ["setup", "fix", "status"],
+      "expected": [
+        "polkit daemon is running when a package requires privileged desktop actions",
+        "policy files exported by packages are visible",
+        "pkexec mode/capability expectation is explicit"
+      ],
+      "hooks": [
+        "polkit.install-policy",
+        "polkit.ensure-daemon",
+        "mode.ensure",
+        "capability.ensure",
+        "validation.probe"
+      ],
+      "promotion_target": "Polkit and privileged desktop package lifecycle metadata"
+    },
+    {
+      "id": "desktop.lightdm.x11.session",
+      "surface": "login-session",
+      "mode": ["setup", "fix", "status"],
+      "expected": [
+        "LightDM starts the selected AUZiX X11 session",
+        "keyboard and mouse devices are accessible to the greeter and user session",
+        "PAM/session files match the AUZiX user and runtime-dir policy"
+      ],
+      "hooks": [
+        "service.translate-systemd",
+        "service.enable",
+        "service.start",
+        "group.membership",
+        "mode.ensure",
+        "validation.probe"
+      ],
+      "promotion_target": "LightDM, Xorg input, and session package lifecycle metadata"
+    },
+    {
+      "id": "desktop.efl.efreet.cache",
+      "surface": "efl",
+      "mode": ["setup", "fix", "status"],
+      "expected": [
+        "efreetd can start as the desktop user",
+        "Efreet cache/config dirs are owned by the desktop user",
+        "XDG_DATA_DIRS and package desktop/icon paths are visible"
+      ],
+      "hooks": [
+        "path.export",
+        "state.ensure-dir",
+        "xdg.refresh-desktop-database",
+        "xdg.refresh-icon-cache",
+        "efreet.refresh-cache",
+        "validation.probe"
+      ],
+      "promotion_target": "EFL/Efreet/Enlightenment package lifecycle metadata"
+    },
+    {
+      "id": "desktop.flatpak.portal.helper",
+      "surface": "flatpak",
+      "mode": ["setup", "fix", "status"],
+      "expected": [
+        "Flatpak system helper dbus service is installed and reachable",
+        "xdg-dbus-proxy and bubblewrap are runnable",
+        "Flathub or AUZiX-selected remotes are configured by policy"
+      ],
+      "hooks": [
+        "dbus.install-service",
+        "polkit.install-policy",
+        "service.translate-systemd",
+        "flatpak.ensure-remote",
+        "validation.probe"
+      ],
+      "promotion_target": "Flatpak/Bubblewrap/XDG portal package lifecycle metadata"
+    }
+  ]
+}
+

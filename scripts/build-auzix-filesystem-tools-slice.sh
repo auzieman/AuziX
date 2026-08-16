@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/extended-ports/AuZiXRoot}"
+REPORT_DIR="${ROOT_DIR}/out/source-workbench/extended-ports"
 
-mkdir -p "${AUZIX_ROOT}/System" "${AUZIX_ROOT}/Programs"
+mkdir -p "${AUZIX_ROOT}/System" "${AUZIX_ROOT}/Programs" "${REPORT_DIR}"
 rm -rf "${AUZIX_ROOT}/Programs/E2fsprogs" "${AUZIX_ROOT}/Programs/Dosfstools"
 find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
   \( -name 'E2fsprogs-*.auzix.json' -o -name 'Dosfstools-*.auzix.json' \) \
@@ -25,4 +26,4 @@ jq -n \
   --slurpfile e2fs "${receipts[1]}" \
   --slurpfile dosfs "${receipts[0]}" \
   '{format: $format, status: $status, root: $root, packages: [$e2fs[0], $dosfs[0]]}' \
-  >"${ROOT_DIR}/out/source-workbench/extended-ports/filesystem-tools.report.json"
+  >"${REPORT_DIR}/filesystem-tools.report.json"

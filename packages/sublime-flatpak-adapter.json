@@ -1,0 +1,36 @@
+{
+  "format": "auzix-flatpak-adapter-v1",
+  "name": "SublimeText",
+  "package_name": "SublimeTextFlatpakAdapter",
+  "version": "1.0.0",
+  "description": "Expose Flathub Sublime Text as a normal AUZiX code editor launcher.",
+  "flatpak_ref": "com.sublimehq.SublimeText",
+  "flatpak_command": "sublime_text",
+  "commands": [
+    {"name": "sublime_text", "description": "Launch Sublime Text through AUZiX program paths."},
+    {"name": "sublime", "description": "Short AUZiX launcher for Sublime Text."}
+  ],
+  "desktop": {
+    "name": "Sublime Text",
+    "generic_name": "Text Editor",
+    "comment": "Edit text and source code",
+    "icon": "com.sublimehq.SublimeText",
+    "terminal": false,
+    "categories": ["Development", "TextEditor", "IDE"],
+    "mime_types": [
+      "text/plain",
+      "inode/directory"
+    ]
+  },
+  "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+  "validation": {
+    "smoke_commands": ["/Programs/SublimeText/current/Commands/sublime_text --version"],
+    "known_blockers": [
+      {
+        "id": "flatpak-runtime-session",
+        "status": "open",
+        "message": "Sublime Text payload is managed by Flatpak; AUZiX must provide working user Flatpak state, DBus session, fonts, portals, and /var alias support."
+      }
+    ]
+  }
+}

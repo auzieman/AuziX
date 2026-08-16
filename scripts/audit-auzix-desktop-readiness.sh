@@ -12,7 +12,7 @@ if [[ ! -d "${AUZIX_ROOT}/System/PackageDB" ]]; then
   exit 2
 fi
 
-printf 'package\tkind\tcommand_count\tdesktop_count\tmenu_exec_count\tstatus\tnotes\n' >"${REPORT_PATH}"
+printf 'package\tkind\tcommand_count\tdesktop_count\tvisible_desktop_count\tvisible_menu_exec_count\tstatus\tnotes\n' >"${REPORT_PATH}"
 
 find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print |
   sort |
@@ -35,7 +35,8 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
     )
 
     desktop_count=0
-    menu_exec_count=0
+    visible_desktop_count=0
+    visible_menu_exec_count=0
     notes=()
     for desktop_entry in "${desktop_entries[@]}"; do
       desktop_path="${AUZIX_ROOT}/${desktop_entry#/}"
@@ -44,10 +45,17 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
         continue
       }
       desktop_count=$((desktop_count + 1))
+      has_auzix_exec=0
       if grep -Eq '^Exec=/Programs/[^/]+/current/Commands/' "${desktop_path}"; then
-        menu_exec_count=$((menu_exec_count + 1))
-      else
-        notes+=("desktop-exec-not-front-door:${desktop_entry}")
+        has_auzix_exec=1
+      fi
+      if ! grep -Eq '^(NoDisplay=true|Hidden=true)' "${desktop_path}"; then
+        visible_desktop_count=$((visible_desktop_count + 1))
+        if [[ "${has_auzix_exec}" -eq 1 ]]; then
+          visible_menu_exec_count=$((visible_menu_exec_count + 1))
+        else
+          notes+=("visible-desktop-exec-not-front-door:${desktop_entry}")
+        fi
       fi
     done
 
@@ -61,19 +69,25 @@ find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 
       if [[ "${desktop_count}" -eq 0 ]]; then
         status=fail
         notes+=("no-menu-entry")
-      elif [[ "${menu_exec_count}" -eq 0 ]]; then
+      elif [[ "${visible_desktop_count}" -gt 1 ]]; then
+        status=fail
+        notes+=("duplicate-visible-menu-entries:${visible_desktop_count}")
+      elif [[ "${visible_desktop_count}" -eq 0 ]]; then
+        [[ "${status}" == "fail" ]] || status=warn
+        notes+=("installed-not-desktop-visible")
+      elif [[ "${visible_menu_exec_count}" -eq 0 ]]; then
         status=fail
         notes+=("no-auzix-menu-exec")
       fi
     fi
 
     note_text="$(IFS=,; printf '%s' "${notes[*]:-}")"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "${name}" "${kind}" "${command_count}" "${desktop_count}" "${menu_exec_count}" "${status}" "${note_text}" \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${name}" "${kind}" "${command_count}" "${desktop_count}" "${visible_desktop_count}" "${visible_menu_exec_count}" "${status}" "${note_text}" \
       >>"${REPORT_PATH}"
   done
 
-fail_count="$(awk -F '\t' 'NR > 1 && $6 == "fail" {count++} END {print count+0}' "${REPORT_PATH}")"
+fail_count="$(awk -F '\t' 'NR > 1 && $7 == "fail" {count++} END {print count+0}' "${REPORT_PATH}")"
 printf 'desktop readiness audit: %s failing desktop packages; report=%s\n' "${fail_count}" "${REPORT_PATH}" >&2
 
 jq -n \
@@ -83,5 +97,9 @@ jq -n \
     format: "auzix-desktop-readiness-audit-v1",
     report: $report,
     failing_desktop_packages: $failing_desktop_packages,
-    status: (if $failing_desktop_packages == 0 then "pass" else "warn" end)
+    status: (if $failing_desktop_packages == 0 then "pass" else "fail" end)
   }'
+
+if [[ "${fail_count}" -gt 0 ]]; then
+  exit 1
+fi

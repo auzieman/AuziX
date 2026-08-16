@@ -1,0 +1,16 @@
+# AUZiX Flatpak demo app refs, 2026-08-11
+#
+# Install as the desktop user after FlatpakRuntimeSupport is active:
+#   flatpak install --user flathub <ref>
+#
+# AUZiX adapter recipes live under packages/*-flatpak-adapter.json.
+
+org.mozilla.firefox
+com.opera.Opera
+com.sublimehq.SublimeText
+dev.zed.Zed
+com.vscodium.codium
+org.gimp.GIMP
+org.blender.Blender
+net.fsuae.FS-UAE
+com.usebottles.bottles

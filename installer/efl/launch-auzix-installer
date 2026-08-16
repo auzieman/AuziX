@@ -1,6 +1,8 @@
 #!/System/Compatibility/bin/sh
 set -eu
 
+[ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
+
 if [ "${1:-}" = "--autostart" ]; then
   shift
   sleep "${AUZIX_INSTALLER_AUTOSTART_DELAY:-3}"
@@ -13,6 +15,11 @@ if ! mkdir -p "${log_dir}" 2>/dev/null; then
   mkdir -p "${log_dir}"
 fi
 log_file="${log_dir}/installer-efl.log"
+
+export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
+export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
+export ELM_ACCEL="${ELM_ACCEL:-none}"
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 
 exec /Programs/AuzixInstallerEfl/current/Commands/efl \
   --questions /System/Settings/installer/questions.json \

@@ -72,12 +72,36 @@
           "notes": "Music-player proof. Confirms AUZiX can expose heavier GUI apps while audio/session validation remains a desktop lane."
         },
         {
+          "id": "ShotwellFlatpakAdapter",
+          "tier": "frontend",
+          "state": "validated-on-vmid135",
+          "recipe": "packages/shotwell-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+          "notes": "Photo-manager proof. Flathub payload launches on VM135 after user Flatpak state ownership repair; document portal still needs the FUSE/kernel-module fix."
+        },
+        {
           "id": "ZedFlatpakAdapter",
           "tier": "frontend",
           "state": "built",
           "recipe": "packages/zed-flatpak-adapter.json",
           "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
           "notes": "Modern code-editor proof for dev workstation testing. Zed payload is Flathub-managed under /System/State/flatpak; AUZiX owns the /Programs/Zed launcher and desktop entry."
+        },
+        {
+          "id": "FSUAEFlatpakAdapter",
+          "tier": "frontend",
+          "state": "planned",
+          "recipe": "packages/fs-uae-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+          "notes": "Amiga emulator proof for the AUZiX desktop demo lane. Payload is Flathub-managed; AUZiX owns /Programs/FSUAE launchers, menu metadata, and user-facing integration."
+        },
+        {
+          "id": "BottlesFlatpakAdapter",
+          "tier": "frontend",
+          "state": "planned",
+          "recipe": "packages/bottles-flatpak-adapter.json",
+          "depends": ["BusyBox", "Flatpak", "GnuPG", "CACerts", "FlatpakRuntimeSupport"],
+          "notes": "Windows compatibility proof for the workstation lane. Bottles depends heavily on Flatpak portals/session state and should validate after Flatpak system-helper/user install issues are resolved."
         },
         {
           "id": "GnomeSettingsDesktopControl",

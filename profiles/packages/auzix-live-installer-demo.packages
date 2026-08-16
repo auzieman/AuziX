@@ -1,0 +1,35 @@
+# AUZiX live installer demo package profile.
+#
+# This is not the full workstation. It is the filmable installer/live surface:
+# boot, network, SSH, xterm rescue, browser, file manager, guided installer,
+# and enough debug/internet tools to diagnose the install.
+
+BusyBox
+AuzixPackageTools
+AuzixInstaller
+OpenSSH
+Sudo
+CACerts
+Curl
+UtilLinux
+Iproute2
+E2fsprogs
+Dosfstools
+Parted
+Strace
+File
+Less
+Tar
+Gzip
+AuzixServiceRuntime
+DBus
+DBUSX11
+DBusUserSession
+Udev
+Xorg
+XTerm
+LightDM
+Enlightenment
+AuzixDesktopIntegration
+Midori
+NetSurf

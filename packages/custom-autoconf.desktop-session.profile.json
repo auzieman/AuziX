@@ -1,0 +1,132 @@
+{
+  "format": "auzix-custom-autoconf-profile-v1",
+  "name": "desktop-session-from-trixie-vmid132",
+  "goal": "Make the AUZiX workstation behave like the known-good Trixie vmid132 desktop while preserving AUZiX path policy.",
+  "reference_host": {
+    "name": "trixie-smoke-132",
+    "vmid": 132,
+    "ips": ["10.20.0.117", "192.168.1.169"],
+    "role": "known-good desktop guidebook"
+  },
+  "target_host": {
+    "name": "auzix-workstation-135",
+    "vmid": 135,
+    "role": "live AUZiX desktop to reconcile"
+  },
+  "mode": "fix-first-then-bake",
+  "tier_model": "packages/lifecycle-fragments/tiered-desktop-convergence.md",
+  "policy": {
+    "do_not_reconfigure_world": true,
+    "advance_one_tier_at_a_time": true,
+    "do_not_show_unvalidated_menu_entries": true,
+    "do_not_rebuild_apps_for_lower_tier_failures": true,
+    "compare_against_reference_first": true,
+    "apply_only_safe_idempotent_hooks": true,
+    "record_every_change": true,
+    "feed_proven_changes_back_to_package_lifecycle": true
+  },
+  "triage_surfaces": [
+    "base_commands",
+    "runtime_ladder",
+    "users_groups",
+    "runtime_dirs",
+    "dbus",
+    "polkit",
+    "pam",
+    "lightdm",
+    "x11_input",
+    "efl_efreet",
+    "enlightenment_session",
+    "desktop_menus",
+    "icons_themes",
+    "mime_openwith",
+    "gsettings_schemas",
+    "audio_session",
+    "flatpak_helper_portals",
+    "package_front_doors"
+  ],
+  "tiers": [
+    {
+      "id": "tier-0-base-filesystem-command-floor",
+      "gate": "boot, ssh/shell, base commands, auzix-pkg status/list"
+    },
+    {
+      "id": "tier-1-runtime-ladder-libraries",
+      "gate": "ldd/runtime scan and wrapper path export before menu visibility"
+    },
+    {
+      "id": "tier-2-service-session-substrate",
+      "gate": "DBus, Polkit, PAM, LightDM, Xorg input, runtime dirs"
+    },
+    {
+      "id": "tier-3-desktop-shell-integration",
+      "gate": "EFL/Efreet, Enlightenment, themes, icons, MIME, open-with, menu cache"
+    },
+    {
+      "id": "tier-4-first-application-wave",
+      "gate": "small apps launch from exactly one sensible menu entry"
+    },
+    {
+      "id": "tier-5-heavy-workstation-apps",
+      "gate": "LibreOffice, Flatpak apps, graphics/dev/control-panel apps pass CLI and GUI probes"
+    }
+  ],
+  "safe_live_actions": [
+    "state.ensure-dir",
+    "log.ensure-dir",
+    "group.membership",
+    "mode.ensure",
+    "path.export",
+    "dbus.install-service",
+    "polkit.install-policy",
+    "service.enable",
+    "service.start",
+    "xdg.install-desktop-entry",
+    "xdg.refresh-desktop-database",
+    "xdg.refresh-mime-database",
+    "xdg.refresh-icon-cache",
+    "gsettings.compile-schemas",
+    "efreet.refresh-cache",
+    "flatpak.ensure-remote",
+    "validation.probe"
+  ],
+  "requires_operator_before": [
+    "destructive filesystem changes",
+    "broad compatibility alias changes at slash root",
+    "service-manager replacement",
+    "kernel/initramfs changes",
+    "package downgrade or removal"
+  ],
+  "priority_apps_for_filmable_desktop": [
+    {
+      "name": "Terminology or terminal fallback",
+      "probe": "launch terminal from E menu and run env, id, df, du, htop"
+    },
+    {
+      "name": "LibreOffice Calc/Writer/Impress/Draw",
+      "probe": "launch from menu and run CLI conversion smoke"
+    },
+    {
+      "name": "Flatpak Firefox or Opera",
+      "probe": "remote exists, install works, app launches without system-helper/dbus failure"
+    },
+    {
+      "name": "Midori",
+      "probe": "launch, render Google/Auzietek, no CA/font/sandbox crash"
+    },
+    {
+      "name": "Gnumeric, AbiWord, Geany, Leafpad, Ephoto",
+      "probe": "front-door menu launch plus ldd/runtime ladder"
+    },
+    {
+      "name": "Podman",
+      "probe": "sudo podman ps, load AUZiX busybox/nginx image, serve page on local network"
+    }
+  ],
+  "receipts": [
+    "/System/State/reports/desktop-lifecycle-triage.json",
+    "/System/State/reports/custom-autoconf-desktop-session.json",
+    "out/pipeline-receipts/custom-autoconf-desktop-session/*.json"
+  ],
+  "package_bake_in_queue": "packages/package-lifecycle-bakein.queue.json"
+}

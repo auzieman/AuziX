@@ -12,6 +12,77 @@ SOURCE_DIR="${BUILD_ROOT}/busybox-${BUSYBOX_VERSION}"
 PROGRAM_ROOT="${AUZIX_ROOT}/Programs/BusyBox/${BUSYBOX_VERSION}"
 COMMAND_PATH="${PROGRAM_ROOT}/Commands/busybox"
 RECEIPT_PATH="${AUZIX_ROOT}/System/PackageDB/BusyBox-${BUSYBOX_VERSION}.auzix.json"
+BUSYBOX_APPLETS=(
+  sh
+  ash
+  awk
+  basename
+  blkid
+  cat
+  chmod
+  chown
+  cp
+  cut
+  date
+  dd
+  dirname
+  dmesg
+  echo
+  env
+  fdisk
+  find
+  grep
+  head
+  hostname
+  id
+  ifconfig
+  ip
+  ln
+  ls
+  mdev
+  mkdir
+  mkfs.ext2
+  mkfs.vfat
+  mknod
+  mount
+  mv
+  nc
+  nslookup
+  partprobe
+  ping
+  pivot_root
+  poweroff
+  ps
+  pwd
+  readlink
+  reboot
+  route
+  rm
+  sed
+  sleep
+  sort
+  stat
+  strings
+  stty
+  switch_root
+  sync
+  tail
+  tar
+  tee
+  test
+  touch
+  tr
+  true
+  udhcpc
+  umount
+  uname
+  vi
+  watch
+  wc
+  wget
+  which
+  xargs
+)
 
 log() {
   printf '[auzix-busybox] %s\n' "$*" >&2
@@ -25,6 +96,14 @@ require_cmd() {
 }
 
 write_receipt() {
+  local compatibility_exports
+  mkdir -p "$(dirname "${RECEIPT_PATH}")"
+  compatibility_exports="$(
+    for applet in "${BUSYBOX_APPLETS[@]}"; do
+      printf '    "/System/Compatibility/bin/%s",\n' "${applet}"
+    done |
+      sed '$ s/,$//'
+  )"
   cat > "${RECEIPT_PATH}" <<JSON
 {
   "name": "BusyBox",
@@ -41,19 +120,7 @@ write_receipt() {
   ],
   "compatibility_exports": [
     "/System/Compatibility/bin/busybox",
-    "/System/Compatibility/bin/sh",
-    "/System/Compatibility/bin/fdisk",
-    "/System/Compatibility/bin/id",
-    "/System/Compatibility/bin/ip",
-    "/System/Compatibility/bin/ping",
-    "/System/Compatibility/bin/udhcpc",
-    "/System/Compatibility/bin/wget",
-    "/System/Compatibility/bin/mkfs.ext2",
-    "/System/Compatibility/bin/ls",
-    "/System/Compatibility/bin/mount",
-    "/System/Compatibility/bin/readlink",
-    "/System/Compatibility/bin/sed",
-    "/System/Compatibility/bin/which"
+${compatibility_exports}
   ]
 }
 JSON
@@ -71,68 +138,7 @@ if [[ -x "${COMMAND_PATH}" && -L "${AUZIX_ROOT}/System/Compatibility/bin/sh" ]];
     "${AUZIX_ROOT}/Programs/BusyBox/current"
   ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
     "${AUZIX_ROOT}/System/Compatibility/bin/busybox"
-  for applet in \
-    sh \
-    ash \
-    awk \
-    basename \
-    blkid \
-    cat \
-    chmod \
-    chown \
-    cp \
-    cut \
-    date \
-    dd \
-    dirname \
-    dmesg \
-    echo \
-    env \
-    fdisk \
-    find \
-    grep \
-    head \
-    hostname \
-    id \
-    ifconfig \
-    ip \
-    ls \
-    mdev \
-    mkdir \
-    mkfs.ext2 \
-    mkfs.vfat \
-    mknod \
-    mount \
-    mv \
-    nc \
-    nslookup \
-    partprobe \
-    ping \
-    pivot_root \
-    poweroff \
-    ps \
-    pwd \
-    readlink \
-    reboot \
-    route \
-    rm \
-    sed \
-    sleep \
-    sort \
-    switch_root \
-    tail \
-    tar \
-    test \
-    tr \
-    udhcpc \
-    umount \
-    uname \
-    vi \
-    wc \
-    wget \
-    which \
-    xargs
-  do
+  for applet in "${BUSYBOX_APPLETS[@]}"; do
     ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
       "${AUZIX_ROOT}/System/Compatibility/bin/${applet}"
   done
@@ -167,6 +173,8 @@ log "Configuring BusyBox ${BUSYBOX_VERSION} for a static shell payload"
 env -u ARCH -u CROSS_COMPILE make -C "${SOURCE_DIR}" defconfig >/dev/null
 sed -i \
   -e 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' \
+  -e 's/^CONFIG_TC=y/# CONFIG_TC is not set/' \
+  -e 's/^CONFIG_FEATURE_TC_INGRESS=y/# CONFIG_FEATURE_TC_INGRESS is not set/' \
   -e 's/^CONFIG_INSTALL_APPLET_SYMLINKS=y/CONFIG_INSTALL_APPLET_SYMLINKS=y/' \
   "${SOURCE_DIR}/.config"
 set +o pipefail
@@ -190,68 +198,7 @@ ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}" \
   "${AUZIX_ROOT}/Programs/BusyBox/current"
 ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
   "${AUZIX_ROOT}/System/Compatibility/bin/busybox"
-for applet in \
-  sh \
-  ash \
-  awk \
-  basename \
-  blkid \
-  cat \
-  chmod \
-  chown \
-  cp \
-  cut \
-  date \
-  dd \
-  dirname \
-  dmesg \
-  echo \
-  env \
-  fdisk \
-  find \
-  grep \
-  head \
-  hostname \
-  id \
-  ifconfig \
-  ip \
-  ls \
-  mdev \
-  mkdir \
-  mkfs.ext2 \
-  mkfs.vfat \
-  mknod \
-  mount \
-  mv \
-  nc \
-  nslookup \
-  partprobe \
-  ping \
-  pivot_root \
-  poweroff \
-  ps \
-  pwd \
-  readlink \
-  reboot \
-  route \
-  rm \
-  sed \
-  sleep \
-  sort \
-  switch_root \
-  tail \
-  tar \
-  test \
-  tr \
-  udhcpc \
-  umount \
-  uname \
-  vi \
-  wc \
-  wget \
-  which \
-  xargs
-do
+for applet in "${BUSYBOX_APPLETS[@]}"; do
   ln -sfn /Programs/BusyBox/"${BUSYBOX_VERSION}"/Commands/busybox \
     "${AUZIX_ROOT}/System/Compatibility/bin/${applet}"
 done

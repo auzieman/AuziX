@@ -1,0 +1,53 @@
+{
+  "format": "auzix-install-plan-v1",
+  "target": {
+    "disk": "/dev/vda"
+  },
+  "storage": {
+    "filesystem": "ext4",
+    "layout": "user-work-programs",
+    "users_percent": 55,
+    "work_percent": 25,
+    "programs_percent": 15,
+    "mounts": [
+      {"path": "/Home", "role": "home", "percent": 55},
+      {"path": "/Work", "role": "work", "percent": 25},
+      {"path": "/Programs", "role": "programs", "percent": 15}
+    ]
+  },
+  "bootloader": {
+    "mode": "grub"
+  },
+  "identity": {
+    "hostname": "auzix-workstation",
+    "username": "auzix",
+    "locale": "en_US.UTF-8",
+    "timezone": "America/Los_Angeles",
+    "keyboard": "us"
+  },
+  "accounts": {
+    "root_policy": "disabled"
+  },
+  "packages": {
+    "selected": [
+      "LightDM",
+      "Enlightenment",
+      "Xorg",
+      "XTerm",
+      "Midori",
+      "Flatpak",
+      "Podman",
+      "LibreOfficeWriter",
+      "LibreOfficeCalc",
+      "LibreOfficeImpress",
+      "LibreOfficeDraw",
+      "Pluma",
+      "Geany",
+      "Ephoto"
+    ]
+  },
+  "execution": {
+    "confirmed": false
+  },
+  "frontend": "default"
+}

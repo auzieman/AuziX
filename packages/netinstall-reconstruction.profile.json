@@ -16,7 +16,6 @@
       "Sudo",
       "CACerts",
       "Curl",
-      "Coreutils",
       "UtilLinux",
       "E2fsprogs",
       "Dosfstools",
@@ -38,18 +37,22 @@
       "id": "AuzixDesktopBase",
       "purpose": "Reach a usable graphical desktop with durable menus, terminal, file manager, network visibility, package UI, and login/session services.",
       "packages": [
-        "LightDM",
+        "AuzixServiceRuntime",
+        "Udev",
         "Xorg",
         "Enlightenment",
-        "EFL",
         "Terminology",
-        "Econnman",
+        "XTerm",
+        "LightDM",
         "DBus",
-        "Polkit",
-        "AuzixUserGroups",
-        "AuzixPackageManagerEfl",
-        "AuzixControlPanel",
-        "AuzixDesktopAssets"
+        "DBUSX11",
+        "DBusUserSession",
+        "LibefreetBin",
+        "DesktopFileUtils",
+        "SharedMimeInfo",
+        "Libglib20Bin",
+        "GTKUpdateIconCache",
+        "AuzixDesktopIntegration"
       ],
       "validation": [
         "login as auzix from LightDM",
@@ -74,10 +77,13 @@
         "Galculator"
       ],
       "validation": [
-        "lowriter opens a sample document",
-        "localc opens a sample spreadsheet",
-        "loffice --headless converts sample files",
-        "desktop entries launch through E menus"
+        "lowriter --version succeeds and lowriter opens a sample document visibly",
+        "localc --version succeeds and localc opens a sample spreadsheet visibly",
+        "loimpress --version succeeds and loimpress opens a sample presentation visibly; isolated UserInstallation is allowed only when recorded in the LibreOffice package wrapper contract",
+        "lodraw --version succeeds and lodraw opens a sample drawing visibly; isolated UserInstallation is allowed only when recorded in the LibreOffice package wrapper contract",
+        "loffice --headless converts sample files without writing root-owned state into user homes",
+        "desktop entries launch through E menus only after the direct commands pass",
+        "menu labels distinguish native package launchers from Flatpak launchers where both exist"
       ]
     },
     {
@@ -159,9 +165,18 @@
   "install_flow": [
     "Boot lean AUZiX ISO.",
     "Bring up network and SSH.",
-    "Run auzix-pkg refresh against the repo.",
-    "Partition/format/install base root.",
+    "Run the live preflight guard before touching disks: prove ext4 tooling, target block device visibility, repo refresh, and recovery shell access.",
+    "Install BusyBox-safe live installer preflight packages such as E2fsprogs before partition/format if they are not already in the ISO.",
+    "Refuse ext2 fallback unless explicitly selected as emergency mode.",
+    "Invoke the existing /System/Tools/auzix-install-disk flow for partition, format, live-root copy, finalizer, fstab, boot config, and receipts.",
+    "While /Work/InstallTarget is still mounted, run sanity checks against the installed root; use chroot only for verification or declared post-install package groups, not as a replacement installer.",
+    "Disable/detach the ISO, hard power-cycle vmid135, and boot the real installed disk.",
+    "First boot must prove LightDM keyboard/mouse, auzix login, Enlightenment startup, terminal launch, and real package-backed menus.",
+    "After first boot, install native diagnostics and broad GNU userland only after the libc/loader compatibility lane is proven for that boot.",
     "Install package groups based on selected role: desktop, office, container-host, flatpak, developer-tools.",
+    "Run package lifecycle hooks and generated-state triggers in dependency order.",
+    "Keep AuzixInstallerEfl and AuzixPackageManagerEfl as post-install validation targets until EFL launch/cache/session gates are clean; unattended netboot defaults to SSH/TUI.",
+    "Snapshot VM135-style demo state only after package artifacts have been rebuilt and reinstalled from the repository; live VM repairs are reference evidence, not promotion evidence.",
     "Run group validation gates and write receipts under /System/State/install/receipts."
   ],
   "notes": "This is the bionic rebuild map: AUZiX should recreate the rich workstation from packages after boot, not fossilize a one-off desktop root into every ISO."
