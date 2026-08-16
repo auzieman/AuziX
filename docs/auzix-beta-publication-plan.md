@@ -109,3 +109,22 @@ Recommended pipeline stages:
 The current `scripts/publish-auzix-package-repo.sh` already handles package repo
 index/checksum publication to a static directory. The beta shelf should wrap
 that instead of replacing it.
+
+## BKC implementation hook
+
+The BKC repository now has a dedicated visible pipeline contract:
+
+- `/home/auzieman/Projects/BlackKnightController/pipelines/auzix-public-beta-shelf/`
+
+That lane maps the AUZiX shelf to the existing Auzietek/IONOS pattern:
+
+- build authority: `lab-build` / R730;
+- lab package repo source: `/srv/http/auzix/repo`;
+- lab ISO source: `/var/lib/auzix-build/publish`;
+- public primary host: `74.208.45.165`;
+- public root: `/srv/auzix/site`;
+- public hostname: `auzix.auzietek.com`.
+
+The default BKC run is intentionally dry-run/gated. External changes require
+explicitly enabling public rsync, nginx apply, DNS apply, certificate request,
+and secondary sync gates.
