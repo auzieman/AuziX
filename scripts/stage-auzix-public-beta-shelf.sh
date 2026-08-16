@@ -147,12 +147,12 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
       <a href="repo/">Package Repo</a>
       <a href="isos/">ISOs</a>
       <a href="receipts/">Receipts</a>
-      <a href="https://auzietek.com/">Auzietek</a>
-      <a href="https://linux-users.auzietek.com/blog">Linux Users</a>
-      <a href="https://retro-users.auzietek.com/blog">Retro Users</a>
-      <a href="https://www.blackknightcontroller.com/">BlackKnightController</a>
-      <a href="https://discord.gg/zZh9XuDt9">Community</a>
-      <a href="https://www.linkedin.com/in/auzieman">LinkedIn</a>
+      <a href="https://auzietek.com/" target="_blank" rel="noopener noreferrer">Auzietek</a>
+      <a href="https://linux-users.auzietek.com/blog" target="_blank" rel="noopener noreferrer">Linux Users</a>
+      <a href="https://retro-users.auzietek.com/blog" target="_blank" rel="noopener noreferrer">Retro Users</a>
+      <a href="https://www.blackknightcontroller.com/" target="_blank" rel="noopener noreferrer">BlackKnightController</a>
+      <a href="https://discord.gg/zZh9XuDt9" target="_blank" rel="noopener noreferrer">Community</a>
+      <a href="https://www.linkedin.com/in/auzieman" target="_blank" rel="noopener noreferrer">LinkedIn</a>
     </nav>
     <section class="card">
       <h2>Downloads</h2>
@@ -173,12 +173,12 @@ cat >"${SHELF_DIR}/index.html.next" <<HTML
     </section>
     <section class="card">
       <h2>Community</h2>
-      <p>Start at <a href="https://auzietek.com/">Auzietek</a> or the
-      <a href="https://linux-users.auzietek.com/blog">Linux Users field notes</a>.
-      Join the <a href="https://discord.gg/zZh9XuDt9">Auzietek community</a>,
-      or use <a href="https://discord.com/channels/1537817201380302952/1537821223222780006">the Discord channel</a>
+      <p>Start at <a href="https://auzietek.com/" target="_blank" rel="noopener noreferrer">Auzietek</a> or the
+      <a href="https://linux-users.auzietek.com/blog" target="_blank" rel="noopener noreferrer">Linux Users field notes</a>.
+      Join the <a href="https://discord.gg/zZh9XuDt9" target="_blank" rel="noopener noreferrer">Auzietek community</a>,
+      or use <a href="https://discord.com/channels/1537817201380302952/1537821223222780006" target="_blank" rel="noopener noreferrer">the Discord channel</a>
       if you are already inside. Professional contact is on
-      <a href="https://www.linkedin.com/in/auzieman">LinkedIn</a>.</p>
+      <a href="https://www.linkedin.com/in/auzieman" target="_blank" rel="noopener noreferrer">LinkedIn</a>.</p>
     </section>
   </main>
 </body>
