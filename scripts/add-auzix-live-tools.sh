@@ -1086,7 +1086,7 @@ mask_unstable_enlightenment_modules_root() {
     wl_x11 \
     xwayland; do
     if [ -d "${module_root}/${module}" ]; then
-      "${BB}" mv "${module_root}/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+      "${BB}" touch "${disabled_dir}/${module}.live-profile-disabled" 2>/dev/null || true
     fi
     "${BB}" rm -f \
       "/Users/auzix/.e/e/config/standard/module.${module}.cfg" \
@@ -1241,10 +1241,10 @@ fi
 if [ -n "${asset_dir}" ]; then
   prepare_enlightenment_background_path "${asset_dir}"
   "${BB}" mkdir -p /Users/auzix/.e/e/config 2>/dev/null || true
-  if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
+  if [ "${AUZIX_STAGE_E_CONFIG:-1}" = "1" ] && [ -f "${asset_dir}/config/profile.cfg" ]; then
     "${BB}" cp -f "${asset_dir}/config/profile.cfg" /Users/auzix/.e/e/config/profile.cfg 2>/dev/null || true
   fi
-  if [ "${AUZIX_STAGE_E_CONFIG:-0}" = "1" ]; then
+  if [ "${AUZIX_STAGE_E_CONFIG:-1}" = "1" ]; then
   for profile in standard default; do
     [ -d "${asset_dir}/config/${profile}" ] || continue
     "${BB}" mkdir -p "/Users/auzix/.e/e/config/${profile}" 2>/dev/null || true
@@ -1270,7 +1270,7 @@ elif [ "${AUZIX_MASK_NOAUDIO_MODULES:-1}" = "1" ]; then
   "${BB}" mkdir -p "${disabled_dir}" 2>/dev/null || true
   for module in mixer music-control; do
     if [ -d "/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules/${module}" ]; then
-      "${BB}" mv "/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+      "${BB}" touch "${disabled_dir}/${module}.live-profile-disabled" 2>/dev/null || true
     fi
     "${BB}" rm -f "/Users/auzix/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
@@ -2164,7 +2164,7 @@ mask_unstable_enlightenment_modules() {
     wl_x11 \
     xwayland; do
     if [ -d "${module_root}/${module}" ]; then
-      "${BB}" mv "${module_root}/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+      "${BB}" touch "${disabled_dir}/${module}.live-profile-disabled" 2>/dev/null || true
     fi
     "${BB}" rm -f "${HOME}/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done
@@ -2251,7 +2251,7 @@ disable_enlightenment_first_run_wizard() {
   wizard_dir="${module_root}/wizard"
   "${BB}" mkdir -p "${disabled_dir}" "${HOME}/.e/e/config/standard" 2>/dev/null || true
   if [ -d "${wizard_dir}" ]; then
-    "${BB}" mv "${wizard_dir}" "${disabled_dir}/wizard" 2>/dev/null || true
+    "${BB}" touch "${disabled_dir}/wizard.live-profile-disabled" 2>/dev/null || true
   fi
   "${BB}" rm -f \
     "${HOME}/.e/e/config/standard/module.wizard.cfg" \
@@ -2416,7 +2416,7 @@ elif [ "${AUZIX_MASK_NOAUDIO_MODULES:-1}" = "1" ]; then
   "${BB}" mkdir -p "${disabled_dir}" 2>/dev/null || true
   for module in mixer music-control; do
     if [ -d "/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules/${module}" ]; then
-      "${BB}" mv "/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules/${module}" "${disabled_dir}/${module}" 2>/dev/null || true
+      "${BB}" touch "${disabled_dir}/${module}.live-profile-disabled" 2>/dev/null || true
     fi
     "${BB}" rm -f "${HOME}/.e/e/config/standard/module.${module}.cfg" 2>/dev/null || true
   done

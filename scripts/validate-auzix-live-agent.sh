@@ -47,6 +47,46 @@ for script in "${SEQUENCE}" "${START_E}" "${START_E_SESSION}" "${LIGHTDM_WRAPPER
   [[ -e "${script}" ]] || continue
   grep -Fq '/System/Settings/auzix-paths.sh' "${script}" || fail "${script#${AUZIX_ROOT}} does not source canonical AUZiX paths"
 done
+grep -Fq 'AUZIX_STAGE_E_CONFIG:-0' "${SEQUENCE}" && fail "StartSequence disables E config staging by default"
+for script in "${SEQUENCE}" "${START_E}" "${START_E_SESSION}" "${LIGHTDM_WRAPPER}" "${LIGHTDM_SESSION}"; do
+  [[ -e "${script}" ]] || continue
+  grep -Fq 'mv "${module_root}/${module}"' "${script}" && fail "${script#${AUZIX_ROOT}} physically moves Enlightenment module payloads"
+  grep -Fq 'mv "${wizard_dir}"' "${script}" && fail "${script#${AUZIX_ROOT}} physically moves the Enlightenment wizard module"
+  grep -Fq 'mv "/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/modules/${module}"' "${script}" &&
+    fail "${script#${AUZIX_ROOT}} physically moves Enlightenment module payloads"
+done
+[[ -s "${AUZIX_ROOT}/Users/auzix/.e/e/config/profile.cfg" ]] || fail "live auzix user lacks preseeded Enlightenment profile"
+[[ -s "${AUZIX_ROOT}/Users/auzix/.e/e/config/standard/e.cfg" ]] || fail "live auzix user lacks preseeded standard Enlightenment config"
+[[ -d "${AUZIX_ROOT}/Users/auzix/.elementary/config" ]] || fail "live auzix user lacks preseeded Elementary config"
+[[ ! -e "${AUZIX_ROOT}/Users/auzix/.e/e/config/standard/module.wizard.cfg" ]] || fail "live profile still asks for first-run wizard"
+[[ -s "${AUZIX_ROOT}/System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.edj" ]] ||
+  fail "Foggy Trees background is missing from the Enlightenment background catalog"
+if command -v eet >/dev/null 2>&1; then
+  e_dump="$(mktemp)"
+  if eet -d "${AUZIX_ROOT}/Users/auzix/.e/e/config/standard/e.cfg" config "${e_dump}" 2>/dev/null; then
+    grep -Fq 'value "desktop_default_background" string: "/System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.edj";' "${e_dump}" ||
+      fail "live standard E profile does not select Foggy Trees"
+  fi
+  rm -f "${e_dump}"
+fi
+if [[ -s "${AUZIX_ROOT}/Users/auzix/.config/autostart/auzix-installer.desktop" ]]; then
+  grep -Fq 'Hidden=false' "${AUZIX_ROOT}/Users/auzix/.config/autostart/auzix-installer.desktop" ||
+    fail "installer autostart entry is hidden"
+  grep -Fq 'X-GNOME-Autostart-enabled=true' "${AUZIX_ROOT}/Users/auzix/.config/autostart/auzix-installer.desktop" ||
+    fail "installer autostart entry is disabled"
+else
+  fail "missing live installer autostart entry"
+fi
+if [[ -s "${AUZIX_ROOT}/Users/auzix/.config/autostart/auzix-browser.desktop" ]]; then
+  grep -Fq '/System/Tools/launch-auzix-browser' "${AUZIX_ROOT}/Users/auzix/.config/autostart/auzix-browser.desktop" ||
+    fail "browser autostart does not use the AUZiX browser launcher"
+else
+  fail "missing live browser autostart entry"
+fi
+[[ -x "${AUZIX_ROOT}/System/Tools/launch-auzix-browser" ]] || fail "missing live browser launcher"
+[[ -s "${AUZIX_ROOT}/System/Settings/browser/midori-start-pages" ]] || fail "Midori start pages are missing"
+grep -Fq 'https://auzietek.com' "${AUZIX_ROOT}/System/Settings/browser/midori-start-pages" ||
+  fail "Midori start pages omit auzietek.com"
 grep -Fq 'auzix-live-agent collect boot' "${SEQUENCE}" || fail "StartSequence does not collect a boot receipt"
 grep -Fq 'opens no listener' "${AGENT}" || fail "agent safety contract missing"
 grep -Fq 'https://example.com' "${AGENT}" || fail "agent lacks HTTPS validation probe"
