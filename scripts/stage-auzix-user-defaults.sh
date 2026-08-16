@@ -130,6 +130,11 @@ fi
 ensure_decodable_e_profile standard
 ensure_decodable_e_profile default
 
+if [[ ! -s "${TARGET_HOME}/.e/e/config/profile.cfg" ]] && [[ -s "${ROOT_DIR}/assets/display/config/profile.cfg" ]]; then
+  cp -a "${ROOT_DIR}/assets/display/config/profile.cfg" "${TARGET_HOME}/.e/e/config/profile.cfg"
+  log "seeded packaged Enlightenment profile selector from assets/display/config/profile.cfg"
+fi
+
 if [[ ! -s "${TARGET_HOME}/.e/e/config/profile.cfg" ]] && command -v eet >/dev/null 2>&1; then
   profile_tmp="$(mktemp)"
   printf standard > "${profile_tmp}"

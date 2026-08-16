@@ -41,8 +41,15 @@ grep -Fq 'GCONV_PATH=' "${PATH_CONTRACT}" || fail "path contract lacks glibc con
 grep -Fq 'SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"' "${PATH_CONTRACT}" || fail "path contract lacks canonical AUZiX CA cert dir"
 grep -Fq 'SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"' "${PATH_CONTRACT}" || fail "path contract lacks canonical AUZiX CA bundle"
 [[ -s "${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt" ]] || fail "canonical AUZiX CA bundle is missing"
-[[ -e "${AUZIX_ROOT}/System/Settings/ssl" ]] || fail "/System/Settings/ssl alias for hardwired /etc/ssl callers is missing"
-[[ -s "${AUZIX_ROOT}/System/Settings/ssl/certs/ca-certificates.crt" ]] || fail "/System/Settings/ssl CA alias does not resolve"
+[[ -e "${AUZIX_ROOT}/System/Settings/ssl" || -L "${AUZIX_ROOT}/System/Settings/ssl" ]] ||
+  fail "/System/Settings/ssl alias for hardwired /etc/ssl callers is missing"
+settings_ssl_target="$(readlink "${AUZIX_ROOT}/System/Settings/ssl" 2>/dev/null || true)"
+if [[ "${settings_ssl_target}" == /System/* ]]; then
+  [[ -s "${AUZIX_ROOT}${settings_ssl_target}/certs/ca-certificates.crt" ]] ||
+    fail "/System/Settings/ssl AUZiX absolute alias does not resolve inside staged root"
+else
+  [[ -s "${AUZIX_ROOT}/System/Settings/ssl/certs/ca-certificates.crt" ]] || fail "/System/Settings/ssl CA alias does not resolve"
+fi
 for script in "${SEQUENCE}" "${START_E}" "${START_E_SESSION}" "${LIGHTDM_WRAPPER}" "${LIGHTDM_SESSION}"; do
   [[ -e "${script}" ]] || continue
   grep -Fq '/System/Settings/auzix-paths.sh' "${script}" || fail "${script#${AUZIX_ROOT}} does not source canonical AUZiX paths"
