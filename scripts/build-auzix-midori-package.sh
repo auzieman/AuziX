@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/auzix-library-policy.sh"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 WORK_DIR="${ROOT_DIR}/out/auzix-packages/midori"
 MIDORI_VERSION="${AUZIX_MIDORI_VERSION:-11.8}"
@@ -39,15 +40,15 @@ copy_dep_path() {
   case "${dep}" in
     /lib64/*)
       install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
-      install -D -m 0755 "${dep}" "${MIDORI_PROGRAM}/Libraries/$(basename "${dep}")"
+      auzix_copy_app_private_library "${dep}" "${MIDORI_PROGRAM}/Libraries/$(basename "${dep}")"
       ;;
     /lib/x86_64-linux-gnu/*|/usr/lib/x86_64-linux-gnu/*)
       install -D -m 0755 "${dep}" "${RUNTIME_LIB}/$(basename "${dep}")"
-      install -D -m 0755 "${dep}" "${MIDORI_PROGRAM}/Libraries/$(basename "${dep}")"
+      auzix_copy_app_private_library "${dep}" "${MIDORI_PROGRAM}/Libraries/$(basename "${dep}")"
       ;;
     /usr/lib/*)
       install -D -m 0755 "${dep}" "${RUNTIME_USR}/lib/${dep#/usr/lib/}"
-      install -D -m 0755 "${dep}" "${MIDORI_PROGRAM}/Libraries/${dep#/usr/lib/}"
+      auzix_copy_app_private_library "${dep}" "${MIDORI_PROGRAM}/Libraries/${dep#/usr/lib/}"
       ;;
     *)
       install -D -m 0755 "${dep}" "${AUZIX_ROOT}${dep}"
@@ -148,6 +149,80 @@ else
   fi
 fi
 
+mkdir -p \
+  "${MIDORI_PROGRAM}/Resources/midori/distribution" \
+  "${MIDORI_PROGRAM}/Resources/midori/defaults/pref" \
+  "${AUZIX_ROOT}/System/Settings/browser/midori-default-profile"
+
+cat > "${MIDORI_PROGRAM}/Resources/midori/distribution/policies.json" <<'EOF'
+{
+  "policies": {
+    "Certificates": {
+      "ImportEnterpriseRoots": true
+    },
+    "DisableAppUpdate": true,
+    "DisableTelemetry": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": ""
+  }
+}
+EOF
+
+cat > "${MIDORI_PROGRAM}/Resources/midori/defaults/pref/auzix-cert-policy.js" <<'EOF'
+// AUZiX live/install media use a relocated CA bundle.  Firefox-family/NSS
+// browsers do not reliably honor SSL_CERT_FILE, so keep browser-native trust
+// policy explicit and visible in the package payload.
+pref("security.enterprise_roots.enabled", true);
+pref("security.osclientcerts.autoload", true);
+pref("browser.shell.checkDefaultBrowser", false);
+pref("browser.startup.homepage_override.mstone", "ignore");
+pref("datareporting.policy.dataSubmissionEnabled", false);
+pref("app.update.enabled", false);
+EOF
+
+cat > "${AUZIX_ROOT}/System/Settings/browser/midori-default-profile/user.js" <<'EOF'
+user_pref("security.enterprise_roots.enabled", true);
+user_pref("security.osclientcerts.autoload", true);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("app.update.enabled", false);
+EOF
+chmod 0644 \
+  "${MIDORI_PROGRAM}/Resources/midori/distribution/policies.json" \
+  "${MIDORI_PROGRAM}/Resources/midori/defaults/pref/auzix-cert-policy.js" \
+  "${AUZIX_ROOT}/System/Settings/browser/midori-default-profile/user.js"
+
+ca_bundle="${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt"
+profile_dir="${AUZIX_ROOT}/System/Settings/browser/midori-default-profile"
+if command -v certutil >/dev/null 2>&1 && [[ -s "${ca_bundle}" ]]; then
+  cert_work="${WORK_DIR}/certs"
+  rm -rf "${cert_work}"
+  mkdir -p "${cert_work}"
+  certutil -N -d "sql:${profile_dir}" --empty-password >/dev/null 2>&1 || true
+  awk '
+    /-----BEGIN CERTIFICATE-----/ { n++; out=sprintf("'"${cert_work}"'/cert-%04d.pem", n) }
+    out { print > out }
+    /-----END CERTIFICATE-----/ { close(out); out="" }
+  ' "${ca_bundle}"
+  imported=0
+  for cert in "${cert_work}"/cert-*.pem; do
+    [[ -s "${cert}" ]] || continue
+    imported=$((imported + 1))
+    certutil -A -d "sql:${profile_dir}" \
+      -n "AUZiX Root ${imported}" \
+      -t "C,," \
+      -i "${cert}" >/dev/null 2>&1 || true
+  done
+  if [[ -s "${profile_dir}/cert9.db" ]]; then
+    log "Seeded Midori NSS trust DB with ${imported} CA entries"
+  fi
+else
+  log "certutil unavailable; relying on Midori policy/preferences and bundled NSS trust module"
+fi
+find "${profile_dir}" -type f -exec chmod 0644 {} + 2>/dev/null || true
+
 cat > "${MIDORI_PROGRAM}/Commands/midori" <<'EOF'
 #!/System/Compatibility/bin/sh
 set -eu
@@ -169,11 +244,17 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export NSS_DEFAULT_DB_TYPE="${NSS_DEFAULT_DB_TYPE:-sql}"
 export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
-export LD_LIBRARY_PATH="/Programs/Midori/current/Resources/midori:/Programs/Midori/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu/nss:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu/nss:/System/Compatibility/lib64:/Programs/Midori/current/Resources/midori:/Programs/Midori/current/Libraries${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 mkdir -p "${XDG_RUNTIME_DIR}" "${XDG_CACHE_HOME}" "${XDG_CONFIG_HOME}" "${XDG_DATA_HOME}" "${HOME}/.midori" 2>/dev/null || true
 chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
+if [ -s /System/Settings/browser/midori-default-profile/user.js ] &&
+   [ ! -s "${HOME}/.midori/user.js" ]; then
+  cp -R /System/Settings/browser/midori-default-profile/. "${HOME}/.midori/" 2>/dev/null || true
+  chmod -R u+rwX "${HOME}/.midori" 2>/dev/null || true
+fi
 if [ ! -w "${XDG_CACHE_HOME}" ] || [ ! -w "${XDG_CONFIG_HOME}" ] ||
    [ ! -w "${XDG_DATA_HOME}" ] || [ ! -w "${HOME}/.midori" ]; then
   echo "Midori profile directories are not writable by $(id -un 2>/dev/null || echo current-user)." >&2
@@ -191,6 +272,7 @@ if [ "$#" -eq 0 ] && [ -s /System/Settings/browser/midori-start-pages ]; then
     set -- "$@" "${start_url}"
   done < /System/Settings/browser/midori-start-pages
 fi
+set -- --profile "${HOME}/.midori" "$@"
 exec ./midori "$@"
 EOF
 chmod 0755 "${MIDORI_PROGRAM}/Commands/midori"

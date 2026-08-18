@@ -11,6 +11,7 @@ PREVIOUS_PACKAGE_DIR="${REPO_DIR}/packages"
 MANIFEST_DIR="${AUZIX_ROOT}/System/Settings/packages"
 STACK_DIR="${AUZIX_ROOT}/Stacks/desktop-core"
 NORMALIZE_OWNERS="${AUZIX_PACKAGE_NORMALIZE_OWNERS:-0}"
+REJECT_ALT_GLIBC="${AUZIX_REPO_REJECT_ALT_GLIBC:-1}"
 
 log() {
   printf '[auzix-repo] %s\n' "$*" >&2
@@ -70,6 +71,11 @@ package_receipt() {
   if [[ -z "${name}" ]]; then
     log "Skipping receipt without name: ${receipt}"
     return 0
+  fi
+  if [[ "${REJECT_ALT_GLIBC}" == "1" ]] &&
+    grep -F '/Programs/Libc6/current' "${receipt}" >/dev/null 2>&1; then
+    log "Refusing ${name}-${version}; receipt references alternate/package-scoped glibc. Rebuild against /System/Libraries core."
+    return 1
   fi
 
   package_name="$(safe_name "${name}-${version}").auzix.tar.gz"
@@ -262,6 +268,8 @@ jq -s '
       packages: (
         ([
           $previous.packages[]?
+          | select(((.validation? // {}) | tostring | contains("/Programs/Libc6/current")) | not)
+          | select(((.runtime_ladder? // {}) | tostring | contains("/Programs/Libc6/current")) | not)
           | select(.name as $name | ($incoming_names | index($name) | not))
           | select(
               if (.name | startswith("Debian.")) then

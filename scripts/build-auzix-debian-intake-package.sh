@@ -145,6 +145,20 @@ debian_depends_to_native_json() {
   } | jq -R -s 'split("\n") | map(select(length > 0))'
 }
 
+auzix_core_runtime_debian_package() {
+  case "$1" in
+    libc6|libgcc-s1|gcc-14-base) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+auzix_core_runtime_native_package() {
+  case "$1" in
+    Libc6|LibgccS1|GCC14Base) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 native_receipt_exists() {
   local native="$1"
   find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
@@ -167,6 +181,10 @@ build_missing_debian_dependencies() {
   while IFS= read -r dep; do
     [[ -n "${dep}" ]] || continue
     [[ "${dep}" != "${package_name}" ]] || continue
+    if auzix_core_runtime_debian_package "${dep}"; then
+      log "core runtime dependency ${dep} is satisfied by /System/Libraries; not building an alternate glibc package"
+      continue
+    fi
     if [[ "${stack}" == *" ${dep} "* ]]; then
       log "skipping dependency cycle ${package_name} -> ${dep}"
       continue
@@ -249,6 +267,8 @@ while stack:
         continue
     depends = receipt.get("depends") or []
     for dep in reversed(depends):
+        if dep == name:
+            continue
         if dep and dep not in seen:
             stack.append(dep)
 
@@ -377,6 +397,7 @@ if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" 
   fi
 fi
 native_depends_words="$(native_installed_depends_closure_words "${native_depends_words}" "${AUZIX_ROOT}/System/PackageDB")"
+native_depends_words="$(tr ' ' '\n' <<<"${native_depends_words}" | awk -v self="${native_name}" 'NF && $0 != self && $0 != "Libc6" && $0 != "LibgccS1" && $0 != "GCC14Base" && !seen[$0]++' | paste -sd' ' -)"
 native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 validation_library_paths_json="$(
   {
@@ -666,13 +687,12 @@ export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
-export LD_LIBRARY_PATH="\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64:/System/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 runtime_loader=""
 for candidate_loader in \
-  "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2" \
-  "/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
-  "/Programs/Libc6/current/RootFS/lib64/ld-linux-x86-64.so.2" \
-  "/Programs/Libc6/current/RootFS/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"; do
+  "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \
+  "/System/Compatibility/lib64/ld-linux-x86-64.so.2" \
+  "/lib64/ld-linux-x86-64.so.2"; do
   if [ -x "\${candidate_loader}" ]; then
     runtime_loader="\${candidate_loader}"
     break
@@ -712,6 +732,7 @@ runtime_data_path=""
 runtime_schema_path=""
 runtime_gi_path=""
 runtime_lib_path=""
+compat_lib_path=""
 runtime_loader=""
 append_existing_path() {
   variable_name="\$1"
@@ -728,6 +749,9 @@ append_existing_path() {
   fi
 }
 for runtime_package in \${runtime_packages}; do
+  case "\${runtime_package}" in
+    Libc6|LibgccS1|GCC14Base) continue ;;
+  esac
   runtime_root="/Programs/\${runtime_package}/current/RootFS"
   [ -d "\${runtime_root}" ] || continue
   append_existing_path runtime_bin_path "\${runtime_root}/usr/bin"
@@ -742,28 +766,7 @@ for runtime_package in \${runtime_packages}; do
   append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
   append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
   append_existing_path runtime_lib_path "\${runtime_root}/lib"
-  if [ -z "\${runtime_loader}" ]; then
-    for candidate_loader in \
-      "\${runtime_root}/usr/lib64/ld-linux-x86-64.so.2" \
-      "\${runtime_root}/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \
-      "\${runtime_root}/lib64/ld-linux-x86-64.so.2" \
-      "\${runtime_root}/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"; do
-      if [ -x "\${candidate_loader}" ]; then
-        runtime_loader="\${candidate_loader}"
-        break
-      fi
-    done
-  fi
 done
-if [ -d /Programs ]; then
-  for runtime_root in /Programs/*/current/RootFS; do
-    [ -d "\${runtime_root}" ] || continue
-    append_existing_path runtime_lib_path "\${runtime_root}/usr/lib/x86_64-linux-gnu"
-    append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
-    append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
-    append_existing_path runtime_lib_path "\${runtime_root}/lib"
-  done
-fi
 own_bin_path=""
 own_data_path=""
 own_schema_path=""
@@ -783,15 +786,28 @@ append_existing_path own_lib_path "\${rootfs}/usr/lib/x86_64-linux-gnu"
 append_existing_path own_lib_path "\${rootfs}/usr/lib"
 append_existing_path own_lib_path "\${rootfs}/lib/x86_64-linux-gnu"
 append_existing_path own_lib_path "\${rootfs}/lib"
-append_existing_path own_lib_path "/System/Compatibility/usr/lib/x86_64-linux-gnu"
-append_existing_path own_lib_path "/System/Compatibility/lib/x86_64-linux-gnu"
-append_existing_path own_lib_path "/System/Compatibility/lib64"
-append_existing_path own_lib_path "/System/Libraries"
+append_existing_path compat_lib_path "/System/Compatibility/usr/lib/x86_64-linux-gnu"
+append_existing_path compat_lib_path "/System/Compatibility/lib/x86_64-linux-gnu"
+append_existing_path compat_lib_path "/System/Compatibility/usr/lib"
+append_existing_path compat_lib_path "/System/Compatibility/lib"
+append_existing_path compat_lib_path "/System/Compatibility/lib64"
+append_existing_path compat_lib_path "/System/Libraries"
+if [ -z "\${runtime_loader}" ]; then
+  for candidate_loader in \
+    "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \
+    "/System/Compatibility/lib64/ld-linux-x86-64.so.2" \
+    "/lib64/ld-linux-x86-64.so.2"; do
+    if [ -x "\${candidate_loader}" ]; then
+      runtime_loader="\${candidate_loader}"
+      break
+    fi
+  done
+fi
 export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
-export LD_LIBRARY_PATH="\${own_lib_path}\${runtime_lib_path:+:\${runtime_lib_path}}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc\${own_lib_path:+:\${own_lib_path}}\${runtime_lib_path:+:\${runtime_lib_path}}\${compat_lib_path:+:\${compat_lib_path}}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 ${command_loader_tail}
 EOF
   fi
@@ -996,12 +1012,11 @@ jq -n \
       md5sums: $debian_md5sums[0]
     },
     validation: {
-      loader: "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2",
+      loader: "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2",
       loader_candidates: [
-        "/Programs/Libc6/current/RootFS/usr/lib64/ld-linux-x86-64.so.2",
-        "/Programs/Libc6/current/RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
-        "/Programs/Libc6/current/RootFS/lib64/ld-linux-x86-64.so.2",
-        "/Programs/Libc6/current/RootFS/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2",
+        "/System/Compatibility/lib64/ld-linux-x86-64.so.2",
+        "/lib64/ld-linux-x86-64.so.2"
       ],
       library_paths: $validation_library_paths[0]
     },

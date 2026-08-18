@@ -56,6 +56,9 @@ Scope:
 - `/System/Libraries`;
 - explicit `/System/Compatibility` only where accepted;
 - wrapper environment: `PATH`, `LD_LIBRARY_PATH`, `XDG_*`, package data dirs.
+- substrate version boundaries: glibc/loader, libssl/OpenSSL, GLib/GIO,
+  GTK/GNOME, EFL/Enlightenment/Efreet, Xorg/input/video, font/icon/MIME/cache
+  tooling.
 
 Gate:
 
@@ -64,8 +67,16 @@ Gate:
   runtime;
 - wrapper invokes the real binary and preserves argv behavior;
 - failing apps are classified as missing package, missing lib, or bad path map.
+- no leaf package is allowed to upgrade or shadow the active runtime substrate
+  as a side effect. If a leaf package requires newer glibc, GTK/GNOME, Xorg,
+  EFL, libssl, DBus/PAM/Polkit, or cache/tooling substrate, either hold/backtrack
+  to a compatible package version or stop and schedule a runtime-layer rebuild.
 
 If this tier fails, do not create a visible menu entry yet.
+
+Substrate changes are not spot fixes. Rebuilding the base/runtime stratum first
+and then rebuilding newer packages is valid; force-installing a newer substrate
+component into a running live desktop is not.
 
 ## Tier 2: service and session substrate
 

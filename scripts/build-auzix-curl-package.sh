@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/auzix-library-policy.sh"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 WORK_DIR="${ROOT_DIR}/out/auzix-packages/curl"
 APT_PACKAGES=(curl ca-certificates)
@@ -36,15 +37,15 @@ copy_dep_path() {
   case "${dep}" in
     /lib64/*)
       install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
-      install -D -m 0755 "${dep}" "${CURL_PROGRAM}/Libraries/$(basename "${dep}")"
+      auzix_copy_app_private_library "${dep}" "${CURL_PROGRAM}/Libraries/$(basename "${dep}")"
       ;;
     /lib/x86_64-linux-gnu/*|/usr/lib/x86_64-linux-gnu/*)
       install -D -m 0755 "${dep}" "${RUNTIME_LIB}/$(basename "${dep}")"
-      install -D -m 0755 "${dep}" "${CURL_PROGRAM}/Libraries/$(basename "${dep}")"
+      auzix_copy_app_private_library "${dep}" "${CURL_PROGRAM}/Libraries/$(basename "${dep}")"
       ;;
     /usr/lib/*)
       install -D -m 0755 "${dep}" "${RUNTIME_USR}/lib/${dep#/usr/lib/}"
-      install -D -m 0755 "${dep}" "${CURL_PROGRAM}/Libraries/${dep#/usr/lib/}"
+      auzix_copy_app_private_library "${dep}" "${CURL_PROGRAM}/Libraries/${dep#/usr/lib/}"
       ;;
     *)
       install -D -m 0755 "${dep}" "${AUZIX_ROOT}${dep}"
@@ -134,8 +135,8 @@ export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export GCONV_PATH="${GCONV_PATH:-/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
-exec /Programs/Curl/current/Libraries/ld-linux-x86-64.so.2 \
-  --library-path /Programs/Curl/current/Libraries \
+exec /System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2 \
+  --library-path /System/Libraries:/System/Libraries/Runtime/glibc:/Programs/Curl/current/Libraries:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64 \
   /Programs/Curl/current/Commands/curl.real "$@"
 EOF
 chmod 0755 "${CURL_PROGRAM}/Commands/curl"

@@ -3,12 +3,14 @@ set -euo pipefail
 
 # Thin live-media assembler. It never runs the broad package build. The only
 # mutable root is a local R730 copy of an explicitly named, known-good root.
-SOURCE_ROOT="${AUZIX_SOURCE_ROOT:-/mnt/ns1/AuziX/src}"
+# Lab-build/R730 is the active build master; NS1 is a mirror/publication surface
+# only when explicitly selected.
+SOURCE_ROOT="${AUZIX_SOURCE_ROOT:-/home/auzieman/Projects/AuziX}"
 BASELINE_ROOT="${AUZIX_BASELINE_ROOT:-${SOURCE_ROOT}/out/auzix-iso/iso/AuzixRoot}"
 KEY_FILE="${AUZIX_AUTHORIZED_KEYS_FILE:-/mnt/ns1/AuziX/runtime/keys/authorized_keys}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-/mnt/ns1/AuziX/runtime/secrets/live-root-shadow}"
-RECEIPT_DIR="${AUZIX_RECEIPT_DIR:-/mnt/ns1/AuziX/build-receipts}"
-PUBLISH_DIR="${AUZIX_PUBLISH_DIR:-${SOURCE_ROOT}/artifacts/auzix}"
+RECEIPT_DIR="${AUZIX_RECEIPT_DIR:-/var/lib/auzix-build/receipts}"
+PUBLISH_DIR="${AUZIX_PUBLISH_DIR:-/var/lib/auzix-build/published}"
 WORK_ROOT="${AUZIX_WORK_ROOT:-/var/lib/auzix-build}"
 BUILDER_IMAGE="${AUZIX_BUILDER_IMAGE:-auzix/builder:lab}"
 REFRESH_BUILDER="${AUZIX_REFRESH_BUILDER:-0}"

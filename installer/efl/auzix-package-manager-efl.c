@@ -13,6 +13,7 @@ typedef struct {
   Evas_Object *window;
   Evas_Object *list;
   Evas_Object *status;
+  Evas_Object *repo_entry;
   Evas_Object *install_button;
   Ecore_Exe *runner;
   Ecore_Event_Handler *data_handler;
@@ -62,6 +63,15 @@ static Eina_Bool package_name_safe(const char *name) {
   if (!name || !name[0]) return EINA_FALSE;
   for (const unsigned char *p = (const unsigned char *)name; *p; p++) {
     if (!isalnum(*p) && *p != '-' && *p != '_' && *p != '.' && *p != '+') return EINA_FALSE;
+  }
+  return EINA_TRUE;
+}
+
+static Eina_Bool repo_url_safe(const char *url) {
+  if (!url || !url[0]) return EINA_FALSE;
+  if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) return EINA_FALSE;
+  for (const unsigned char *p = (const unsigned char *)url; *p; p++) {
+    if (!isalnum(*p) && !strchr(":/._-?&=%+#", *p)) return EINA_FALSE;
   }
   return EINA_TRUE;
 }
@@ -188,9 +198,32 @@ static Eina_Bool done_cb(void *data, int type, void *event_info) {
 static void refresh_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Package_Manager *ui = data;
+  const char *repo = elm_entry_entry_get(ui->repo_entry);
+  char command[1024];
+  if (!repo_url_safe(repo)) {
+    status_set(ui, "<color=#ffb86c>Repository URL must be http(s) and contain only safe URL characters.</color>");
+    return;
+  }
+  snprintf(command, sizeof(command),
+           "/System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg refresh '%s'",
+           repo);
   status_set(ui, "<color=#84a7b8>Refreshing repository metadata…</color>");
-  if (!run_action(ui, ACTION_REFRESH, "/System/Tools/auzix-pkg refresh"))
+  if (!run_action(ui, ACTION_REFRESH, command))
     status_set(ui, "<color=#ffb86c>A package operation is already running.</color>");
+}
+
+static void repo_lab_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj; (void)event_info;
+  Package_Manager *ui = data;
+  elm_entry_entry_set(ui->repo_entry, "http://192.168.1.10/auzix/repo");
+  status_set(ui, "<color=#84a7b8>Repository set to lab. Refresh to use it.</color>");
+}
+
+static void repo_public_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj; (void)event_info;
+  Package_Manager *ui = data;
+  elm_entry_entry_set(ui->repo_entry, "https://auzix.auzietek.com/repo");
+  status_set(ui, "<color=#84a7b8>Repository set to public AUZiX. Refresh to use it.</color>");
 }
 
 static void install_cb(void *data, Evas_Object *obj, void *event_info) {
@@ -247,6 +280,35 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   evas_object_size_hint_weight_set(intro, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(intro, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(box, intro); evas_object_show(intro);
+
+  Evas_Object *repo_frame = elm_frame_add(box);
+  elm_object_text_set(repo_frame, "00 // REPOSITORY");
+  Evas_Object *repo_box = elm_box_add(repo_frame);
+  elm_box_horizontal_set(repo_box, EINA_TRUE);
+  elm_box_padding_set(repo_box, 8, 0);
+  ui.repo_entry = elm_entry_add(repo_box);
+  elm_entry_single_line_set(ui.repo_entry, EINA_TRUE);
+  elm_entry_entry_set(ui.repo_entry, "http://192.168.1.10/auzix/repo");
+  evas_object_size_hint_weight_set(ui.repo_entry, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.repo_entry, EVAS_HINT_FILL, 0.5);
+  elm_box_pack_end(repo_box, ui.repo_entry);
+  Evas_Object *lab = elm_button_add(repo_box);
+  elm_object_text_set(lab, "LAB");
+  evas_object_smart_callback_add(lab, "clicked", repo_lab_cb, &ui);
+  elm_box_pack_end(repo_box, lab);
+  Evas_Object *pub = elm_button_add(repo_box);
+  elm_object_text_set(pub, "PUBLIC");
+  evas_object_smart_callback_add(pub, "clicked", repo_public_cb, &ui);
+  elm_box_pack_end(repo_box, pub);
+  elm_object_content_set(repo_frame, repo_box);
+  evas_object_size_hint_weight_set(repo_frame, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(repo_frame, EVAS_HINT_FILL, 0.5);
+  elm_box_pack_end(box, repo_frame);
+  evas_object_show(ui.repo_entry);
+  evas_object_show(lab);
+  evas_object_show(pub);
+  evas_object_show(repo_box);
+  evas_object_show(repo_frame);
 
   Evas_Object *frame = elm_frame_add(box);
   elm_object_text_set(frame, "01 // AVAILABLE PACKAGES");

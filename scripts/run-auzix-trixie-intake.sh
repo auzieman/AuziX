@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE="${1:-${ROOT_DIR}/profiles/packages/auzix-trixie-user-apps.packages}"
 AUZIX_ROOT="${2:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LIMIT="${AUZIX_TRIXIE_LIMIT:-0}"
+SORT_PROFILE="${AUZIX_TRIXIE_SORT_PROFILE:-0}"
 REPORT_DIR="${ROOT_DIR}/out/package-bot"
 REPORT_NAME="${AUZIX_TRIXIE_REPORT:-trixie-user-apps.report.json}"
 REPORT_FILE="${REPORT_DIR}/${REPORT_NAME}"
@@ -21,6 +22,10 @@ log() {
   log "AUZIX_TRIXIE_LIMIT must be a non-negative integer"
   exit 1
 }
+[[ "${SORT_PROFILE}" =~ ^[01]$ ]] || {
+  log "AUZIX_TRIXIE_SORT_PROFILE must be 0 or 1"
+  exit 1
+}
 [[ "${REPORT_NAME}" =~ ^[A-Za-z0-9._-]+[.]json$ ]] || {
   log "AUZIX_TRIXIE_REPORT must be a JSON filename"
   exit 1
@@ -29,10 +34,19 @@ log() {
 mkdir -p "${REPORT_DIR}"
 find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name 'Debian.*.auzix.json' -delete 2>/dev/null || true
 rm -rf "${AUZIX_ROOT}/Programs/DebianPackages"
-mapfile -t packages < <(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u)
+if [[ "${SORT_PROFILE}" == "1" ]]; then
+  mapfile -t packages < <(awk 'NF && $1 !~ /^#/ {print $1}' "${PROFILE}" | sort -u)
+else
+  mapfile -t packages < <(awk '
+    NF && $1 !~ /^#/ {
+      if (!seen[$1]++) print $1
+    }
+  ' "${PROFILE}")
+fi
 if (( LIMIT > 0 && LIMIT < ${#packages[@]} )); then
   packages=("${packages[@]:0:LIMIT}")
 fi
+log "profile_order=$([[ "${SORT_PROFILE}" == "1" ]] && printf sorted || printf preserved) package_count=${#packages[@]}"
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 results='[]'

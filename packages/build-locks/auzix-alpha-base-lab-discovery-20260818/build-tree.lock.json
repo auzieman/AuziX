@@ -1,0 +1,43 @@
+{
+  "format": "auzix-native-rebase-lock-v1",
+  "status": "locked-no-compile",
+  "run_id": "lab-discovery-20260818",
+  "lock_tag": "auzix-base-lock-lab-discovery-20260818",
+  "suggested_git_tag": "auzix-alpha-base-lab-discovery-20260818",
+  "locked_at": "2026-08-18T02:51:55Z",
+  "manifest_lock_sha256": "af080b161763306cd25cebdcc7ce31772e87a0595594b7e1495a492230a987d9",
+  "manifest_material": "/workspace/AuziX/out/rebase/lab-discovery-20260818/manifest-material.sha256",
+  "compile_order": "/workspace/AuziX/out/rebase/lab-discovery-20260818/compile-order.tsv",
+  "current_head_versions": "/workspace/AuziX/out/rebase/lab-discovery-20260818/current-head-versions.tsv",
+  "selected_current_head": "/workspace/AuziX/out/rebase/lab-discovery-20260818/selected-current-head.tsv",
+  "substrate_provider_lock": "/workspace/AuziX/out/rebase/lab-discovery-20260818/substrate-provider-lock.tsv",
+  "debian_policy": "/workspace/AuziX/out/rebase/lab-discovery-20260818/debian-current-head.policy.txt",
+  "apt_simulation_status": "ok",
+  "counts": {
+    "requested_roots": 344,
+    "requested_unresolved_or_virtual_roots": 2,
+    "dependency_edges": 2441,
+    "unique_dependency_packages": 899,
+    "selected_unique_packages": 1386,
+    "unresolved_or_virtual_packages": 0,
+    "substrate_providers": 47,
+    "substrate_selected_providers": 45,
+    "base_targets": 31,
+    "extended_targets": 28,
+    "planned_total_before_dependency_expansion": 403
+  },
+  "allowed_first_builds": [
+    "BusyBox",
+    "Lua",
+    "CACerts",
+    "Zlib",
+    "OpenSSL",
+    "Curl",
+    "PkgConfig",
+    "Make",
+    "CMake",
+    "Meson",
+    "Ninja"
+  ],
+  "rule": "Only this locked manifest tree may build the AUZiX BusyBox/base/build-toolchain stage. Commit and tag this lock before builders consume it. That acid/base AUZiX container becomes the authority; leaf apps wait until AUZiX can build AUZiX."
+}

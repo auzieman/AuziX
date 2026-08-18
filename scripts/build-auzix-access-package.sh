@@ -218,9 +218,10 @@ for auzix_commands in /Programs/*/current/Commands /Programs/*/*/Commands; do
 done
 export PATH="${AUZIX_COMMAND_PATH}${PATH:+:${PATH}}"
 
-export LD_LIBRARY_PATH="${AUZIX_ARCH_LIB}:${AUZIX_COMPAT}/lib/x86_64-linux-gnu:${AUZIX_COMPAT}/lib64:/System/Libraries${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-export XDG_DATA_DIRS="${AUZIX_COMPAT_USR}/local/share:${AUZIX_COMPAT_USR}/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}:/usr/local/share:/usr/share"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:${AUZIX_ARCH_LIB}:${AUZIX_COMPAT}/lib/x86_64-linux-gnu:${AUZIX_COMPAT}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export XDG_DATA_DIRS="${AUZIX_COMPAT_USR}/local/share:${AUZIX_COMPAT_USR}/share:/Programs/Enlightenment/current/Resources/share:/Programs/EFL/current/Resources/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}:/usr/local/share:/usr/share"
 export XDG_CONFIG_DIRS="/System/Settings/xdg:${AUZIX_COMPAT}/etc/xdg${XDG_CONFIG_DIRS:+:${XDG_CONFIG_DIRS}}:/etc/xdg"
+export TERMINFO_DIRS="${TERMINFO_DIRS:-${AUZIX_COMPAT_USR}/share/terminfo:${AUZIX_COMPAT}/lib/terminfo:/usr/share/terminfo:/lib/terminfo}"
 
 export XORG_RUN_AS_USER_OK="${XORG_RUN_AS_USER_OK:-1}"
 export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/current/Commands}"

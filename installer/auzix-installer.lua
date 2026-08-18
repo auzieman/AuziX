@@ -181,7 +181,8 @@ local function confirm_and_run(plan, expected_disk)
     io.stderr:write("auzix-installer: selected disk changed after review; refusing execution\n")
     return false
   end
-  if field(plan, ".storage.layout // \"whole\"") ~= "whole" then
+  local layout = field(plan, ".storage.layout // \"whole\"")
+  if layout ~= "whole" and layout ~= "user-work-programs" then
     io.stderr:write("auzix-installer: selected storage shape is recorded but not executable in this installer slice\n")
     return false
   end

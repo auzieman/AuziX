@@ -1,0 +1,23 @@
+{
+  "format": "auzix-base-release-lock-v1",
+  "auzix_base_release": "alpha-0.0.1",
+  "codename": "first-spark",
+  "status": "scaffold",
+  "declared_at": "2026-08-18T00:58:13Z",
+  "upstream_policy": {
+    "primary_feedstock": {
+      "origin": "debian",
+      "suite": "trixie",
+      "architecture": "amd64",
+      "role": "reference-and-missing-package-feedstock"
+    },
+    "suite_names_are_not_versions": true,
+    "silent_candidate_change_action": "hold-until-new-auzix-base-or-package-lane-is-declared"
+  },
+  "packages": [],
+  "notes": [
+    "This lockfile is intentionally empty until the builder emits observed package versions for AUZiX Base alpha-0.0.1.",
+    "Package builds must append exact upstream versions/checksums here or to the generated repo lockfile before promotion.",
+    "The package factory should resolve against AUZiX alpha-0.0.1 artifacts first, then use Debian/Trixie only for misses or deliberate base/runtime upgrades."
+  ]
+}

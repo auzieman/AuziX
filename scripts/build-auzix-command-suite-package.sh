@@ -3,6 +3,8 @@ set -euo pipefail
 
 AUZIX_ROOT="${1:?usage: build-auzix-command-suite-package.sh ROOT RECIPE}"
 RECIPE="${2:?usage: build-auzix-command-suite-package.sh ROOT RECIPE}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/auzix-library-policy.sh"
 
 for command_name in jq install ldd readlink; do
   command -v "${command_name}" >/dev/null 2>&1 || {
@@ -57,7 +59,7 @@ copy_libraries() {
     sort -u |
     while IFS= read -r dependency; do
       [[ -f "${dependency}" ]] || continue
-      install -m 0755 "${dependency}" "${libraries}/$(basename "${dependency}")"
+      auzix_copy_app_private_library "${dependency}" "${libraries}/$(basename "${dependency}")"
     done
 }
 
@@ -70,7 +72,7 @@ copy_interpreter() {
       head -1
   )"
   [[ -n "${interpreter}" && -f "${interpreter}" ]] || return 0
-  install -m 0755 "${interpreter}" "${libraries}/$(basename "${interpreter}")"
+  auzix_copy_app_private_library "${interpreter}" "${libraries}/$(basename "${interpreter}")"
   printf '%s\n' "$(basename "${interpreter}")"
 }
 
@@ -122,8 +124,8 @@ while IFS=$'\t' read -r export_name host_command; do
       exit 1
     }
     patchelf \
-      --set-interpreter "/Programs/${name}/current/Libraries/${loader_name}" \
-      --set-rpath '$ORIGIN/../Libraries' \
+      --set-interpreter "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \
+      --set-rpath '/System/Libraries:/System/Libraries/Runtime/glibc:$ORIGIN/../Libraries:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64' \
       "${program}/Commands/${export_name}.real"
   fi
   fixed_args="$(jq -r --arg name "${export_name}" '
@@ -141,7 +143,7 @@ cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 ${environment}
 ${shell_prelude}
-export LD_LIBRARY_PATH="/Programs/${name}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/Programs/${name}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 exec "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
   else
@@ -149,8 +151,9 @@ cat >"${program}/Commands/${export_name}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 ${environment}
 ${shell_prelude}
-exec "/Programs/${name}/current/Libraries/ld-linux-x86-64.so.2" \\
-  --library-path "/Programs/${name}/current/Libraries" \\
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/Programs/${name}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+exec "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \\
+  --library-path "\${LD_LIBRARY_PATH}" \\
   "/Programs/${name}/current/Commands/${export_name}.real" ${fixed_args} "\$@"
 EOF
   fi

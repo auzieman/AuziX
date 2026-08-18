@@ -1,0 +1,134 @@
+{
+  "format": "auzix-base-release-v1",
+  "name": "AUZiX Base",
+  "version": "alpha-0.0.1",
+  "codename": "first-spark",
+  "declared_at": "2026-08-18T00:58:13Z",
+  "status": "declared-not-yet-promoted",
+  "purpose": "Pin the active AUZiX base ABI and runtime substrate so package builds, package installs, live ISO roots, disk installs, and validation containers target one coherent library tree.",
+  "rules": {
+    "single_active_base": true,
+    "leaf_packages_must_target_this_base": true,
+    "base_runtime_updates_require_new_base_release": true,
+    "forbid_package_scoped_core_runtime": true,
+    "forbid_dependency_builds_ahead_of_base": true,
+    "builder_must_keep_dependency_dev_surfaces": true,
+    "prefer_existing_auzix_package_feedstock_before_trixie": true,
+    "preserve_profile_dependency_order": true,
+    "lock_upstream_versions": true,
+    "forbid_silent_upstream_drift": true,
+    "repo_publish_must_dedupe_by_name": true
+  },
+  "canonical_roots": {
+    "system_libraries": "/System/Libraries",
+    "glibc_runtime": "/System/Libraries/Runtime/glibc",
+    "compatibility_root": "/System/Compatibility",
+    "package_prefix": "/Programs/<Name>/<Version>"
+  },
+  "build_contract": {
+    "builder_role": "Packages are built in dependency order against the active base release plus a retained builder sysroot/dev substrate.",
+    "dependency_order": [
+      "resolve runtime and build dependency graph",
+      "build/install base substrate first",
+      "build/install dependency runtime and dev surfaces into the builder sysroot",
+      "build dependent packages against that same tree",
+      "package runtime payloads and optional dev payloads separately",
+      "validate commands and library resolution against the same base release",
+      "publish only one preferred package per name for the release lane"
+    ],
+    "feedstock_order": [
+      "active AUZiX base release",
+      "already-built AUZiX package and dev artifacts for this release lane",
+      "builder sysroot retained from prior dependency builds in the same lane",
+      "Debian/Trixie package metadata and source as reference/feedstock only when AUZiX lacks the package or a planned base/runtime layer is being upgraded"
+    ],
+    "upstream_lock_policy": {
+      "rule": "Every package built for this base release records the exact upstream origin, suite, architecture, source package, binary package, upstream version, and source checksum when available.",
+      "suite_names_are_not_versions": true,
+      "trixie_label_is_feedstock_not_a_moving_target": true,
+      "silent_candidate_change_action": "hold-until-new-auzix-base-or-package-lane-is-declared",
+      "lockfile_path": "/System/Settings/packages/base-release-lock.json",
+      "repo_lockfile": "repo/base-release-lock.alpha-0.0.1.json",
+      "builder_lockfile": "out/base-release/alpha-0.0.1/upstream-lock.json",
+      "required_fields": [
+        "auzix_base_release",
+        "origin",
+        "suite",
+        "architecture",
+        "source_package",
+        "binary_package",
+        "upstream_version",
+        "source_version",
+        "candidate_repository",
+        "sha256"
+      ]
+    },
+    "dev_surface_examples": [
+      "headers",
+      "pkgconfig",
+      "cmake package files",
+      "gobject introspection typelibs and GIR files",
+      "schema/icon/mime compilation helpers",
+      "static build tools required by dependent package configure phases"
+    ],
+    "forbidden_patterns": [
+      "/Programs/Libc6/current/RootFS as a normal dependency",
+      "/Programs/LibgccS1/current/RootFS as a normal dependency",
+      "/Programs/<LeafApp>/<Version>/Libraries containing glibc, loader, libgcc, or libstdc++",
+      "/Programs/<LeafApp>/<Version>/Libraries containing EFL, GTK, X11, Mesa, OpenSSL, NSS, font, or DBus platform libraries",
+      "leaf package wrappers placing dependency RootFS core libraries before /System/Libraries",
+      "package scripts assigning one substrate component another component's version",
+      "publishing duplicate active package names without supersede metadata"
+    ]
+  },
+  "runtime_substrate": [
+    {
+      "id": "base-c-abi",
+      "tier": "base-runtime",
+      "active_provider": "/System/Libraries/Runtime/glibc",
+      "packages": ["Libc6", "LibgccS1", "GCC14Base", "Libstdc6", "Libatomic1", "Libseccomp2", "Zlib1g"],
+      "upgrade_policy": "new-base-release-required"
+    },
+    {
+      "id": "crypto-trust",
+      "tier": "security-runtime",
+      "packages": ["OpenSSL", "Libssl3t64", "Libcrypto3t64", "CACerts", "Curl", "Libcurl4t64"],
+      "upgrade_policy": "coherent-layer-required"
+    },
+    {
+      "id": "desktop-foundation",
+      "tier": "desktop-runtime",
+      "packages": ["DBus", "PAM", "Polkit", "Udev", "Systemd", "AuzixServiceRuntime"],
+      "upgrade_policy": "coherent-layer-required"
+    },
+    {
+      "id": "x11-input-video",
+      "tier": "desktop-runtime",
+      "packages": ["Xorg", "XorgServer", "Libinput10", "Libxkbcommon0", "Libx116", "Libxcb1", "Mesa"],
+      "upgrade_policy": "coherent-layer-required"
+    },
+    {
+      "id": "efl-enlightenment",
+      "tier": "desktop-runtime",
+      "packages": ["EFL", "Enlightenment", "Libeina1t64", "Libevas1", "Libedje1", "Libefreet1a", "Libelementary1", "Terminology"],
+      "upgrade_policy": "coherent-layer-required",
+      "known_current_regression": "/Programs/EFL/current was incorrectly versioned with the Enlightenment package version; rebuild this layer before promotion."
+    },
+    {
+      "id": "gtk-gnome-cache",
+      "tier": "desktop-runtime",
+      "packages": ["GLib", "GTK3", "GTK4", "GSettingsDesktopSchemas", "DesktopFileUtils", "SharedMimeInfo", "GtkUpdateIconCache", "GdkPixbufLoaders", "Fontconfig", "Freetype", "Pango", "Cairo", "Harfbuzz"],
+      "upgrade_policy": "coherent-layer-required"
+    }
+  ],
+  "promotion_gates": [
+    "no duplicate active package names in the published repository lane",
+    "no package receipt or wrapper references /Programs/Libc6/current as a runtime provider",
+    "no leaf package bundles core/security/desktop platform libraries into its app-local Libraries directory",
+    "EFL and Enlightenment have separate package versions and receipts",
+    "sample command probes pass in the validation container",
+    "installer EFL frontend and AUZiX Terminal are validated as separate EFL canaries",
+    "desktop launchers are emitted only for installed commands that pass their probe",
+    "VMID135 and a second virtual hardware target can boot, open rescue terminal, open browser, and launch one GTK editor"
+  ]
+}

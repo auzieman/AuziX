@@ -37,6 +37,8 @@ run_step make auzix-strict-package-manager-efl
 run_step make auzix-strict-installer-test
 run_step ./scripts/build-auzix-command-suite-package.sh \
   out/auzix-strict/AuzixRoot packages/e2fsprogs.command-suite.json
+run_step ./scripts/build-auzix-command-suite-package.sh \
+  out/auzix-strict/AuzixRoot packages/parted.command-suite.json
 run_step make auzix-strict-grub
 run_step make auzix-strict-sudo
 run_step make auzix-strict-dbus

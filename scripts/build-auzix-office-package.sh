@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/auzix-library-policy.sh"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 PACKAGE_ID="${2:-}"
 
@@ -63,6 +64,10 @@ copy_library() {
   local target="${PROGRAM}/Libraries/$(basename "${source}")"
   [[ -e "${source}" ]] || return 0
   [[ "$(readlink -f "${source}")" == "$(readlink -m "${target}")" ]] && return 0
+  if auzix_forbid_app_local_library "${source}"; then
+    log "substrate-skip $(auzix_library_policy_class "${source}") ${source}"
+    return 0
+  fi
   cp -aL --remove-destination "${source}" "${target}"
   chmod 0755 "${target}" 2>/dev/null || true
 }
@@ -139,11 +144,7 @@ for module_dir in \
 done
 
 scan_elf_dependencies
-LOADER="$(find "${PROGRAM}/Libraries" -maxdepth 1 -type f -name 'ld-linux*.so*' -printf '%f\n' | head -1)"
-[[ -n "${LOADER}" ]] || {
-  log "bundled dynamic loader was not discovered"
-  exit 1
-}
+LOADER="/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
 
 for command_name in "${COMMANDS[@]}"; do
   cat >"${PROGRAM}/Commands/${command_name}" <<EOF
@@ -153,9 +154,9 @@ export XDG_DATA_DIRS="/Programs/${NAME}/current/Resources/usr/share:/System/Comp
 export GSETTINGS_SCHEMA_DIR="/Programs/${NAME}/current/Resources/usr/share/glib-2.0/schemas"
 export GDK_PIXBUF_MODULEDIR="/Programs/${NAME}/current/Resources/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
 export GTK_PATH="/Programs/${NAME}/current/Resources/usr/lib/x86_64-linux-gnu/gtk-3.0"
-export LD_LIBRARY_PATH="/Programs/${NAME}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
-exec "/Programs/${NAME}/current/Libraries/${LOADER}" \\
-  --library-path "/Programs/${NAME}/current/Libraries" \\
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/Programs/${NAME}/current/Libraries\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+exec "${LOADER}" \\
+  --library-path "\${LD_LIBRARY_PATH}" \\
   "/Programs/${NAME}/current/Commands/${command_name}.real" "\$@"
 EOF
   chmod 0755 "${PROGRAM}/Commands/${command_name}"
@@ -204,7 +205,7 @@ jq -n \
   --arg prefix "/Programs/${NAME}/${SAFE_VERSION}" \
   --arg current "/Programs/${NAME}/current" \
   --arg libraries "/Programs/${NAME}/${SAFE_VERSION}/Libraries" \
-  --arg loader "/Programs/${NAME}/${SAFE_VERSION}/Libraries/${LOADER}" \
+  --arg loader "${LOADER}" \
   --argjson commands "${commands_json}" \
   --argjson exports "${exports_json}" \
   '{
@@ -223,14 +224,15 @@ jq -n \
       suite: "trixie",
       package: $source_package
     },
-    validation: {loader: $loader, mode: "bundled-elf-closure"},
-    notes: "First-class AuziX office package with bundled ELF dependencies, application resources, compatibility commands, and desktop integration."
+    validation: {loader: $loader, mode: "base-loader-app-private-libs"},
+    notes: "First-class AuziX office package with app-private ELF dependencies, application resources, compatibility commands, and desktop integration. Core/security/desktop substrate libraries are provided by the AUZiX base release."
   }' >"${AUZIX_ROOT}/System/PackageDB/${NAME}-${SAFE_VERSION}.auzix.json"
 
 for command_name in "${COMMANDS[@]}"; do
-  LD_LIBRARY_PATH="${PROGRAM}/Libraries" \
-    "${PROGRAM}/Libraries/${LOADER}" \
-    --library-path "${PROGRAM}/Libraries" \
+  validation_library_path="/System/Libraries:/System/Libraries/Runtime/glibc:${RUNTIME_USR}/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64:${PROGRAM}/Libraries"
+  LD_LIBRARY_PATH="${validation_library_path}" \
+    "${AUZIX_ROOT}${LOADER}" \
+    --library-path "${validation_library_path}" \
     "${PROGRAM}/Commands/${command_name}.real" --version >/dev/null 2>&1 ||
     [[ "${command_name}" != "${PACKAGE_ID}" ]]
 done

@@ -13,6 +13,8 @@
 typedef struct {
   Evas_Object *window;
   Evas_Object *disk;
+  Evas_Object *repo_url;
+  Evas_Object *profile;
   Evas_Object *hostname;
   Evas_Object *username;
   Evas_Object *password;
@@ -41,10 +43,12 @@ typedef struct {
   Evas_Object *run_button;
   Evas_Object *progress_popup;
   Evas_Object *progress;
+  Evas_Object *progress_detail;
   Ecore_Exe *runner;
   Ecore_Event_Handler *runner_handler;
   Ecore_Event_Handler *preflight_handler;
   Ecore_Timer *validate_timer;
+  Ecore_Timer *install_timer;
   enum {
     RUNNER_NONE = 0,
     RUNNER_VALIDATE,
@@ -55,9 +59,12 @@ typedef struct {
   char reviewed_disk[256];
   char pending_disk[256];
   int validate_ticks;
+  int install_ticks;
 } Installer;
 
 static const char *plan_path = "/Users/auzix/.local/state/auzix/installer/efl-pending-plan.json";
+static const char *install_log_path = "/System/Logs/installer/package-built-install.log";
+static const char *install_pid_path = "/System/Logs/installer/package-built-install.pid";
 static const char *brand_mark_path = "/System/Settings/installer/theme/mark-shield-swords.png";
 static const char *vm135_theme_path = "/System/Compatibility/usr/share/elementary/themes/Transient-Color.edj";
 static const char *fallback_theme_path = "/System/Compatibility/usr/share/elementary/themes/Dark.edj";
@@ -103,8 +110,18 @@ static void progress_open(Installer *ui, const char *title, const char *detail, 
   elm_box_padding_set(box, 8, 8);
   Evas_Object *message = elm_label_add(box);
   elm_object_text_set(message, detail);
+  evas_object_size_hint_weight_set(message, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(message, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(box, message);
   evas_object_show(message);
+  ui->progress_detail = elm_label_add(box);
+  elm_label_line_wrap_set(ui->progress_detail, ELM_WRAP_WORD);
+  elm_object_text_set(ui->progress_detail, "");
+  evas_object_size_hint_weight_set(ui->progress_detail, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_size_hint_align_set(ui->progress_detail, EVAS_HINT_FILL, EVAS_HINT_FILL);
+  evas_object_size_hint_min_set(ui->progress_detail, 620, 180);
+  elm_box_pack_end(box, ui->progress_detail);
+  evas_object_show(ui->progress_detail);
   ui->progress = elm_progressbar_add(box);
   elm_progressbar_unit_format_set(ui->progress, pulse ? "Working…" : "100 %");
   if (pulse) {
@@ -125,7 +142,136 @@ static void progress_close(Installer *ui) {
     evas_object_del(ui->progress_popup);
     ui->progress_popup = NULL;
     ui->progress = NULL;
+    ui->progress_detail = NULL;
   }
+  if (ui->install_timer) {
+    ecore_timer_del(ui->install_timer);
+    ui->install_timer = NULL;
+  }
+}
+
+static void progress_close_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj;
+  (void)event_info;
+  progress_close(data);
+}
+
+static void install_success_prompt(Installer *ui) {
+  progress_close(ui);
+  progress_open(ui,
+                "Install complete",
+                "AUZiX has been installed from repository packages and the target filesystems have been synced and unmounted.\n\n"
+                "Next step: disconnect or remove the live ISO, then reboot this VM from the installed disk.",
+                EINA_FALSE);
+  Evas_Object *close = elm_button_add(ui->progress_popup);
+  elm_object_text_set(close, "I will remove ISO and reboot");
+  evas_object_smart_callback_add(close, "clicked", progress_close_cb, ui);
+  elm_object_part_content_set(ui->progress_popup, "button1", close);
+  evas_object_show(close);
+  status_set(ui, "<color=#82d4bb>Install complete. Remove the live ISO and reboot from the installed disk.</color>");
+}
+
+static void safe_copy(char *dst, size_t dst_size, const char *src) {
+  size_t i;
+  if (!dst || dst_size == 0) return;
+  if (!src) src = "";
+  for (i = 0; i + 1 < dst_size && src[i]; i++) dst[i] = src[i];
+  dst[i] = '\0';
+}
+
+static void install_progress_update(Installer *ui, Eina_Bool done) {
+  if (!ui->progress_detail) return;
+  FILE *f = fopen(install_log_path, "r");
+  char line[1024];
+  char tier[256] = "";
+  char request[256] = "";
+  char warn[512] = "";
+  char final[512] = "";
+  char stage[512] = "";
+  int installs = 0;
+  int missing = -1;
+  int stage_step = 0;
+  int stage_total = 0;
+  if (f) {
+    while (fgets(line, sizeof(line), f)) {
+      size_t len = strlen(line);
+      while (len && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = 0;
+      if (strncmp(line, "TIER ", 5) == 0) {
+        safe_copy(tier, sizeof(tier), line + 5);
+      } else if (strncmp(line, "REQUEST ", 8) == 0) {
+        safe_copy(request, sizeof(request), line + 8);
+      } else if (strncmp(line, "WARN missing ", 13) == 0) {
+        safe_copy(warn, sizeof(warn), line);
+      } else if (strncmp(line, "INSTALL package=", 16) == 0) {
+        installs++;
+      } else if (strncmp(line, "INSTALL_STAGE ", 14) == 0) {
+        char *step = strstr(line, "step=");
+        char *total = strstr(line, "total=");
+        char *label = strstr(line, "label=");
+        if (step) stage_step = atoi(step + 5);
+        if (total) stage_total = atoi(total + 6);
+        if (label) safe_copy(stage, sizeof(stage), label + 6);
+      } else if (strncmp(line, "PACKAGE_PROFILE_INSTALL_DONE", 28) == 0) {
+        safe_copy(final, sizeof(final), line);
+        char *m = strstr(line, " missing=");
+        if (m) missing = atoi(m + 9);
+      } else if (strncmp(line, "INSTALL_DONE ", 13) == 0) {
+        safe_copy(final, sizeof(final), line);
+      } else if (strncmp(line, "FATAL ", 6) == 0) {
+        safe_copy(final, sizeof(final), line);
+      }
+    }
+    fclose(f);
+  }
+  char detail[1536];
+  char stage_fraction[64] = "";
+  if (stage_total > 0) {
+    snprintf(stage_fraction, sizeof(stage_fraction), " (%d / %d)", stage_step, stage_total);
+  }
+  snprintf(detail, sizeof(detail),
+           "<b>%s</b><br>"
+           "Stage: %s%s<br>"
+           "Tier: %s<br>"
+           "Now: %s<br>"
+           "Packages observed: %d<br>"
+           "%s%s%s%s",
+           done ? "Install finished" : "Installing package profile",
+           stage[0] ? stage : "starting",
+           stage_fraction,
+           tier[0] ? tier : "starting",
+           request[0] ? request : "waiting for installer log",
+           installs,
+           warn[0] ? "Latest warning: " : "",
+           warn[0] ? warn : "",
+           final[0] ? "<br>Final: " : "",
+           final[0] ? final : "");
+  elm_object_text_set(ui->progress_detail, detail);
+  if (ui->progress && stage_step > 0 && stage_total > 0 && !done) {
+    double value = (double)stage_step / (double)stage_total;
+    if (value < 0.02) value = 0.02;
+    if (value > 0.98) value = 0.98;
+    elm_progressbar_pulse(ui->progress, EINA_FALSE);
+    elm_progressbar_value_set(ui->progress, value);
+    char unit[64];
+    snprintf(unit, sizeof(unit), "%d / %d", stage_step, stage_total);
+    elm_progressbar_unit_format_set(ui->progress, unit);
+  } else if (ui->progress && installs > 0 && !done) {
+    double pulse = (ui->install_ticks % 20) / 20.0;
+    elm_progressbar_value_set(ui->progress, pulse);
+  }
+  if (done && ui->progress) elm_progressbar_value_set(ui->progress, 1.0);
+  if (missing >= 0) {
+    char status[512];
+    snprintf(status, sizeof(status), "<color=#82d4bb>Install finished with %d missing package-contract entries. Remove ISO and reboot when ready.</color>", missing);
+    status_set(ui, status);
+  }
+}
+
+static Eina_Bool install_poll_cb(void *data) {
+  Installer *ui = data;
+  ui->install_ticks++;
+  install_progress_update(ui, EINA_FALSE);
+  return ECORE_CALLBACK_RENEW;
 }
 
 static void validate_success(Installer *ui) {
@@ -134,6 +280,11 @@ static void validate_success(Installer *ui) {
   snprintf(ui->reviewed_disk, sizeof(ui->reviewed_disk), "%s", ui->pending_disk);
   elm_object_disabled_set(ui->run_button, EINA_FALSE);
   progress_open(ui, "Plan validated", "The selected disk has not changed.\nPackage group intent is saved for first boot.\nA guarded install plan is ready for final review.", EINA_FALSE);
+  Evas_Object *continue_button = elm_button_add(ui->progress_popup);
+  elm_object_text_set(continue_button, "Continue to install options");
+  evas_object_smart_callback_add(continue_button, "clicked", progress_close_cb, ui);
+  elm_object_part_content_set(ui->progress_popup, "button1", continue_button);
+  evas_object_show(continue_button);
   status_set(ui, "<color=#82d4bb>Plan validated and saved. Nothing has been written to disk.</color>");
 }
 
@@ -170,6 +321,7 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Installer *ui = data;
   const char *disk = elm_entry_entry_get(ui->disk);
+  const char *repo_url = elm_entry_entry_get(ui->repo_url);
   const char *hostname = elm_entry_entry_get(ui->hostname);
   const char *username = elm_entry_entry_get(ui->username);
   const char *password = elm_entry_entry_get(ui->password);
@@ -193,9 +345,11 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
   char packages[128] = "";
   char command[2048];
 
-  if (!disk || strncmp(disk, "/dev/", 5) != 0 || !hostname || !hostname[0] ||
+  if (!disk || strncmp(disk, "/dev/", 5) != 0 ||
+      !repo_url || !repo_url[0] ||
+      !hostname || !hostname[0] ||
       !username || !username[0]) {
-    status_set(ui, "<color=#ffb86c>Choose a target, hostname, and primary username.</color>");
+    status_set(ui, "<color=#ffb86c>Choose a target, package repository, hostname, and primary username.</color>");
     return;
   }
   if (!password || strlen(password) < 8 || strcmp(password, password_confirm ? password_confirm : "") != 0) {
@@ -206,7 +360,8 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
     status_set(ui, "<color=#ffb86c>Not enough points: /Home + /Work + /Programs must total 80 points or less.</color>");
     return;
   }
-  if (strpbrk(disk, "'\";`$\\") || strpbrk(hostname, "'\";`$\\") ||
+  if (strpbrk(disk, "'\";`$\\") || strpbrk(repo_url, "'\";`$\\") ||
+      strpbrk(hostname, "'\";`$\\") ||
       strpbrk(username, "'\";`$\\") || strpbrk(locale, "'\";`$\\") ||
       strpbrk(timezone, "'\";`$\\") || strpbrk(keyboard, "'\";`$\\")) {
     status_set(ui, "<color=#ff6b6b>Unsafe characters are not accepted in installer values.</color>");
@@ -247,12 +402,17 @@ static void write_plan_cb(void *data, Evas_Object *obj, void *event_info) {
 static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Installer *ui = data;
-  char command[1024];
+  char command[1536];
+  const char *repo_url = elm_entry_entry_get(ui->repo_url);
+  int profile_index = elm_radio_value_get(ui->profile);
+  const char *profile_path = profile_index == 0
+    ? "/System/Settings/install/auzix-tiny-netinstall-remote.packages"
+    : "/System/Settings/install/auzix-vmid135-clean-workstation.packages";
   progress_close(ui);
-  progress_open(ui, "Installing AuziX", "Writing the confirmed plan. Do not power off this machine.\nThe live recovery environment stays available if the install reports a failure.", EINA_TRUE);
+  progress_open(ui, "Installing AuziX", "Installing the selected profile from the AUZiX package repository.\nProgress streams to /System/Logs/installer/package-built-install.log.\nDo not power off this machine.", EINA_TRUE);
   snprintf(command, sizeof(command),
-           "sudo -n /System/Tools/auzix-installer execute '%s' '%s'",
-           plan_path, ui->reviewed_disk);
+           "sudo -n sh -c \"echo $$ >'%s'; AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-install-disk --force --repo '%s' --profile '%s' '%s' >'%s' 2>&1\"",
+           install_pid_path, plan_path, repo_url ? repo_url : "http://192.168.1.10/auzix/repo", profile_path, ui->reviewed_disk, install_log_path);
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
@@ -260,6 +420,10 @@ static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
     status_set(ui, "<color=#ff6b6b>Could not start the guarded installer command.</color>");
   } else {
     ui->runner_kind = RUNNER_INSTALL;
+    ui->install_ticks = 0;
+    install_progress_update(ui, EINA_FALSE);
+    if (ui->install_timer) ecore_timer_del(ui->install_timer);
+    ui->install_timer = ecore_timer_add(1.0, install_poll_cb, ui);
   }
 }
 
@@ -297,10 +461,15 @@ static Eina_Bool runner_event_cb(void *data, int type, void *event_info) {
   } else if (kind == RUNNER_PREFLIGHT) {
     preflight_done_cb(ui, event->exit_code);
   } else if (kind == RUNNER_INSTALL) {
-    progress_close(ui);
+    if (ui->install_timer) {
+      ecore_timer_del(ui->install_timer);
+      ui->install_timer = NULL;
+    }
+    install_progress_update(ui, EINA_TRUE);
     if (event->exit_code == 0) {
-      status_set(ui, "<color=#82d4bb>Install finished. Review the receipt, then reboot from the installed disk.</color>");
+      install_success_prompt(ui);
     } else {
+      progress_close(ui);
       status_set(ui, "<color=#ff6b6b>Install failed or was interrupted. The live session remains available for recovery.</color>");
     }
   }
@@ -311,7 +480,8 @@ static void run_preflight_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Installer *ui = data;
   const char *disk = elm_entry_entry_get(ui->disk);
-  char command[1024];
+  const char *repo_url = elm_entry_entry_get(ui->repo_url);
+  char command[1280];
 
   if (!disk || strncmp(disk, "/dev/", 5) != 0 || strpbrk(disk, "'\";`$\\")) {
     status_set(ui, "<color=#ffb86c>Select a valid /dev target before preflight.</color>");
@@ -324,8 +494,8 @@ static void run_preflight_cb(void *data, Evas_Object *obj, void *event_info) {
 
   progress_open(ui, "Running installer preflight", "Checking target disk visibility, ext4 tooling, repository path, and recovery surfaces.\nNo disk changes are made by this preflight.", EINA_TRUE);
   snprintf(command, sizeof(command),
-           "mkdir -p /System/Logs/installer && /System/Tools/auzix-existing-installer-preflight '%s' >/System/Logs/installer/preflight.log 2>&1",
-           disk);
+           "sudo -n sh -c \"mkdir -p /System/Logs/installer && REPO_URL='%s' AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-existing-installer-preflight '%s' >/System/Logs/installer/preflight.log 2>&1\"",
+           repo_url ? repo_url : "http://192.168.1.10/auzix/repo", plan_path, disk);
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
@@ -343,15 +513,15 @@ static void begin_install_cb(void *data, Evas_Object *obj, void *event_info) {
     status_set(ui, "<color=#ffb86c>Validate a plan before requesting installation.</color>");
     return;
   }
-  if (elm_radio_value_get(ui->storage_layout) != 0) {
-    status_set(ui, "<color=#ffb86c>This storage shape is recorded as install intent, but only Simple root is executable in this installer slice.</color>");
+  if (elm_radio_value_get(ui->storage_layout) == 2) {
+    status_set(ui, "<color=#ffb86c>Custom split is recorded as install intent, but this installer slice executes Simple root or the default /Home /Work split.</color>");
     return;
   }
   char warning[1024];
   snprintf(warning, sizeof(warning),
-           "ERASE %s and install the validated AuziX live root?\n\n"
-           "Selected packages are recorded as first-boot hydration intent.\n"
-           "This executable slice installs the base root first, then the installed system can consume the package queue.",
+           "ERASE %s and build an installed AUZiX root from the current package repository?\n\n"
+           "The installer will partition, format, mount the target root, install the selected AUZiX package profile with dependency closure, write boot configuration and receipts, then sync and unmount the target.\n"
+           "Default split creates real /Home and /Work partitions; /Programs remains package-owned inside the boot root until early-boot mount staging lands.",
            ui->reviewed_disk);
   progress_open(ui, "Final destructive confirmation", warning, EINA_FALSE);
   Evas_Object *cancel = elm_button_add(ui->progress_popup);
@@ -380,15 +550,18 @@ static void storage_layout_changed_cb(void *data, Evas_Object *obj, void *event_
   (void)obj;
   (void)event_info;
   Installer *ui = data;
-  Eina_Bool split_intent = elm_radio_value_get(ui->storage_layout) != 0;
+  int layout_value = elm_radio_value_get(ui->storage_layout);
+  Eina_Bool split_intent = layout_value != 0;
   elm_object_disabled_set(ui->home_ratio, !split_intent);
   elm_object_disabled_set(ui->work_ratio, !split_intent);
   elm_object_disabled_set(ui->programs_ratio, !split_intent);
   allocation_tally_update(ui);
-  if (split_intent) {
-    status_set(ui, "<color=#ffb86c>Split storage is recorded as install intent in this slice; Simple root is the executable path today.</color>");
+  if (layout_value == 1) {
+    status_set(ui, "<color=#62d9ef>STATUS // READY</color>  Default split creates /Home and /Work partitions; /Programs is recorded as package-space intent.");
+  } else if (layout_value == 2) {
+    status_set(ui, "<color=#ffb86c>Custom split is recorded as intent only in this installer slice.</color>");
   } else {
-    status_set(ui, "<color=#62d9ef>STATUS // READY</color>  Simple root install is executable after validation.");
+    status_set(ui, "<color=#62d9ef>STATUS // READY</color>  Default split install is executable after validation.");
   }
 }
 
@@ -553,8 +726,8 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
 
   Evas_Object *layout_label = form_label(table, "Storage layout"); elm_table_pack(table, layout_label, 0, 7, 1, 1);
   Evas_Object *layout_box = elm_box_add(table); elm_box_horizontal_set(layout_box, EINA_TRUE); elm_box_padding_set(layout_box, 18, 0);
-  Evas_Object *whole = elm_radio_add(layout_box); elm_object_text_set(whole, "Simple root — executable now"); elm_radio_state_value_set(whole, 0);
-  Evas_Object *user_shape = elm_radio_add(layout_box); elm_object_text_set(user_shape, "/Home /Work /Programs — record intent"); elm_radio_state_value_set(user_shape, 1); elm_radio_group_add(user_shape, whole);
+  Evas_Object *whole = elm_radio_add(layout_box); elm_object_text_set(whole, "Simple root"); elm_radio_state_value_set(whole, 0);
+  Evas_Object *user_shape = elm_radio_add(layout_box); elm_object_text_set(user_shape, "/Home /Work split + /Programs package intent"); elm_radio_state_value_set(user_shape, 1); elm_radio_group_add(user_shape, whole);
   Evas_Object *custom_shape = elm_radio_add(layout_box); elm_object_text_set(custom_shape, "Custom split — record intent"); elm_radio_state_value_set(custom_shape, 2); elm_radio_group_add(custom_shape, whole);
   ui.storage_layout = whole; elm_box_pack_end(layout_box, whole); elm_box_pack_end(layout_box, user_shape); elm_box_pack_end(layout_box, custom_shape);
   elm_radio_value_set(whole, 1);
@@ -589,7 +762,38 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   elm_table_pack(table, ratio_box, 1, 8, 1, 1); evas_object_show(ratio_box);
 
   Evas_Object *packages_label = form_label(table, "Package profile"); elm_table_pack(table, packages_label, 0, 9, 1, 1);
-  Evas_Object *package_box = elm_box_add(table); elm_box_horizontal_set(package_box, EINA_TRUE); elm_box_padding_set(package_box, 18, 0);
+  Evas_Object *package_outer = elm_box_add(table);
+  elm_box_padding_set(package_outer, 8, 8);
+  evas_object_size_hint_weight_set(package_outer, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(package_outer, EVAS_HINT_FILL, 0.5);
+
+  ui.repo_url = elm_entry_add(package_outer);
+  elm_entry_single_line_set(ui.repo_url, EINA_TRUE);
+  elm_object_part_text_set(ui.repo_url, "guide", "Package repository URL");
+  elm_entry_entry_set(ui.repo_url, "http://192.168.1.10/auzix/repo");
+  evas_object_size_hint_weight_set(ui.repo_url, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.repo_url, EVAS_HINT_FILL, 0.5);
+  evas_object_size_hint_min_set(ui.repo_url, 620, 42);
+  elm_box_pack_end(package_outer, ui.repo_url); evas_object_show(ui.repo_url);
+
+  Evas_Object *profile_box = elm_box_add(package_outer);
+  elm_box_horizontal_set(profile_box, EINA_TRUE);
+  elm_box_padding_set(profile_box, 18, 0);
+  Evas_Object *tiny_profile = elm_radio_add(profile_box);
+  elm_object_text_set(tiny_profile, "Tiny remote shell");
+  elm_radio_state_value_set(tiny_profile, 0);
+  Evas_Object *workstation_profile = elm_radio_add(profile_box);
+  elm_object_text_set(workstation_profile, "VM135 workstation");
+  elm_radio_state_value_set(workstation_profile, 1);
+  elm_radio_group_add(workstation_profile, tiny_profile);
+  ui.profile = tiny_profile;
+  elm_radio_value_set(tiny_profile, 1);
+  elm_box_pack_end(profile_box, tiny_profile);
+  elm_box_pack_end(profile_box, workstation_profile);
+  elm_box_pack_end(package_outer, profile_box);
+  evas_object_show(tiny_profile); evas_object_show(workstation_profile); evas_object_show(profile_box);
+
+  Evas_Object *package_box = elm_box_add(package_outer); elm_box_horizontal_set(package_box, EINA_TRUE); elm_box_padding_set(package_box, 18, 0);
   evas_object_size_hint_weight_set(package_box, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(package_box, EVAS_HINT_FILL, 0.5);
   Evas_Object *package_col1 = elm_box_add(package_box); elm_box_padding_set(package_col1, 4, 4);
@@ -618,7 +822,8 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   elm_box_pack_end(package_box, package_col1); evas_object_show(package_col1);
   elm_box_pack_end(package_box, package_col2); evas_object_show(package_col2);
 #undef ADD_PACKAGE_CHECK2
-  elm_table_pack(table, package_box, 1, 9, 1, 1); evas_object_show(package_box);
+  elm_box_pack_end(package_outer, package_box); evas_object_show(package_box);
+  elm_table_pack(table, package_outer, 1, 9, 1, 1); evas_object_show(package_outer);
 
   Evas_Object *look_label = form_label(table, "Desktop look"); elm_table_pack(table, look_label, 0, 10, 1, 1);
   Evas_Object *look_box = elm_box_add(table);

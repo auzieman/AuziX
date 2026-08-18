@@ -1,0 +1,137 @@
+{
+  "format": "auzix-runtime-substrate-policy-v1",
+  "description": "Packages in these groups define the active AUZiX runtime stratum. Leaf installs may depend on the current stratum but must not silently upgrade, shadow, or side-load a second glibc.",
+  "default_action_for_leaf_transaction": "hold-or-fail-runtime-rebuild-required",
+  "runtime_transaction_required_message": "requested package requires a newer runtime substrate; rebuild the substrate layer first or select a compatible package version",
+  "single_core_glibc_rule": {
+    "active_provider_path": "/System/Libraries/Runtime/glibc",
+    "packages": [
+      "Libc6",
+      "LibgccS1",
+      "GCC14Base"
+    ],
+    "normal_leaf_install_action": "satisfy-from-active-core-runtime",
+    "forbidden_action": "install-package-scoped-or-alternate-glibc-into-a-normal-root",
+    "rebuild_rule": "If any package requires a newer glibc symbol floor than the active AUZiX core glibc, update the core runtime as a release-layer and rebuild dependent packages against that new core. Do not pull a second glibc as a dependency."
+  },
+  "groups": [
+    {
+      "id": "base-c-abi",
+      "tier": "base-runtime",
+      "packages": [
+        "Libc6",
+        "LibgccS1",
+        "Libstdc6",
+        "Libatomic1",
+        "Libseccomp2",
+        "Zlib1g"
+      ],
+      "notes": "C ABI, ELF loader, libm/pthread/resolver/NSS-adjacent runtime. Never force-install over a live root."
+    },
+    {
+      "id": "crypto-trust",
+      "tier": "security-runtime",
+      "packages": [
+        "OpenSSL",
+        "Libssl3t64",
+        "Libcrypto3t64",
+        "CACerts",
+        "Curl",
+        "Libcurl4t64"
+      ],
+      "notes": "TLS ABI and CA trust must move as a coherent layer; Midori/Flatpak/browser fixes should not invent local CA drift."
+    },
+    {
+      "id": "desktop-foundation",
+      "tier": "desktop-runtime",
+      "packages": [
+        "DBus",
+        "Libdbus13",
+        "PAM",
+        "Libpam0g",
+        "Polkit",
+        "Udev",
+        "Systemd",
+        "AuzixServiceRuntime"
+      ],
+      "notes": "Session, permissions, runtime dirs, devices, and service substrate."
+    },
+    {
+      "id": "x11-input-video",
+      "tier": "desktop-runtime",
+      "packages": [
+        "Xorg",
+        "XorgServer",
+        "Libx116",
+        "Libx11Xcb1",
+        "Libxcb1",
+        "Libxext6",
+        "Libxrender1",
+        "Libxrandr2",
+        "Libxinerama1",
+        "Libxi6",
+        "Libxkbcommon0",
+        "Libinput10",
+        "XserverXorgInputLibinput"
+      ],
+      "notes": "Keyboard, mouse, video, and X11 ABI. Do not let app installs mutate this under a live E session."
+    },
+    {
+      "id": "efl-enlightenment",
+      "tier": "desktop-runtime",
+      "packages": [
+        "EFL",
+        "Enlightenment",
+        "Libeina1t64",
+        "Libecore1",
+        "LibecoreX1",
+        "LibecoreInput1",
+        "Libevas1",
+        "Libedje1",
+        "Libefreet1a",
+        "LibefreetBin",
+        "Libelementary1",
+        "Terminology"
+      ],
+      "notes": "E shell, efreet cache, EFL rendering, and terminal substrate. Version skew here looks like random desktop ghosts."
+    },
+    {
+      "id": "gtk-gnome-cache",
+      "tier": "desktop-runtime",
+      "packages": [
+        "GLib",
+        "Libglib200t64",
+        "Libgtk30t64",
+        "Libgtk40",
+        "GSettingsDesktopSchemas",
+        "DesktopFileUtils",
+        "SharedMimeInfo",
+        "GtkUpdateIconCache",
+        "GdkPixbufLoaders",
+        "Fontconfig",
+        "Freetype",
+        "Pango",
+        "Cairo",
+        "Harfbuzz"
+      ],
+      "notes": "GTK/GNOME apps need this as a coherent cache/schema/icon/font loader stratum."
+    }
+  ],
+  "planner_rules": [
+    {
+      "id": "leaf-may-use-current-substrate",
+      "if": "transaction_mode == leaf && dependency.version <= active_substrate.version",
+      "then": "allow"
+    },
+    {
+      "id": "leaf-must-not-upgrade-substrate",
+      "if": "transaction_mode == leaf && dependency in substrate && dependency.version > active_substrate.version",
+      "then": "hold_or_fail_runtime_rebuild_required"
+    },
+    {
+      "id": "runtime-transaction-may-upgrade-substrate",
+      "if": "transaction_mode in [base-runtime, desktop-runtime, security-runtime]",
+      "then": "allow_with_full_layer_validation"
+    }
+  ]
+}

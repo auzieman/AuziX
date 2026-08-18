@@ -5,8 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 WORK_DIR="${ROOT_DIR}/out/auzix-packages/installer"
 INSTALLER_VERSION="${AUZIX_INSTALLER_VERSION:-0.2}"
-LUA_VERSION="${AUZIX_LUA_VERSION:-$(apt-cache show lua5.4 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}')}"
-DIALOG_VERSION="${AUZIX_DIALOG_VERSION:-$(apt-cache show dialog 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}')}"
+LUA_VERSION="${AUZIX_LUA_VERSION:-$(apt-cache show lua5.4 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}' || true)}"
+DIALOG_VERSION="${AUZIX_DIALOG_VERSION:-$(apt-cache show dialog 2>/dev/null | awk '/^Version:/ && !version {version=$2} END {print version}' || true)}"
 LUA_VERSION="${LUA_VERSION:-5.4}"
 DIALOG_VERSION="${DIALOG_VERSION:-host}"
 LUA_PROGRAM="${AUZIX_ROOT}/Programs/Lua/${LUA_VERSION}"
@@ -60,6 +60,17 @@ fi
 for command_name in apt-cache apt-get dpkg-deb install ldd jq; do
   require_cmd "${command_name}"
 done
+
+ensure_apt_candidate() {
+  local package="$1"
+  if ! apt-cache policy "${package}" 2>/dev/null | awk '/^[[:space:]]*Candidate:/ && $2 != "(none)" {found=1} END {exit found ? 0 : 1}'; then
+    log "Refreshing apt metadata; ${package} has no candidate in this builder image"
+    apt-get update >/dev/null
+  fi
+}
+
+ensure_apt_candidate lua5.4
+ensure_apt_candidate dialog
 
 rm -rf \
   "${WORK_DIR}" \

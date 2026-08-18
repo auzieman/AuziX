@@ -99,6 +99,8 @@ REPO_CONF="${SETTINGS}/repositories.conf"
 CACHE_INDEX="${STATE}/repo-index.json"
 INSTALLED="${STATE}/installed.json"
 WORK=/Work/Temp/auzix-pkg
+PROVIDED="${WORK}/provided.names"
+BLOCKED="${WORK}/transaction.blocked"
 
 usage() {
   cat <<'USAGE'
@@ -111,6 +113,10 @@ Usage:
   auzix-pkg owner PATH
   auzix-pkg env PACKAGE
   auzix-pkg bootstrap [PACKAGE ...]
+  auzix-pkg bootstrap-manifest FILE
+  auzix-pkg bootstrap-receipts [DIRECTORY]
+  auzix-pkg bootstrap-runtime-substrate
+  auzix-pkg plan PACKAGE
   auzix-pkg install PACKAGE
 
 Repository metadata is cached under /System/State/packages. Package archives
@@ -150,6 +156,8 @@ prepare_state() {
 {"format":"auzix-installed-v1","installed":[]}
 JSON
   fi
+  : >"${PROVIDED}"
+  : >"${BLOCKED}"
 }
 
 repo_url() {
@@ -283,6 +291,268 @@ is_installed() {
   ' "${INSTALLED}" >/dev/null
 }
 
+receipt_installed_by_name() {
+  package_name="$1"
+  safe_name="$(printf '%s\n' "${package_name}" | "${BB}" sed 's/[][*?.^$\\]/_/g')"
+  for receipt in "/System/PackageDB/${safe_name}-"*.auzix.json "/System/PackageDB/${safe_name}.auzix.json"; do
+    [ -s "${receipt}" ] && return 0
+  done
+  return 1
+}
+
+program_present_by_name() {
+  package_name="$1"
+  [ -e "/Programs/${package_name}/current" ] || [ -d "/Programs/${package_name}" ]
+}
+
+active_glibc_version() {
+  [ -x /System/Libraries/Runtime/glibc/libc.so.6 ] || return 1
+  /System/Libraries/Runtime/glibc/libc.so.6 2>&1 |
+    "${BB}" awk '''/release version/ { print $NF; found=1; exit } /GNU C Library/ && !found { for (i=1; i<=NF; i++) if ($i ~ /^[0-9]+[.][0-9]+/) { print $i; found=1; exit } } END { exit found ? 0 : 1 }''' |
+    "${BB}" sed 's/[^0-9.].*$//'
+}
+
+base_runtime_provides() {
+  package_name="$1"
+  case "${package_name}" in
+    Libc6|LibgccS1|GCC14Base)
+      [ -x /System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2 ] &&
+      [ -x /System/Libraries/Runtime/glibc/libc.so.6 ]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+core_runtime_package() {
+  package_name="$1"
+  case "${package_name}" in
+    Libc6|LibgccS1|GCC14Base) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+core_runtime_dependency_satisfied() {
+  package_name="$1"
+  core_runtime_package "${package_name}" || return 1
+  base_runtime_provides "${package_name}" || return 1
+  record_base_runtime_provider "${package_name}" >/dev/null 2>&1 || true
+  provided_mark "${package_name}"
+  return 0
+}
+
+substrate_package() {
+  package_name="$1"
+  case "${package_name}" in
+    Libc6|LibgccS1|GCC14Base|Libstdc6|Libatomic1|Libseccomp2|Zlib1g|OpenSSL|Libssl*|Libcrypto*|CACerts|CaCertificates|Curl|Libcurl*|DBus|Libdbus*|PAM|Libpam*|Polkit|Udev|Systemd|Xorg|XorgServer|Xserver*|Libx*|Libxcb*|Libinput*|Libdrm*|Mesa*|Libgl*|Libegl*|Wayland*|EFL|Enlightenment|Terminology|Libeina*|Libecore*|Libevas*|Libedje*|Libefreet*|Libelementary*|Libeet*|Libeio*|Libemotion*|Libelput*|Libeeze*|GLib|Libglib*|GTK*|Libgtk*|Gnome*|GSettings*|Dconf*|DesktopFileUtils|SharedMimeInfo|GtkUpdateIconCache|GdkPixbuf*|Fontconfig|Freetype|Pango|Cairo|Harfbuzz*)
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+record_base_runtime_provider() {
+  package_name="$1"
+  base_runtime_provides "${package_name}" || return 1
+  version="base-runtime"
+  case "${package_name}" in
+    Libc6) version="$(active_glibc_version 2>/dev/null || echo base-runtime)"; record_name="ActiveBaseRuntimeLibc6" ;;
+    LibgccS1) version="$(active_glibc_version 2>/dev/null || echo base-runtime)-glibc-stratum"; record_name="ActiveBaseRuntimeLibgcc" ;;
+    GCC14Base) version="$(active_glibc_version 2>/dev/null || echo base-runtime)-glibc-stratum"; record_name="ActiveBaseRuntimeGCC" ;;
+    *) return 1 ;;
+  esac
+  tmp_state="${INSTALLED}.tmp.$$"
+  "${JQ}" \
+    --arg name "${record_name}" \
+    --arg provided "active-runtime:${package_name}" \
+    --arg version "${version}" '''
+      .installed = (
+        [.installed[] | select((.name | ascii_downcase) != ($name | ascii_downcase))]
+        + [{
+            name: $name,
+            version: $version,
+            kind: "runtime-substrate",
+            package: "active-base-runtime",
+            sha256: "",
+            description: "Active AUZiX base runtime substrate provider. Normal packages must build against this core runtime; alternate glibc packages are not valid leaf-install dependencies.",
+            receipt: "/System/State/packages/installed.json",
+            prefix: "/System/Libraries/Runtime/glibc",
+            commands: [],
+            desktop_entries: [],
+            compatibility_exports: [],
+            depends: [],
+            recommends: [],
+            provides: [$provided],
+            substrate: {tier: "base-runtime", scope: "active-runtime", protected: true, satisfies_package_dependencies: true, single_core_glibc: true},
+            source: "active-base-runtime",
+            installed_at: "active-base-runtime"
+          }]
+        | sort_by(.name | ascii_downcase)
+      )
+    ''' "${INSTALLED}" >"${tmp_state}"
+  "${BB}" mv "${tmp_state}" "${INSTALLED}"
+  provided_mark "active-runtime:${package_name}"
+  provided_mark "${package_name}"
+}
+
+provided_has() {
+  "${BB}" grep -Fxq "$1" "${PROVIDED}" 2>/dev/null
+}
+
+reset_transaction_marks() {
+  : >"${PROVIDED}"
+  : >"${BLOCKED}"
+}
+
+provided_mark() {
+  provided_name="$1"
+  [ -n "${provided_name}" ] || return 0
+  provided_has "${provided_name}" || echo "${provided_name}" >>"${PROVIDED}"
+}
+
+mark_runtime_block() {
+  blocked_message="$1"
+  printf '%s\n' "${blocked_message}" >>"${BLOCKED}"
+}
+
+fail_if_blocked() {
+  if [ -s "${BLOCKED}" ]; then
+    first_block="$("${BB}" head -n 1 "${BLOCKED}")"
+    die "${first_block}"
+  fi
+}
+
+record_installed_name() {
+  package_name="$1"
+  source_label="${2:-manifest}"
+  package_json="$(package_query "${package_name}" || true)"
+  [ -n "${package_json}" ] || return 1
+  tmp_state="${INSTALLED}.tmp.$$"
+  package_state="${WORK}/record-installed-name.$$.json"
+  printf '%s\n' "${package_json}" >"${package_state}"
+  "${JQ}" \
+    --slurpfile package_state "${package_state}" \
+    --arg source "${source_label}" '
+      ($package_state[0]) as $package
+      |
+      .installed = (
+        [.installed[] | select((.name | ascii_downcase) != ($package.name | ascii_downcase))]
+        + [{
+            name: $package.name,
+            version: $package.version,
+            kind: $package.kind,
+            package: $package.package,
+            sha256: $package.sha256,
+            description: ($package.description // ""),
+            receipt: $package.receipt,
+            prefix: $package.prefix,
+            commands: ($package.commands // []),
+            desktop_entries: ($package.desktop_entries // []),
+            compatibility_exports: ($package.compatibility_exports // []),
+            depends: ($package.depends // []),
+            recommends: ($package.recommends // []),
+            provides: ($package.provides // []),
+            substrate: ($package.substrate // null),
+            source_metadata: ($package.source // {}),
+            runtime_ladder: ($package.runtime_ladder // null),
+            runtime_environment: ($package.runtime_environment // null),
+            permissions: ($package.permissions // null),
+            validation: ($package.validation // null),
+            source: $source,
+            installed_at: $source
+          }]
+        | sort_by(.name | ascii_downcase)
+      )
+    ' "${INSTALLED}" >"${tmp_state}"
+  "${BB}" rm -f "${package_state}"
+  "${BB}" mv "${tmp_state}" "${INSTALLED}"
+  provided_mark "${package_name}"
+}
+
+record_receipt_file() {
+  receipt_file="$1"
+  source_label="${2:-receipt-bootstrap}"
+  [ -s "${receipt_file}" ] || return 1
+  tmp_state="${INSTALLED}.tmp.$$"
+  "${JQ}" \
+    --slurpfile package_state "${receipt_file}" \
+    --arg receipt "${receipt_file}" \
+    --arg source "${source_label}" '
+      ($package_state[0]) as $package
+      | select(($package.name // "") != "")
+      |
+      .installed = (
+        [.installed[] | select((.name | ascii_downcase) != ($package.name | ascii_downcase))]
+        + [{
+            name: $package.name,
+            version: ($package.version // "unknown"),
+            kind: ($package.kind // "unknown"),
+            package: ($package.package // ""),
+            sha256: ($package.sha256 // ""),
+            description: ($package.description // $package.notes // ""),
+            receipt: $receipt,
+            prefix: ($package.prefix // $package.paths.prefix // ""),
+            commands: ($package.commands // []),
+            desktop_entries: ($package.desktop_entries // []),
+            compatibility_exports: ($package.compatibility_exports // []),
+            depends: ($package.depends // []),
+            recommends: ($package.recommends // []),
+            provides: ($package.provides // []),
+            source_metadata: ($package.source // {}),
+            runtime_ladder: ($package.runtime_ladder // null),
+            runtime_environment: ($package.runtime_environment // null),
+            permissions: ($package.permissions // null),
+            validation: ($package.validation // null),
+            source: $source,
+            installed_at: $source
+          }]
+        | sort_by(.name | ascii_downcase)
+      )
+    ' "${INSTALLED}" >"${tmp_state}" || return 1
+  "${BB}" mv "${tmp_state}" "${INSTALLED}"
+  receipt_name="$("${JQ}" -r '.name // empty' "${receipt_file}" 2>/dev/null || true)"
+  [ -n "${receipt_name}" ] && provided_mark "${receipt_name}"
+}
+
+seed_provided_state() {
+  "${JQ}" -r '.installed[]?.name // empty' "${INSTALLED}" 2>/dev/null |
+    while IFS= read -r installed_name; do
+      [ -n "${installed_name}" ] && provided_mark "${installed_name}"
+    done
+  "${JQ}" -r '.installed[]?.provides[]? // empty' "${INSTALLED}" 2>/dev/null |
+    while IFS= read -r provided_name; do
+      [ -n "${provided_name}" ] && provided_mark "${provided_name}"
+    done
+  for receipt in /System/PackageDB/*.auzix.json /System/PackageDB/*.json; do
+    [ -s "${receipt}" ] || continue
+    receipt_name="$("${JQ}" -r '.name // empty' "${receipt}" 2>/dev/null || true)"
+    [ -n "${receipt_name}" ] && [ "${receipt_name}" != null ] && provided_mark "${receipt_name}"
+    "${JQ}" -r '.provides[]? // empty' "${receipt}" 2>/dev/null |
+      while IFS= read -r provided_name; do
+        [ -n "${provided_name}" ] && provided_mark "${provided_name}"
+      done
+  done
+  if [ -d /Programs ]; then
+    for program_dir in /Programs/*; do
+      [ -d "${program_dir}" ] || continue
+      provided_mark "${program_dir##*/}"
+    done
+  fi
+  for base_name in Libc6 LibgccS1 GCC14Base; do
+    if base_runtime_provides "${base_name}"; then
+      record_base_runtime_provider "${base_name}" >/dev/null 2>&1 || provided_mark "${base_name}"
+    fi
+  done
+}
+
+dependency_satisfied() {
+  package_name="$1"
+  core_runtime_dependency_satisfied "${package_name}" ||
+  provided_has "${package_name}" ||
+  is_installed "${package_name}" ||
+  receipt_installed_by_name "${package_name}" ||
+  program_present_by_name "${package_name}"
+}
+
 receipt_installed() {
   package_json="$1"
   receipt="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.receipt // empty')"
@@ -318,6 +588,8 @@ record_install() {
             compatibility_exports: ($package.compatibility_exports // []),
             depends: ($package.depends // []),
             recommends: ($package.recommends // []),
+            provides: ($package.provides // []),
+            substrate: ($package.substrate // null),
             source_metadata: ($package.source // {}),
             runtime_ladder: ($package.runtime_ladder // null),
             runtime_environment: ($package.runtime_environment // null),
@@ -365,9 +637,14 @@ install_one() {
   [ -n "${package_json}" ] || die "package not found in repository: ${requested}"
 
   name="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name')"
+  if core_runtime_dependency_satisfied "${name}"; then
+    echo "${name} is satisfied by the active AUZiX core glibc runtime; not installing an alternate glibc package"
+    return 0
+  fi
   if receipt_installed "${package_json}" && ! is_installed "${name}"; then
     echo "${name} receipt exists; recording installed state"
     record_install "${package_json}" "$(repo_url)"
+    provided_mark "${name}"
     return 0
   fi
   if is_installed "${name}"; then
@@ -381,6 +658,7 @@ install_one() {
     ' "${INSTALLED}" | "${BB}" head -n 1)"
     if [ "${current}" = "${installed_version}" ] && [ "${current_sha}" = "${installed_sha}" ]; then
       echo "${name} ${current} is already installed"
+      provided_mark "${name}"
       return 0
     fi
   fi
@@ -401,10 +679,13 @@ install_one() {
           echo "Skipping self dependency for ${name}"
           continue
         fi
-        if ! is_installed "${dependency}"; then
+        if ! dependency_satisfied "${dependency}"; then
           install_one "${dependency}" "${stack} ${name}"
+        else
+          echo "Dependency ${dependency} already satisfied; not reinstalling"
         fi
       done
+    fail_if_blocked
   fi
 
   base_url="$(repo_url)"
@@ -428,7 +709,40 @@ install_one() {
   fi
   run_post_install "${package_json}"
   record_install "${package_json}" "${base_url}"
+  provided_mark "${name}"
   echo "Installed ${name} $(printf '%s\n' "${package_json}" | "${JQ}" -r '.version')"
+}
+
+plan_one() {
+  requested="$1"
+  stack="${2:-}"
+  package_json="$(package_query "${requested}")"
+  [ -n "${package_json}" ] || die "package not found in repository: ${requested}"
+  name="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name')"
+
+  dependency_satisfied "${name}" && return 0
+  provided_has "plan:${name}" && return 0
+  case " ${stack} " in
+    *" ${name} "*) return 0 ;;
+  esac
+
+  if [ "${AUZIX_SKIP_DEPS:-0}" != "1" ]; then
+    printf '%s\n' "${package_json}" | "${JQ}" -r '.depends[]? | select(. != null and . != "")' |
+      while IFS= read -r dependency; do
+        [ -n "${dependency}" ] || continue
+        [ "${dependency}" != "null" ] || continue
+        [ "${dependency}" = "${name}" ] && continue
+        if ! dependency_satisfied "${dependency}"; then
+          plan_one "${dependency}" "${stack} ${name}"
+        fi
+      done
+    fail_if_blocked
+  fi
+
+  if ! dependency_satisfied "${name}" && ! provided_has "plan:${name}"; then
+    provided_mark "plan:${name}"
+    printf '%s\n' "${name}"
+  fi
 }
 
 prepare_state
@@ -566,10 +880,74 @@ case "${command_name}" in
     "${BB}" mv "${tmp_state}" "${INSTALLED}"
     echo "Bootstrapped $("${JQ}" '.installed | length' "${INSTALLED}") installed package records"
     ;;
+  bootstrap-manifest)
+    require_index
+    [ "$#" -eq 1 ] || die "bootstrap-manifest requires a package list file"
+    [ -s "$1" ] || die "bootstrap manifest is missing or empty: $1"
+    seed_provided_state
+    count=0
+    missing=0
+    while IFS= read -r manifest_line || [ -n "${manifest_line}" ]; do
+      manifest_line="${manifest_line%%#*}"
+      manifest_line="$(printf '%s' "${manifest_line}" | "${BB}" sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      [ -n "${manifest_line}" ] || continue
+      case "${manifest_line}" in \[*\]) continue ;; esac
+      if record_installed_name "${manifest_line}" "bootstrap-manifest:$1"; then
+        count=$((count + 1))
+      else
+        echo "bootstrap-manifest missing package: ${manifest_line}" >&2
+        missing=$((missing + 1))
+      fi
+    done <"$1"
+    echo "Bootstrapped manifest records=${count} missing=${missing} installed_total=$("${JQ}" '.installed | length' "${INSTALLED}")"
+    ;;
+  bootstrap-runtime-substrate)
+    seed_provided_state
+    count=0
+    for base_name in Libc6 LibgccS1 GCC14Base; do
+      if record_base_runtime_provider "${base_name}"; then
+        count=$((count + 1))
+      fi
+    done
+    echo "Bootstrapped runtime substrate records=${count} installed_total=$("${JQ}" '.installed | length' "${INSTALLED}")"
+    ;;
+  bootstrap-receipts)
+    receipt_dir="${1:-/System/PackageDB}"
+    [ -d "${receipt_dir}" ] || die "receipt directory missing: ${receipt_dir}"
+    count=0
+    failed=0
+    for receipt in "${receipt_dir}"/*.auzix.json "${receipt_dir}"/*.json; do
+      [ -s "${receipt}" ] || continue
+      if record_receipt_file "${receipt}" "bootstrap-receipts:${receipt_dir}"; then
+        count=$((count + 1))
+      else
+        echo "bootstrap-receipts failed receipt: ${receipt}" >&2
+        failed=$((failed + 1))
+      fi
+    done
+    seed_provided_state
+    echo "Bootstrapped receipts records=${count} failed=${failed} installed_total=$("${JQ}" '.installed | length' "${INSTALLED}")"
+    ;;
+  plan)
+    require_index
+    [ "$#" -eq 1 ] || die "plan requires a package name"
+    seed_provided_state
+    plan_file="${WORK}/plan.$$.names"
+    plan_one "$1" "" | "${BB}" tee "${plan_file}" >/dev/null
+    fail_if_blocked
+    echo "PLAN package=$1 new_packages=$("${BB}" wc -l <"${plan_file}")"
+    cat "${plan_file}"
+    ;;
   install)
     require_index
     [ "$#" -eq 1 ] || die "install requires a package name"
+    seed_provided_state
+    plan_one "$1" "" >/dev/null
+    fail_if_blocked
+    reset_transaction_marks
+    seed_provided_state
     install_one "$1" ""
+    fail_if_blocked
     ;;
   help|-h|--help)
     usage

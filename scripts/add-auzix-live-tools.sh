@@ -15,7 +15,22 @@ mkdir -p \
   "${AUZIX_ROOT}/System/Settings/install" \
   "${AUZIX_ROOT}/System/State/display" \
   "${AUZIX_ROOT}/System/Logs/display" \
+  "${AUZIX_ROOT}/System/Logs/installer" \
+  "${AUZIX_ROOT}/System/Logs/packages" \
   "${AUZIX_ROOT}/Services"
+
+if [ -f "${ROOT_DIR}/scripts/auzix-install-root-from-repo-profile.sh" ]; then
+  cp "${ROOT_DIR}/scripts/auzix-install-root-from-repo-profile.sh" \
+    "${AUZIX_ROOT}/System/Tools/auzix-install-root-from-repo-profile"
+  chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-root-from-repo-profile"
+fi
+
+chown -R 0:1000 \
+  "${AUZIX_ROOT}/System/Logs/installer" \
+  "${AUZIX_ROOT}/System/Logs/packages" 2>/dev/null || true
+chmod 0775 \
+  "${AUZIX_ROOT}/System/Logs/installer" \
+  "${AUZIX_ROOT}/System/Logs/packages" 2>/dev/null || true
 
 cat > "${AUZIX_ROOT}/System/Settings/mdev.conf" <<'EOF'
 null 0:0 0666
@@ -66,12 +81,14 @@ prepare_live_runtime_state() {
     "${BB}" mount -t tmpfs tmpfs /System/Logs 2>/dev/null || true
   fi
 
-  "${BB}" mkdir -p /System/State/ssh /System/State/dbus /System/State/display /System/Logs/display 2>/dev/null || true
+  "${BB}" mkdir -p /System/State/ssh /System/State/dbus /System/State/display /System/State/packages /System/Logs/display /System/Logs/installer /System/Logs/packages 2>/dev/null || true
   if [ -d /run/auzix-state-seed/ssh ]; then
     "${BB}" cp -a /run/auzix-state-seed/ssh/. /System/State/ssh/ 2>/dev/null || true
   fi
   "${BB}" chown -R 0:0 /System/State/ssh 2>/dev/null || true
+  "${BB}" chown -R 0:1000 /System/State/packages /System/Logs/installer /System/Logs/packages 2>/dev/null || true
   "${BB}" chmod 0755 /System/State /System/State/dbus /System/Logs /System/Logs/display 2>/dev/null || true
+  "${BB}" chmod 0775 /System/State/packages /System/Logs/installer /System/Logs/packages 2>/dev/null || true
   "${BB}" chmod 0700 /System/State/ssh 2>/dev/null || true
   "${BB}" chmod 0600 /System/State/ssh/ssh_host_*_key 2>/dev/null || true
   "${BB}" chmod 0644 /System/State/ssh/ssh_host_*_key.pub 2>/dev/null || true
@@ -2827,11 +2844,21 @@ link_file() {
   target_file="$2"
   [ -e "${source_path}" ] || return 0
   target_abs="$(target_path "${target_file}")"
+  link_source="${source_path}"
+  case "${TARGET}" in
+    /|"") ;;
+    *)
+      target_prefix="${TARGET%/}"
+      case "${source_path}" in
+        "${target_prefix}"/*) link_source="${source_path#${target_prefix}}" ;;
+      esac
+      ;;
+  esac
   "${BB}" mkdir -p "$("${BB}" dirname "${target_abs}")" 2>/dev/null || true
   if [ -e "${target_abs}" ] && [ ! -L "${target_abs}" ]; then
     "${BB}" mv "${target_abs}" "${target_abs}.before-auzix-finalizer" 2>/dev/null || true
   fi
-  "${BB}" ln -sfn "${source_path}" "${target_abs}" 2>/dev/null || true
+  "${BB}" ln -sfn "${link_source}" "${target_abs}" 2>/dev/null || true
 }
 
 link_tree_files() {
@@ -2846,7 +2873,11 @@ link_tree_files() {
 
 ensure_busybox_applets() {
   busybox_bin="$(target_path /Programs/BusyBox/current/Commands/busybox)"
-  [ -x "${busybox_bin}" ] || busybox_bin="$(target_path /Programs/BusyBox/1.36.1/Commands/busybox)"
+  busybox_link=/Programs/BusyBox/current/Commands/busybox
+  if [ ! -x "${busybox_bin}" ]; then
+    busybox_bin="$(target_path /Programs/BusyBox/1.36.1/Commands/busybox)"
+    busybox_link=/Programs/BusyBox/1.36.1/Commands/busybox
+  fi
   [ -x "${busybox_bin}" ] || return 0
   mkdir_p /System/Compatibility/bin
   for applet in \
@@ -2858,14 +2889,77 @@ ensure_busybox_applets() {
     less more vi which; do
     target_abs="$(target_path "/System/Compatibility/bin/${applet}")"
     if [ ! -e "${target_abs}" ] || [ -L "${target_abs}" ]; then
-      "${BB}" ln -sfn "${busybox_bin}" "${target_abs}" 2>/dev/null || true
+      "${BB}" ln -sfn "${busybox_link}" "${target_abs}" 2>/dev/null || true
     fi
   done
+}
+
+normalize_target_symlinks() {
+  case "${TARGET}" in
+    /|"") return 0 ;;
+  esac
+  target_prefix="${TARGET%/}"
+  [ -d "${target_prefix}" ] || return 0
+  "${BB}" find "${target_prefix}" -xdev -type l -print 2>/dev/null | while IFS= read -r link_path; do
+    link_target="$("${BB}" readlink "${link_path}" 2>/dev/null || true)"
+    case "${link_target}" in
+      "${target_prefix}"/*)
+        fixed_target="${link_target#${target_prefix}}"
+        "${BB}" ln -sfn "${fixed_target}" "${link_path}" 2>/dev/null || true
+        ;;
+    esac
+  done
+}
+
+ensure_program_current_links() {
+  programs_root="$(target_path /Programs)"
+  [ -d "${programs_root}" ] || return 0
+  for program_dir in "${programs_root}"/*; do
+    [ -d "${program_dir}" ] || continue
+    if [ -e "${program_dir}/current" ] || [ -L "${program_dir}/current" ]; then
+      continue
+    fi
+    latest=""
+    for version_dir in "${program_dir}"/*; do
+      [ -d "${version_dir}" ] || continue
+      case "$("${BB}" basename "${version_dir}")" in
+        current|RootFS) continue ;;
+      esac
+      latest="${version_dir}"
+    done
+    [ -n "${latest}" ] || continue
+    link_target="/Programs/$("${BB}" basename "${program_dir}")/$("${BB}" basename "${latest}")"
+    "${BB}" ln -sfn "${link_target}" "${program_dir}/current" 2>/dev/null || true
+  done
+}
+
+disable_live_installer_autostart() {
+  # Installed roots should not keep launching the installer every desktop login.
+  # Keep browser/terminal/file-manager conveniences, but strip the live-only
+  # destructive installer startup hooks.
+  for autostart_dir in \
+    /Users/auzix/.config/autostart \
+    /Users/auzix/.e/e/applications/startup; do
+    [ -d "$(target_path "${autostart_dir}")" ] || continue
+    if [ -f "$(target_path "${autostart_dir}/auzix-installer.desktop")" ]; then
+      "${BB}" mv \
+        "$(target_path "${autostart_dir}/auzix-installer.desktop")" \
+        "$(target_path "${autostart_dir}/auzix-installer.desktop.disabled")" 2>/dev/null || true
+    fi
+  done
+  order_file="$(target_path /Users/auzix/.e/e/applications/startup/.order)"
+  if [ -f "${order_file}" ]; then
+    "${BB}" grep -v '^auzix-installer.desktop$' "${order_file}" > "${order_file}.tmp" 2>/dev/null || true
+    "${BB}" mv "${order_file}.tmp" "${order_file}" 2>/dev/null || true
+    "${BB}" chown 1000:1000 "${order_file}" 2>/dev/null || true
+  fi
 }
 
 refresh_program_surfaces() {
   programs_root="$(target_path /Programs)"
   [ -d "${programs_root}" ] || return 0
+
+  ensure_program_current_links
 
   mkdir_p \
     /System/Compatibility/usr/share/applications \
@@ -2941,6 +3035,7 @@ mkdir_p \
   /Users/auzix/.local/share \
   /Users/auzix/.midori \
   /System/Logs/display \
+  /System/Logs/installer \
   /System/Logs/packages \
   /System/State/dbus \
   /System/State/display \
@@ -2971,8 +3066,8 @@ chown_path 1000:1000 \
   /Users/auzix/.elementary \
   /Users/auzix/.local \
   /Users/auzix/.midori
-chown_path 0:1000 /System/State/packages /System/Logs/packages
-chmod_path 0775 /System/State/packages /System/Logs/packages
+chown_path 0:1000 /System/State/packages /System/Logs/installer /System/Logs/packages
+chmod_path 0775 /System/State/packages /System/Logs/installer /System/Logs/packages
 chmod_path 1777 /Work/Temp /dev/shm
 
 if [ -e "$(target_path /Programs/Sudo/host/Commands/sudo)" ]; then
@@ -3004,7 +3099,10 @@ if [ -d "$(target_path /System/Compatibility/usr/libexec/sudo)" ]; then
 fi
 
 ensure_busybox_applets
+ensure_program_current_links
 refresh_program_surfaces
+normalize_target_symlinks
+disable_live_installer_autostart
 
 printf 'finalized-installed-root=%s\n' "${TARGET}"
 SCRIPT
@@ -3017,6 +3115,8 @@ set -eu
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
+JQ=/Programs/AuzixPackageTools/current/Commands/jq
+[ -x "${JQ}" ] || JQ=/System/Compatibility/bin/jq
 
 usage() {
   cat <<'USAGE'
@@ -3044,7 +3144,9 @@ case "${cmd}" in
     done
     ;;
   manifest)
-    if [ -s /System/Settings/packages/installed.json ]; then
+    if [ -s /System/State/packages/installed.json ]; then
+      "${BB}" cat /System/State/packages/installed.json
+    elif [ -s /System/Settings/packages/installed.json ]; then
       "${BB}" cat /System/Settings/packages/installed.json
     else
       echo '{"format":"auzix-installed-v0","installed":[]}'
@@ -3069,6 +3171,8 @@ set -eu
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
+JQ=/Programs/AuzixPackageTools/current/Commands/jq
+[ -x "${JQ}" ] || JQ=/System/Compatibility/bin/jq
 
 usage() {
   cat <<'USAGE'
@@ -3130,7 +3234,66 @@ if [ -n "${expected_sha}" ] && command -v sha256sum >/dev/null 2>&1; then
 fi
 
 "${BB}" mkdir -p "${target_root}"
+before_receipts="/run/auzix-install-package-before.$$"
+after_receipts="/run/auzix-install-package-after.$$"
+new_receipts="/run/auzix-install-package-new.$$"
+find "${target_root%/}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 2>/dev/null | sort >"${before_receipts}" || : >"${before_receipts}"
 "${BB}" tar -xzpf "${package}" -C "${target_root}"
+find "${target_root%/}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print 2>/dev/null | sort >"${after_receipts}" || : >"${after_receipts}"
+comm -13 "${before_receipts}" "${after_receipts}" >"${new_receipts}" 2>/dev/null || cp "${after_receipts}" "${new_receipts}"
+
+if [ -x "${JQ}" ]; then
+  state_dir="${target_root%/}/System/State/packages"
+  installed_json="${state_dir}/installed.json"
+  "${BB}" mkdir -p "${state_dir}"
+  if [ ! -s "${installed_json}" ]; then
+    printf '%s\n' '{"format":"auzix-installed-v1","installed":[]}' >"${installed_json}"
+  fi
+  while IFS= read -r receipt; do
+    [ -s "${receipt}" ] || continue
+    tmp_state="${installed_json}.tmp.$$"
+    installed_at="$("${BB}" date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || "${BB}" date)"
+    "${JQ}" \
+      --slurpfile package_state "${receipt}" \
+      --arg receipt "${receipt}" \
+      --arg installed_at "${installed_at}" '
+        ($package_state[0]) as $package
+        |
+        .installed = (
+          [.installed[] | select((.name | ascii_downcase) != ($package.name | ascii_downcase))]
+          + [{
+              name: $package.name,
+              version: $package.version,
+              kind: $package.kind,
+              package: ($package.package // ""),
+              sha256: ($package.sha256 // ""),
+              description: ($package.description // ""),
+              receipt: $receipt,
+              prefix: ($package.prefix // ""),
+              commands: ($package.commands // []),
+              desktop_entries: ($package.desktop_entries // []),
+              compatibility_exports: ($package.compatibility_exports // []),
+              depends: ($package.depends // []),
+              recommends: ($package.recommends // []),
+              source_metadata: ($package.source // {}),
+              runtime_ladder: ($package.runtime_ladder // null),
+              runtime_environment: ($package.runtime_environment // null),
+              permissions: ($package.permissions // null),
+              validation: ($package.validation // null),
+              installed_at: $installed_at
+            }]
+          | sort_by(.name | ascii_downcase)
+        )
+      ' "${installed_json}" >"${tmp_state}" && "${BB}" mv "${tmp_state}" "${installed_json}"
+    hook="$("${JQ}" -r '.hooks.post_install // empty' "${receipt}" 2>/dev/null || true)"
+    if [ -n "${hook}" ] && [ "${target_root}" = "/" ]; then
+      AUZIX_PACKAGE_NAME="$("${JQ}" -r '.name // empty' "${receipt}")" \
+        AUZIX_PACKAGE_VERSION="$("${JQ}" -r '.version // empty' "${receipt}")" \
+        /System/Compatibility/bin/sh -c "${hook}"
+    fi
+  done <"${new_receipts}"
+fi
+rm -f "${before_receipts}" "${after_receipts}" "${new_receipts}"
 if [ -x "${target_root%/}/System/Tools/finalize-installed-root" ]; then
   "${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"
 fi
@@ -3170,6 +3333,8 @@ USAGE
 force=0
 bootloader=grub
 target=""
+repo_url=""
+profile_path=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -3187,6 +3352,22 @@ while [ "$#" -gt 0 ]; do
       ;;
     --bootloader=*)
       bootloader="${1#--bootloader=}"
+      shift
+      ;;
+    --repo)
+      repo_url="${2:-}"
+      shift 2
+      ;;
+    --repo=*)
+      repo_url="${1#--repo=}"
+      shift
+      ;;
+    --profile)
+      profile_path="${2:-}"
+      shift 2
+      ;;
+    --profile=*)
+      profile_path="${1#--profile=}"
       shift
       ;;
     --*)
@@ -3223,10 +3404,26 @@ if [ ! -b "${target}" ]; then
   exit 1
 fi
 
-partition="${target}1"
-case "${target}" in
-  *nvme*|*mmcblk*) partition="${target}p1" ;;
-esac
+if [ -n "${profile_path}" ]; then
+  profile_installer=/System/Tools/auzix-install-root-from-repo-profile
+  if [ ! -x "${profile_installer}" ]; then
+    echo "Profile install requested, but ${profile_installer} is missing." >&2
+    exit 1
+  fi
+  if [ -n "${repo_url}" ]; then
+    exec "${profile_installer}" --force --bootloader "${bootloader}" --repo "${repo_url}" --profile "${profile_path}" "${target}"
+  fi
+  exec "${profile_installer}" --force --bootloader "${bootloader}" --profile "${profile_path}" "${target}"
+fi
+
+INSTALL_TOTAL_STAGES=9
+
+install_stage() {
+  step="$1"
+  total="$2"
+  shift 2
+  echo "INSTALL_STAGE step=${step} total=${total} label=$*"
+}
 
 find_cmd() {
   for cmd in "$@"; do
@@ -3241,6 +3438,46 @@ find_cmd() {
   done
   return 1
 }
+
+part_path() {
+  case "${target}" in
+    *nvme*|*mmcblk*) printf '%sp%s\n' "${target}" "$1" ;;
+    *) printf '%s%s\n' "${target}" "$1" ;;
+  esac
+}
+
+partition="$(part_path 1)"
+home_partition="$(part_path 2)"
+work_partition="$(part_path 3)"
+
+plan_field() {
+  expr="$1"
+  default="$2"
+  if [ -n "${AUZIX_INSTALL_PLAN:-}" ] && [ -s "${AUZIX_INSTALL_PLAN}" ] && command -v jq >/dev/null 2>&1; then
+    jq -r "${expr} // \"${default}\"" "${AUZIX_INSTALL_PLAN}" 2>/dev/null || printf '%s\n' "${default}"
+  else
+    printf '%s\n' "${default}"
+  fi
+}
+
+plan_number() {
+  expr="$1"
+  default="$2"
+  value="$(plan_field "${expr}" "${default}")"
+  case "${value}" in
+    ''|*[!0-9]*) printf '%s\n' "${default}" ;;
+    *) printf '%s\n' "${value}" ;;
+  esac
+}
+
+storage_layout="$(plan_field '.storage.layout' 'whole')"
+users_percent="$(plan_number '.storage.users_percent' '20')"
+work_percent="$(plan_number '.storage.work_percent' '20')"
+programs_percent="$(plan_number '.storage.programs_percent' '40')"
+case "${storage_layout}" in
+  whole|user-work-programs) ;;
+  *) echo "Unsupported executable storage layout: ${storage_layout}" >&2; exit 2 ;;
+esac
 
 is_mounted() {
   "${BB}" grep -q " $1 " /proc/mounts 2>/dev/null
@@ -3276,6 +3513,13 @@ tmpfs /dev/shm tmpfs mode=1777,nosuid,nodev 0 0
 tmpfs /run tmpfs defaults 0 0
 LABEL=AUZIXROOT / ${root_fstype} defaults 0 1
 EOF
+  if [ "${storage_layout}" = "user-work-programs" ]; then
+    cat >> /Work/InstallTarget/System/Settings/fstab <<EOF
+LABEL=AUZIXHOME /Home ${root_fstype} defaults 0 2
+LABEL=AUZIXWORK /Work ${root_fstype} defaults 0 2
+# /Programs allocation intent: ${programs_percent} percent. Kept in the boot root until AUZiX early-boot mount staging can mount /Programs before /Programs/BusyBox is required.
+EOF
+  fi
 }
 
 write_grub_cfg() {
@@ -3330,11 +3574,35 @@ install_grub_bootloader() {
   "${grub_install}" --boot-directory=/Work/InstallTarget/boot "${target}"
 }
 
+install_stage 1 "${INSTALL_TOTAL_STAGES}" "preparing target disk ${target}"
 echo "Creating Auzix partition on ${target}"
 "${BB}" dd if=/dev/zero of="${target}" bs=1M count=8
-# BusyBox fdisk may inherit legacy CHS geometry and otherwise choose sector 32.
-# Reserve the conventional 1 MiB embedding area required by BIOS GRUB.
-printf 'o\nn\np\n1\n2048\n\nw\n' | "${BB}" fdisk "${target}"
+if [ "${storage_layout}" = "user-work-programs" ]; then
+  install_stage 2 "${INSTALL_TOTAL_STAGES}" "partitioning split AUZiX layout"
+  parted_cmd="$(find_cmd /System/Compatibility/usr/sbin/parted /System/Compatibility/sbin/parted parted || true)"
+  [ -n "${parted_cmd}" ] || {
+    echo "Default split layout requires parted in the live installer environment." >&2
+    exit 1
+  }
+  data_total=$((users_percent + work_percent))
+  [ "${data_total}" -le 80 ] || {
+    echo "Invalid default split: /Home + /Work must leave at least 20 percent for the boot root." >&2
+    exit 2
+  }
+  home_start=$((100 - data_total))
+  home_end=$((home_start + users_percent))
+  work_end=$((home_end + work_percent))
+  echo "Partitioning ${target}: root 1MiB-${home_start}%, /Home ${home_start}-${home_end}%, /Work ${home_end}-${work_end}%"
+  "${parted_cmd}" -s "${target}" mklabel msdos
+  "${parted_cmd}" -s "${target}" mkpart primary ext4 1MiB "${home_start}%"
+  "${parted_cmd}" -s "${target}" mkpart primary ext4 "${home_start}%" "${home_end}%"
+  "${parted_cmd}" -s "${target}" mkpart primary ext4 "${home_end}%" "${work_end}%"
+else
+  install_stage 2 "${INSTALL_TOTAL_STAGES}" "partitioning simple AUZiX root"
+  # BusyBox fdisk may inherit legacy CHS geometry and otherwise choose sector 32.
+  # Reserve the conventional 1 MiB embedding area required by BIOS GRUB.
+  printf 'o\nn\np\n1\n2048\n\nw\n' | "${BB}" fdisk "${target}"
+fi
 "${BB}" partprobe "${target}" 2>/dev/null || true
 "${BB}" sleep 2
 
@@ -3343,6 +3611,7 @@ if [ ! -b "${partition}" ]; then
   exit 1
 fi
 
+install_stage 3 "${INSTALL_TOTAL_STAGES}" "formatting filesystems"
 echo "Formatting ${partition}"
 root_fstype=ext2
 mkfs_ext4="$(find_cmd \
@@ -3355,9 +3624,21 @@ mke2fs="$(find_cmd \
   mke2fs || true)"
 if [ -n "${mkfs_ext4}" ]; then
   "${mkfs_ext4}" -F -L AUZIXROOT "${partition}"
+  if [ "${storage_layout}" = "user-work-programs" ]; then
+    [ -b "${home_partition}" ] || { echo "Home partition was not discovered: ${home_partition}" >&2; exit 1; }
+    [ -b "${work_partition}" ] || { echo "Work partition was not discovered: ${work_partition}" >&2; exit 1; }
+    "${mkfs_ext4}" -F -L AUZIXHOME "${home_partition}"
+    "${mkfs_ext4}" -F -L AUZIXWORK "${work_partition}"
+  fi
   root_fstype=ext4
 elif [ -n "${mke2fs}" ]; then
   "${mke2fs}" -F -t ext4 -L AUZIXROOT "${partition}"
+  if [ "${storage_layout}" = "user-work-programs" ]; then
+    [ -b "${home_partition}" ] || { echo "Home partition was not discovered: ${home_partition}" >&2; exit 1; }
+    [ -b "${work_partition}" ] || { echo "Work partition was not discovered: ${work_partition}" >&2; exit 1; }
+    "${mke2fs}" -F -t ext4 -L AUZIXHOME "${home_partition}"
+    "${mke2fs}" -F -t ext4 -L AUZIXWORK "${work_partition}"
+  fi
   root_fstype=ext4
 else
   if [ "${AUZIX_ALLOW_EXT2_FALLBACK:-0}" != "1" ]; then
@@ -3369,13 +3650,22 @@ else
   "${BB}" mkfs.ext2 -F -L AUZIXROOT "${partition}"
 fi
 
+install_stage 4 "${INSTALL_TOTAL_STAGES}" "mounting target filesystems"
 "${BB}" mkdir -p /Work/InstallTarget
 "${BB}" mount "${partition}" /Work/InstallTarget
 is_mounted /Work/InstallTarget || {
   echo "Target partition did not mount at /Work/InstallTarget." >&2
   exit 1
 }
+if [ "${storage_layout}" = "user-work-programs" ]; then
+  "${BB}" mkdir -p /Work/InstallTarget/Home /Work/InstallTarget/Work /Work/InstallTarget/Programs
+  "${BB}" mount "${home_partition}" /Work/InstallTarget/Home
+  "${BB}" mount "${work_partition}" /Work/InstallTarget/Work
+  is_mounted /Work/InstallTarget/Home || { echo "Home partition did not mount at /Work/InstallTarget/Home." >&2; exit 1; }
+  is_mounted /Work/InstallTarget/Work || { echo "Work partition did not mount at /Work/InstallTarget/Work." >&2; exit 1; }
+fi
 
+install_stage 5 "${INSTALL_TOTAL_STAGES}" "copying AUZiX root"
 echo "Copying live Auzix root to ${partition}"
 (
   cd /
@@ -3401,15 +3691,37 @@ echo "Copying live Auzix root to ${partition}"
 "${BB}" chmod 0755 /Work/InstallTarget/init
 "${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install
 if [ -x /Work/InstallTarget/System/Tools/finalize-installed-root ]; then
+  install_stage 6 "${INSTALL_TOTAL_STAGES}" "finalizing installed root"
   /Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget
 fi
+install_stage 7 "${INSTALL_TOTAL_STAGES}" "writing installed configuration"
 write_installed_fstab "${root_fstype}"
 copy_boot_payload
 "${BB}" mkdir -p /Work/InstallTarget/boot/grub
 write_grub_cfg 2>/dev/null || true
 "${BB}" mkdir -p /Work/InstallTarget/System/State/install
 "${BB}" date > /Work/InstallTarget/System/State/install/installed-at.txt 2>/dev/null || true
-if [ -s /Work/InstallTarget/System/Settings/packages/installed.json ]; then
+receipt_home=""
+receipt_work=""
+if [ "${storage_layout}" = "user-work-programs" ]; then
+  receipt_home="${home_partition}"
+  receipt_work="${work_partition}"
+fi
+cat > /Work/InstallTarget/System/State/install/storage-layout.txt <<EOF
+root_build_mode=live-copy-compat
+layout=${storage_layout}
+root=${partition}
+home=${receipt_home}
+work=${receipt_work}
+users_percent=${users_percent}
+work_percent=${work_percent}
+programs_percent=${programs_percent}
+programs_note=/Programs remains inside AUZIXROOT in this installer slice because early init currently requires /Programs/BusyBox before secondary filesystems are mounted.
+EOF
+if [ -s /Work/InstallTarget/System/State/packages/installed.json ]; then
+  "${BB}" cp /Work/InstallTarget/System/State/packages/installed.json \
+    /Work/InstallTarget/System/State/install/installed-packages.json 2>/dev/null || true
+elif [ -s /Work/InstallTarget/System/Settings/packages/installed.json ]; then
   "${BB}" cp /Work/InstallTarget/System/Settings/packages/installed.json \
     /Work/InstallTarget/System/State/install/installed-packages.json 2>/dev/null || true
 fi
@@ -3431,6 +3743,14 @@ if [ -n "${AUZIX_INSTALL_PLAN:-}" ] && [ -s "${AUZIX_INSTALL_PLAN}" ]; then
       > /Work/InstallTarget/System/State/install/package-queue-warning.txt
   fi
 fi
+if [ -n "${repo_url}" ]; then
+  "${BB}" mkdir -p /Work/InstallTarget/System/Settings/packages /Work/InstallTarget/System/State/install
+  printf '%s\n' "${repo_url}" > /Work/InstallTarget/System/Settings/packages/default-repository.url 2>/dev/null || true
+fi
+if [ -n "${profile_path}" ]; then
+  "${BB}" mkdir -p /Work/InstallTarget/System/Settings/install /Work/InstallTarget/System/State/install
+  printf '%s\n' "${profile_path}" > /Work/InstallTarget/System/Settings/install/requested-profile.path 2>/dev/null || true
+fi
 (
   cd /Work/InstallTarget
   find System/PackageDB -maxdepth 1 -type f -name '*.json' -print 2>/dev/null | sort
@@ -3447,19 +3767,24 @@ configuration under /boot/grub/grub.cfg.
 NOTE
 
 if [ "${bootloader}" = "grub" ]; then
+  install_stage 8 "${INSTALL_TOTAL_STAGES}" "installing bootloader"
   install_grub_bootloader
 elif [ "${bootloader}" != "iso" ] && [ "${bootloader}" != "none" ]; then
   echo "Unsupported bootloader: ${bootloader}" >&2
   exit 2
 fi
 
+install_stage 9 "${INSTALL_TOTAL_STAGES}" "syncing and unmounting"
 "${BB}" sync
+"${BB}" umount /Work/InstallTarget/Home 2>/dev/null || true
+"${BB}" umount /Work/InstallTarget/Work 2>/dev/null || true
 "${BB}" umount /Work/InstallTarget/proc 2>/dev/null || true
 "${BB}" umount /Work/InstallTarget/sys 2>/dev/null || true
 "${BB}" umount /Work/InstallTarget/dev 2>/dev/null || true
 "${BB}" umount /Work/InstallTarget
 echo "Installed Auzix root to ${partition}"
 echo "Next boot argument: auzix.root=${partition}"
+echo "INSTALL_DONE root=${partition} layout=${storage_layout} bootloader=${bootloader}"
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-disk"

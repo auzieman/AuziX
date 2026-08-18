@@ -1,0 +1,90 @@
+{
+  "format": "auzix-native-build-rebase-pipeline-v1",
+  "status": "planning-required",
+  "purpose": "Resolve the current AUZiX package head the way Slackware/Debian-style distro builders do: select versions, resolve dependency/build chains, lock the build tree, then compile in declared order.",
+  "hard_rules": [
+    "Set aside old built artifacts; do not preserve or promote them unless they pass the new substrate audit.",
+    "Do not compile anything until current-head versions, dependency chain, package chain, base substrate lock, and final compile order manifest are declared.",
+    "The only intended delta from Slackware/Debian mechanics is AUZiX path/layout policy and package metadata shape.",
+    "Base/runtime substrate packages build first and publish their runtime and development surfaces into the AUZiX native builder.",
+    "Minor-version drift is handled as a compatibility range on the selected provider, not by building parallel substrate copies.",
+    "The discovered and deduped build chain must be committed and tagged in git before any build consumes it.",
+    "Builders consume the git tag/ref that contains the lock; they do not build from an untracked dirty working tree.",
+    "Discovery/build helper tools such as jq, awk/gawk, rq, apt metadata tools, and graph/report generators belong to the build toolchain and may be used freely by the factory.",
+    "Build-toolchain helpers do not automatically become target/workstation packages unless they are explicitly selected in the target manifest.",
+    "Leaf apps build only after the native builder exposes the locked substrate headers, pkg-config files, CMake files, GIR/typelibs, schemas, and helper tools.",
+    "Leaf apps must not bundle core/security/desktop substrate libraries into app-local Libraries.",
+    "If a leaf app needs a newer substrate, stop and negotiate a new base release."
+  ],
+  "flow": [
+    {
+      "id": "00-quarantine-dirty-output",
+      "mode": "no-compile",
+      "output": "out/rebase/quarantine/<run_id>",
+      "description": "Move or ignore previously produced package/repo artifacts from the old closure model."
+    },
+    {
+      "id": "01-pull-dependency-chains",
+      "mode": "metadata-only",
+      "inputs": [
+        "packages/base-ports.manifest.json",
+        "packages/extended-ports.manifest.json",
+        "profiles/packages/*.packages",
+        "Debian/Trixie package metadata",
+        "Debian source metadata when available"
+      ],
+      "outputs": [
+        "out/rebase/<run_id>/dependency-chain.tsv",
+        "out/rebase/<run_id>/package-chain.tsv"
+      ]
+    },
+    {
+      "id": "02-negotiate-base-substrate",
+      "mode": "metadata-only",
+      "inputs": [
+        "packages/auzix-base-release.alpha-0.0.1.json",
+        "out/rebase/<run_id>/dependency-chain.tsv"
+      ],
+      "outputs": [
+        "out/rebase/<run_id>/base-substrate-lock.json",
+        "out/rebase/<run_id>/substrate-conflicts.tsv"
+      ],
+      "stop_conditions": [
+        "multiple glibc candidates",
+        "leaf package requires newer glibc than active base",
+        "incoherent GTK/EFL/X11/security substrate versions"
+      ]
+    },
+    {
+      "id": "03-declare-final-manifest",
+      "mode": "metadata-only",
+      "outputs": [
+        "out/rebase/<run_id>/final-package-manifest.json",
+        "out/rebase/<run_id>/compile-order.tsv",
+        "out/rebase/<run_id>/build-tree.lock.json",
+        "suggested git tag/ref"
+      ],
+      "gate": "Required before any compile or package build starts. The lock must be pulled back to git and tagged before builders consume it."
+    },
+    {
+      "id": "04-build-base-and-dev-surfaces",
+      "mode": "compile-enabled-after-manifest",
+      "description": "Build the base substrate into the AUZiX root and AUZiX native builder container."
+    },
+    {
+      "id": "05-build-auzix-native-container",
+      "mode": "compile-enabled-after-base",
+      "description": "Build the acid/base AUZiX native container from the locked AUZiX base packages, not from Debian as a runtime universe."
+    },
+    {
+      "id": "06-build-apps-inside-auzix-native-container",
+      "mode": "compile-enabled-after-native-container",
+      "description": "From the acid/base AUZiX container, AUZiX builds AUZiX: compile app packages inside the AUZiX-native builder so they target the declared substrate."
+    },
+    {
+      "id": "07-validate-package-and-desktop-front-doors",
+      "mode": "validation",
+      "description": "Install into validation root/container, run CLI probes, ldd/readelf/stat/string checks, then desktop launcher checks."
+    }
+  ]
+}

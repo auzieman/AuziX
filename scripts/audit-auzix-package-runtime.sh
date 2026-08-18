@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/auzix-library-policy.sh"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 PACKAGE_FILTER="${2:-}"
 AUDIT_MODE="${AUZIX_PACKAGE_RUNTIME_AUDIT_MODE:-fail}"
@@ -69,6 +70,25 @@ dependency_receipt_exists() {
   jq -e --arg dependency "${dependency}" '
     (.name // "" | ascii_downcase) == ($dependency | ascii_downcase)
   ' "${AUZIX_ROOT}/System/PackageDB/"*.auzix.json >/dev/null 2>&1
+}
+
+audit_app_local_libraries() {
+  local package_name="$1"
+  local declared_library_path="$2"
+  local library_dir lib class relative
+  [[ -n "${declared_library_path}" ]] || return 0
+  case "${declared_library_path}" in
+    /Programs/*/Libraries|/Programs/*/*/Libraries|/Programs/*/current/Libraries) ;;
+    *) return 0 ;;
+  esac
+  library_dir="$(host_resolved_root_path "${declared_library_path}")"
+  [[ -d "${library_dir}" ]] || return 0
+  while IFS= read -r lib; do
+    class="$(auzix_library_policy_class "${lib}")"
+    [[ "${class}" == "app-private" ]] && continue
+    relative="${lib#${AUZIX_ROOT}}"
+    fail "${package_name}: app-local Libraries contains ${class} substrate library: ${relative}"
+  done < <(find "${library_dir}" -maxdepth 2 -type f -name 'lib*.so*' -o -type f -name 'ld-linux*.so*' 2>/dev/null | sort)
 }
 
 is_bridge_like_receipt() {
@@ -140,6 +160,9 @@ audit_receipt() {
     [[ -n "${command_path}" ]] || continue
     check_declared_path "${package_name}" "${command_path}"
   done < <(jq -r '.runtime_libraries[]?' "${receipt}")
+  while IFS= read -r declared_runtime_library; do
+    audit_app_local_libraries "${package_name}" "${declared_runtime_library}"
+  done < <(jq -r '.runtime_libraries[]? // .paths.libraries? // empty' "${receipt}")
   while IFS= read -r dependency; do
     [[ -n "${dependency}" ]] || continue
     if ! dependency_receipt_exists "${dependency}"; then

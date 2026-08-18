@@ -38,6 +38,141 @@ Both modes use the same package lifecycle declaration and the same path mapping
 rules. `setup` is stricter about required inputs; `fix` is stricter about
 reporting drift and avoiding destructive changes.
 
+## Central package state contract
+
+`auzix-pkg` owns package truth. Installers, first-boot hydration, GUI package
+selection, and repair tools may build intent lists, but they must not become a
+second package database.
+
+The central installed-state file is:
+
+```text
+/System/State/packages/installed.json
+```
+
+For an alternate target root, the same path is used beneath that root:
+
+```text
+${TARGET_ROOT}/System/State/packages/installed.json
+```
+
+Installers may keep helper files such as transaction logs, selected package
+lists, missing package lists, and human-readable breadcrumb files. Those helper
+files are diagnostic artifacts only. Dependency decisions must be based on the
+central installed-state file plus physical package evidence:
+
+```text
+/System/State/packages/installed.json
+/System/PackageDB/*.auzix.json
+/Programs/<Name>/current
+base runtime provider probes
+```
+
+During a package transaction, the installer/package engine must use this loop:
+
+```text
+load central installed-state
+resolve next dependency
+extract package preserving ownership, modes, sticky bits, setuid bits
+write/update central installed-state
+reload central installed-state before resolving the next package
+```
+
+This mirrors the shape of `apt`, `dnf`, `yum`, and `pkgtools`: the package
+manager owns central metadata and each package step commits visible state before
+the next dependency decision. The AUZiX installer composes intent; `auzix-pkg`
+commits package state.
+
+The dependency-chain regression happened when the new resolver introduced an
+install-wave memory list but did not fully close the loop back into central
+state. Build-root generation for ISO and disk roots did not spiral because that
+path already had a bounded rootfs assembly flow. The fix is not broad desktop
+debugging; it is making every install path converge on the same central state
+contract.
+
+## Factory feedstock order
+
+The AUZiX package factory is not bad; it must stop treating Debian/Trixie as the
+first dependency source on every package. Trixie is reference/feedstock. The
+active AUZiX base release and already-built AUZiX packages for that release are
+the first dependency source.
+
+Factory resolution order:
+
+```text
+active AUZiX base release
+already-built AUZiX runtime/dev package artifacts for the same release lane
+retained builder sysroot/dev substrate from dependency builds
+Debian/Trixie metadata, binary packages, or source only when AUZiX lacks the
+package or a deliberate base/runtime layer upgrade is in progress
+```
+
+Package profiles are dependency-ordered inputs, not throwaway package wishlists.
+Do not sort them by default. If a profile lists base substrate, dependency
+helpers, libraries, and applications in that order, the intake runner must keep
+that order so dependents build against the retained builder tree instead of
+falling through to fresh Trixie state.
+
+## Runtime substrate version wall
+
+Some packages are not ordinary leaf dependencies. They define the ABI and
+session substrate that the running AUZiX environment is already using. Examples:
+
+```text
+glibc/loader/libm/NSS resolver
+OpenSSL/libssl/libcrypto and CA trust
+Xorg/input/video substrate
+EFL/Enlightenment/Efreet
+GTK/GNOME core libraries and data loaders
+GLib/GIO/GSettings/DBus/PAM/Polkit
+fontconfig/freetype/pango/cairo/gdk-pixbuf/icon/mime cache tooling
+```
+
+The C runtime has the strictest rule: an AUZiX root has exactly one active core
+glibc. In normal package installs, `Libc6`, `LibgccS1`, and `GCC14Base`
+dependencies are satisfied by `/System/Libraries/Runtime/glibc`. A package must
+compile and validate against that core runtime. If it needs newer glibc symbols,
+the answer is a planned core-runtime rebuild followed by rebuilding the package
+set against the new core, not installing a package-scoped second glibc.
+
+These packages form a versioned runtime stratum. A leaf package must not
+silently install or shadow a newer substrate component into the running system
+just because its Debian dependency list allows it. If multiple requested
+packages require a newer `glibc`, `libssl`, GTK/GNOME, Xorg, EFL, or related
+substrate than the active AUZiX runtime stratum, the resolver has only two safe
+choices:
+
+```text
+1. select/hold an older compatible package version for the current stratum; or
+2. stop the leaf install and require a planned base-runtime/desktop-runtime rebuild.
+```
+
+Substrate upgrades are release events. They must be built as a coherent runtime
+layer first, then used to rebuild or validate newer leaf packages. They are not
+per-app hotfixes and must not be applied by force-installing package libc,
+GTK/EFL, or libssl over an active live root.
+
+The wrapper/runtime-ladder model may expose leaf package libraries such as GTK,
+ncurses, OpenSSL, font, media, or editor support libraries, but those libraries
+must themselves be built against the active AUZiX core. It must not mix
+incompatible C-library or desktop-session generations. In particular:
+
+- package-scoped or alternate `Libc6` is forbidden in a normal AUZiX root;
+- `/System/Libraries/Runtime/glibc` is the only valid glibc/loader provider;
+- `/System/Compatibility` may alias or expose the active core, but must not
+  become a second libc provider;
+- a package closure that needs newer substrate becomes a candidate runtime-layer
+  rebuild, not an invisible desktop repair.
+
+`auzix-pkg plan` should classify this case before extraction:
+
+```text
+leaf install within current substrate      -> allowed
+leaf install needs missing leaf dep         -> allowed, install dep
+leaf install wants newer substrate package  -> hold/backtrack or fail with runtime-rebuild-required
+runtime rebuild transaction                 -> allowed only in explicit runtime mode
+```
+
 ## Inputs
 
 Lifecycle declarations are derived from Debian evidence:

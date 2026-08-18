@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run this on r730-ai-01. NS1 NFS is the source-of-truth and publication
-# surface, not the build disk. Each run gets a disposable local snapshot on
-# the worker so package expansion and SquashFS writes use the worker's disk.
+# Run this on r730-ai-01.  Lab-build/R730 is the active build master; NS1 is
+# only a mirror/publication surface when explicitly selected.  Each run gets a
+# disposable local snapshot on the worker so package expansion and SquashFS
+# writes use the worker's disk.
 
-SOURCE_ROOT="${AUZIX_SOURCE_ROOT:-/mnt/ns1/AuziX/src}"
-RECEIPT_DIR="${AUZIX_RECEIPT_DIR:-/mnt/ns1/AuziX/build-receipts}"
+SOURCE_ROOT="${AUZIX_SOURCE_ROOT:-/home/auzieman/Projects/AuziX}"
+RECEIPT_DIR="${AUZIX_RECEIPT_DIR:-/var/lib/auzix-build/receipts}"
 KEY_FILE="${AUZIX_AUTHORIZED_KEYS_FILE:-/mnt/ns1/AuziX/runtime/keys/authorized_keys}"
 ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-lab-password}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-/mnt/ns1/AuziX/runtime/secrets/live-root-shadow}"
@@ -17,7 +18,7 @@ BUILD_TARGET="${AUZIX_BUILD_TARGET:-strict-all}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RUN_NAME="auzix-live-build-${RUN_ID}"
 WORK_ROOT="${AUZIX_WORK_ROOT:-/var/lib/auzix-build}"
-PUBLISH_DIR="${AUZIX_PUBLISH_DIR:-${SOURCE_ROOT}/artifacts/auzix}"
+PUBLISH_DIR="${AUZIX_PUBLISH_DIR:-/var/lib/auzix-build/published}"
 
 fail() { printf '[auzix-r730-build] FAIL: %s\n' "$*" >&2; exit 1; }
 log() { printf '[auzix-r730-build] %s\n' "$*"; }

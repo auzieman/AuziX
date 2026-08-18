@@ -109,18 +109,22 @@ copy_dir_if_present /usr/share/terminology "${RUNTIME_USR}/share/terminology"
 if [[ -f /usr/share/applications/terminology.desktop ]]; then
   install -D -m 0644 /usr/share/applications/terminology.desktop \
     "${RUNTIME_USR}/share/applications/terminology.desktop"
+  {
+    echo "NoDisplay=true"
+    echo "X-AUZIX-Note=Hidden until Terminology/EFL runtime passes live launch validation; use Auzix Terminal wrapper."
+  } >> "${RUNTIME_USR}/share/applications/terminology.desktop"
 fi
 cat > "${RUNTIME_USR}/share/applications/auzix-terminal.desktop" <<'EOF_DESKTOP'
 [Desktop Entry]
 Type=Application
 Name=Auzix Terminal
 Comment=Open a local Auzix shell
-TryExec=terminology
+TryExec=xterm
 Exec=/System/Tools/launch-auzix-terminal
 Icon=utilities-terminal
 Categories=System;TerminalEmulator;
 Terminal=false
-StartupWMClass=terminology
+StartupWMClass=XTerm
 EOF_DESKTOP
 copy_dir_if_present /usr/share/icons/hicolor "${RUNTIME_USR}/share/icons/hicolor"
 
@@ -142,23 +146,27 @@ fi
 
 export PATH="/Programs/Terminology/current/Commands:/Programs/XTerm/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/Programs/BusyBox/current/Commands:${PATH:-}"
 export HOME="${HOME:-/Users/auzix}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/current/Resources/share:/Programs/EFL/current/Resources/share}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/System/Libraries}"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64}"
 export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
+export TERMINFO_DIRS="${TERMINFO_DIRS:-/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo:/usr/share/terminfo:/lib/terminfo}"
+case "${TERM:-}" in
+  ""|dumb|linux) export TERM=xterm-256color ;;
+esac
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 export ELM_ACCEL="${ELM_ACCEL:-none}"
 export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
 export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 
-if command -v terminology >/dev/null 2>&1; then
-  exec terminology -e /System/Compatibility/bin/bash "$@"
+if command -v xterm >/dev/null 2>&1; then
+  exec xterm -tn xterm-256color -T "AUZiX Terminal" -e /System/Compatibility/bin/bash "$@"
 fi
 
-exec xterm -T "AUZiX Terminal" -e /System/Compatibility/bin/bash "$@"
+exec terminology -e /System/Compatibility/bin/bash "$@"
 EOF
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-terminal"
 

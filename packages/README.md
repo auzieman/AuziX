@@ -34,6 +34,22 @@ published or runtime-ready.
 - `package-validation.contract.md` defines the "real duck" gate: packages must
   install into an AUZiX validation root/container and pass stat/file/readelf/ldd,
   strings, launch smoke, and desktop-entry checks before desktop promotion.
+- `rebase-native-build.pipeline.json` is the current substrate rebase boundary:
+  old build outputs are quarantined, dependency/package chains are discovered
+  first, a base lock is declared, then only the locked BusyBox/base/toolchain
+  tree may build. After that acid/base AUZiX exists, AUZiX builds AUZiX inside
+  the native container.
+
+The rebase sequence is intentionally plan-first:
+
+```bash
+make auzix-native-rebase-plan
+```
+
+This emits `out/rebase/<run_id>/final-package-manifest.json`,
+`compile-order.tsv`, `dependency-chain.tsv`, and `build-tree.lock.json`.
+Do not run compile/package rebuild lanes until the lock is reviewed and passed
+to the build runner.
 
 The flat files under `profiles/packages/` are assembly wish lists. A listed
 package must still graduate through a JSON manifest, emit an AuZiX receipt, and

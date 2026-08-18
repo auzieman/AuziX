@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${AUZIX_ROOT:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 REPORT_DIR="${AUZIX_REPORT_DIR:-${ROOT_DIR}/out/package-rebuild}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+REBASE_LOCK="${AUZIX_REBASE_LOCK:-}"
 LOG_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.log"
 SUMMARY_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.summary"
 
@@ -19,12 +20,57 @@ run_step() {
   "$@" 2>&1 | tee -a "${LOG_FILE}"
 }
 
+quarantine_alt_glibc_receipts() {
+  local quarantine_dir="${REPORT_DIR}/quarantine-alt-glibc-${RUN_ID}"
+  local count=0
+  mkdir -p "${quarantine_dir}/System/PackageDB"
+  while IFS= read -r receipt; do
+    [[ -s "${receipt}" ]] || continue
+    if grep -F '/Programs/Libc6/current' "${receipt}" >/dev/null 2>&1; then
+      name="$(jq -r '.name // empty' "${receipt}" 2>/dev/null || true)"
+      version="$(jq -r '.version // empty' "${receipt}" 2>/dev/null || true)"
+      prefix="$(jq -r '.prefix // .paths.prefix // empty' "${receipt}" 2>/dev/null || true)"
+      log "QUARANTINE alt-glibc receipt name=${name:-unknown} version=${version:-unknown} receipt=${receipt#${AUZIX_ROOT}/}"
+      mv -f "${receipt}" "${quarantine_dir}/System/PackageDB/"
+      if [[ -n "${prefix}" && "${prefix}" == /Programs/* && -e "${AUZIX_ROOT}${prefix}" ]]; then
+        mkdir -p "${quarantine_dir}/Programs/${name:-unknown}"
+        mv -f "${AUZIX_ROOT}${prefix}" "${quarantine_dir}/Programs/${name:-unknown}/" 2>/dev/null || true
+      fi
+      count=$((count + 1))
+    fi
+  done < <(find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print | sort)
+  log "QUARANTINE_DONE alt_glibc_receipts=${count} path=${quarantine_dir}"
+}
+
 cd "${ROOT_DIR}"
+
+if [[ -z "${REBASE_LOCK}" ]]; then
+  log "STOP: workstation rebuild is disabled after the substrate rebase boundary."
+  log "Run scripts/plan-auzix-native-rebase.sh first and pass AUZIX_REBASE_LOCK=/path/to/build-tree.lock.json."
+  exit 2
+fi
+
+if [[ ! -s "${REBASE_LOCK}" ]]; then
+  log "STOP: AUZIX_REBASE_LOCK does not exist: ${REBASE_LOCK}"
+  exit 2
+fi
+
+jq -e '
+  .format == "auzix-native-rebase-lock-v1" and
+  (.status | test("^locked")) and
+  (.manifest_lock_sha256 | type == "string" and length > 0)
+' "${REBASE_LOCK}" >/dev/null || {
+  log "STOP: invalid native rebase lock: ${REBASE_LOCK}"
+  exit 2
+}
+
+log "using native rebase lock=${REBASE_LOCK}"
 
 cat >"${SUMMARY_FILE}" <<EOF
 format=auzix-workstation-package-rebuild-v1
 run_id=${RUN_ID}
 auzix_root=${AUZIX_ROOT}
+rebase_lock=${REBASE_LOCK}
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
@@ -32,6 +78,9 @@ log "using AUZIX_ROOT=${AUZIX_ROOT}"
 log "normalizing package owners is disabled unless explicitly requested"
 export AUZIX_PACKAGE_NORMALIZE_OWNERS="${AUZIX_PACKAGE_NORMALIZE_OWNERS:-0}"
 export AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES="${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}"
+export AUZIX_REPO_REJECT_ALT_GLIBC="${AUZIX_REPO_REJECT_ALT_GLIBC:-1}"
+
+quarantine_alt_glibc_receipts
 
 # Core and service spine. These are native AUZiX package builders and must run
 # before Debian intake so wrappers and package installation have a sane base.

@@ -78,7 +78,15 @@ install_pkg() {
     log "SKIP installed ${pkg}"
     return 0
   fi
-  run "${PKG}" install "${pkg}"
+  if ls /System/PackageDB/${pkg}-*.auzix.json >/dev/null 2>&1 || \
+     ls /System/PackageDB/${pkg}.auzix.json >/dev/null 2>&1; then
+    log "SKIP receipt-present ${pkg}"
+    return 0
+  fi
+  if run "${PKG}" install "${pkg}"; then
+    return 0
+  fi
+  log "SKIP install-failed ${pkg}; package contract/repo name needs follow-up"
 }
 
 run_hook_if_present() {

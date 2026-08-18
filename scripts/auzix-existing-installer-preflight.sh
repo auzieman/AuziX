@@ -87,6 +87,19 @@ check_live_preflight() {
   [ -n "${mkfs_ext4}" ] || fail "ext4 tooling missing; install E2fsprogs before disk install"
   pass "ext4 tooling found: ${mkfs_ext4}"
 
+  if [ -n "${AUZIX_INSTALL_PLAN:-}" ] && [ -s "${AUZIX_INSTALL_PLAN}" ] && command -v jq >/dev/null 2>&1; then
+    layout="$(jq -r '.storage.layout // "whole"' "${AUZIX_INSTALL_PLAN}" 2>/dev/null || echo whole)"
+    if [ "${layout}" = "user-work-programs" ]; then
+      parted_cmd="$(find_cmd \
+        /Programs/Parted/current/Commands/parted \
+        /System/Compatibility/usr/sbin/parted \
+        /System/Compatibility/sbin/parted \
+        parted || true)"
+      [ -n "${parted_cmd}" ] || fail "default split layout requires Parted"
+      pass "split layout partitioner found: ${parted_cmd}"
+    fi
+  fi
+
   img="/Work/Temp/auzix-ext4-preflight-$$.img"
   "${BB}" mkdir -p /Work/Temp
   trap '"${BB}" rm -f "${img}"' EXIT
@@ -146,6 +159,30 @@ check_installed_root() {
 
   [ -d "${TARGET_ROOT}/System/PackageDB" ] || fail "PackageDB missing"
   pass "PackageDB present"
+
+  poison_symlink="$(
+    "${BB}" find "${TARGET_ROOT}" -xdev -type l -print 2>/dev/null | while IFS= read -r link_path; do
+      link_target="$("${BB}" readlink "${link_path}" 2>/dev/null || true)"
+      case "${link_target}" in
+        "${TARGET_ROOT}"/*)
+          printf '%s -> %s\n' "${link_path}" "${link_target}"
+          break
+          ;;
+      esac
+    done
+  )"
+  [ -z "${poison_symlink}" ] || fail "installed root has mount-prefixed symlink: ${poison_symlink}"
+  pass "installed root symlinks are root-internal"
+
+  sh_link="$("${BB}" readlink "${TARGET_ROOT}/System/Compatibility/bin/sh" 2>/dev/null || true)"
+  case "${sh_link}" in
+    /Programs/*|/System/*)
+      pass "installed shell link is root-internal: ${sh_link}"
+      ;;
+    *)
+      fail "installed shell link is not root-internal: ${sh_link:-missing}"
+      ;;
+  esac
 
   for group in auzix lightdm input video audio render tty users; do
     if "${BB}" grep -q "^${group}:" "${TARGET_ROOT}/System/Settings/group" 2>/dev/null || \

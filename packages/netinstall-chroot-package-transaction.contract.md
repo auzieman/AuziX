@@ -33,16 +33,25 @@ sanity gates around it.
    /System/Tools/auzix-install-disk --force --bootloader iso /dev/vda
    ```
 
-6. Let the existing installer do the main grunt work:
+6. Let the installer do the main grunt work using a package-built target root:
    - partition;
    - format;
    - mount `/Work/InstallTarget`;
-   - copy the live AUZiX root;
-   - run `finalize-installed-root`;
+   - scaffold a strict AUZiX root on the mounted target;
+   - install the base boot/runtime package set into that target root using
+     AUZiX package receipts and package lifecycle metadata;
+   - run package lifecycle hooks and `finalize-installed-root` against the
+     target root;
    - write fstab, boot config, install receipts.
    - preserve the reviewed JSON install plan when `AUZIX_INSTALL_PLAN` is set;
    - derive `/System/Settings/packages/first-boot-selection.list` and
      `/System/Settings/packages/first-boot-queue.json` for package hydration.
+
+   A live-root copy is permitted only as an explicitly named compatibility
+   fallback while the package-built root lane is being finished. Fallback runs
+   must write `root_build_mode=live-copy-compat` into the install receipt and
+   must normalize target symlinks before boot. The fallback is not the release
+   install model.
 
 7. Run installed-root sanity checks while `/Work/InstallTarget` is still mounted.
    Chroot may be used here, but only for validation or a declared post-install
@@ -68,9 +77,46 @@ The installer must fail clearly before partitioning if ext4 tooling is expected
 but absent. It must not silently produce an ext2 workstation image during a
 normal run.
 
+## Package-built base root seed
+
+The first package-built install lane uses:
+
+`profiles/packages/auzix-tiny-netinstall-remote.packages`
+
+This seed is deliberately small:
+
+- `BusyBox`
+- `AuzixPackageTools`
+- `AuzixInstaller`
+- `OpenSSH`
+- `Sudo`
+- `CACerts`
+- `Curl`
+- `UtilLinux`
+- `Iproute2`
+- `E2fsprogs`
+- `Dosfstools`
+- `Parted`
+- `Strace`
+- `File`
+- `AuzixServiceRuntime`
+
+The package-built root acceptance gate is SSH-first, not GUI-first:
+
+- `/init` exists and starts the installed AUZiX boot sequence;
+- `/System/Tools/auzix-pkg` exists and can refresh the configured repo;
+- `sh`, `cat`, `ls`, `mount`, `df`, `du`, `ip`, `curl`, `ssh/sshd`,
+  `mkfs.ext4`, `parted`, `strace`, and `file` all execute from the installed
+  root;
+- CA trust is usable before browser or Flatpak tiers are attempted;
+- the installed root records `root_build_mode=package-built`.
+
+Desktop, office, Flatpak, Podman demos, wallpapers, screenshots, and themes are
+selected package groups layered after this gate passes.
+
 ## Package group hydration
 
-After the base root is installed, package groups are installed in small,
+After the package-built base root is installed, package groups are installed in small,
 auditable tiers. Each tier must use the normal AUZiX package path and its package
 lifecycle metadata.
 

@@ -40,6 +40,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       lightdm-gtk-greeter \
       libarchive-tools \
       libefl-all-dev \
+      libnss3-tools \
       linux-image-amd64 \
       make \
       mtools \

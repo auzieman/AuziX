@@ -14,9 +14,25 @@ detect_host_e_version() {
   printf 'host\n'
 }
 
+detect_host_efl_version() {
+  local version
+  version="$(dpkg-query -W -f='${Version}' libeina1 2>/dev/null || true)"
+  if [[ -n "${version}" ]]; then
+    printf '%s\n' "${version}"
+    return 0
+  fi
+  version="$(dpkg-query -W -f='${Version}' efl 2>/dev/null || true)"
+  if [[ -n "${version}" ]]; then
+    printf '%s\n' "${version}"
+    return 0
+  fi
+  printf 'host\n'
+}
+
 E_VERSION="${AUZIX_ENLIGHTENMENT_VERSION:-$(detect_host_e_version)}"
+EFL_VERSION="${AUZIX_EFL_VERSION:-$(detect_host_efl_version)}"
 E_PROGRAM="${AUZIX_ROOT}/Programs/Enlightenment/${E_VERSION}"
-EFL_PROGRAM="${AUZIX_ROOT}/Programs/EFL/${E_VERSION}"
+EFL_PROGRAM="${AUZIX_ROOT}/Programs/EFL/${EFL_VERSION}"
 RUNTIME_LIB="${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu"
 RUNTIME_LIB64="${AUZIX_ROOT}/System/Compatibility/lib64"
 RUNTIME_USR="${AUZIX_ROOT}/System/Compatibility/usr"
@@ -188,7 +204,7 @@ ln -sfn "/Programs/Enlightenment/${E_VERSION}/Commands/enlightenment_start" "${A
 rm -rf "${AUZIX_ROOT}/Programs/Enlightenment/current"
 rm -rf "${AUZIX_ROOT}/Programs/EFL/current"
 ln -sfn "/Programs/Enlightenment/${E_VERSION}" "${AUZIX_ROOT}/Programs/Enlightenment/current"
-ln -sfn "/Programs/EFL/${E_VERSION}" "${AUZIX_ROOT}/Programs/EFL/current"
+ln -sfn "/Programs/EFL/${EFL_VERSION}" "${AUZIX_ROOT}/Programs/EFL/current"
 cp -f --remove-destination \
   "${E_PROGRAM}/Commands/enlightenment" \
   "${AUZIX_ROOT}/System/Compatibility/usr/bin/enlightenment"
@@ -209,9 +225,32 @@ done
 find "${EFL_PROGRAM}/Commands" -maxdepth 1 -type f -perm -0100 2>/dev/null |
 while IFS= read -r cmd_path; do
   cmd_name="$(basename "${cmd_path}")"
-  ln -sfn "/Programs/EFL/${E_VERSION}/Commands/${cmd_name}" "${AUZIX_ROOT}/System/Compatibility/bin/${cmd_name}"
-  ln -sfn "/Programs/EFL/${E_VERSION}/Commands/${cmd_name}" "${AUZIX_ROOT}/System/Compatibility/usr/bin/${cmd_name}"
+  ln -sfn "/Programs/EFL/${EFL_VERSION}/Commands/${cmd_name}" "${AUZIX_ROOT}/System/Compatibility/bin/${cmd_name}"
+  ln -sfn "/Programs/EFL/${EFL_VERSION}/Commands/${cmd_name}" "${AUZIX_ROOT}/System/Compatibility/usr/bin/${cmd_name}"
 done
+
+cat > "${AUZIX_ROOT}/System/PackageDB/EFL-${EFL_VERSION}.auzix.json" <<EOF
+{
+  "name": "EFL",
+  "version": "${EFL_VERSION}",
+  "kind": "runtime-substrate",
+  "migration_stage": "stage-1-compat-install",
+  "prefix": "/Programs/EFL/${EFL_VERSION}",
+  "commands": [],
+  "compatibility_exports": [
+    "/Programs/EFL/current",
+    "/System/Compatibility/lib/x86_64-linux-gnu/libeina.so.1",
+    "/System/Compatibility/lib/x86_64-linux-gnu/libevas.so.1",
+    "/System/Compatibility/lib/x86_64-linux-gnu/libedje.so.1",
+    "/System/Compatibility/lib/x86_64-linux-gnu/libelementary.so.1",
+    "/System/Compatibility/usr/lib/x86_64-linux-gnu/efl",
+    "/System/Compatibility/usr/lib/x86_64-linux-gnu/elementary",
+    "/System/Compatibility/usr/share/elementary",
+    "/System/Compatibility/usr/share/efreet"
+  ],
+  "notes": "Host-packaged EFL runtime substrate. EFL must use its own upstream version, not the Enlightenment package version; mixing these identities causes Eina/Evas/Edje/Elementary launch regressions."
+}
+EOF
 
 cat > "${AUZIX_ROOT}/System/PackageDB/Enlightenment-${E_VERSION}.auzix.json" <<EOF
 {

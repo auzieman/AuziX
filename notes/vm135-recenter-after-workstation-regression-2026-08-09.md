@@ -38,23 +38,32 @@ These were committed and may be useful in the next clean pass:
 - E2fsprogs command-suite hook proved in the synced NS1 build path and exposes
   `mkfs.ext4`.
 
-## Source-of-truth warning
+## Build-master warning
 
-`scripts/run-auzix-live-build-r730.sh` defaults to:
+R730/lab-build is the active build master. NS1 is a mirror/publication surface,
+not the default source-of-truth checkout.
+
+`scripts/run-auzix-live-build-r730.sh` now defaults to:
 
 ```text
-AUZIX_SOURCE_ROOT=/mnt/ns1/AuziX/src
+AUZIX_SOURCE_ROOT=/home/auzieman/Projects/AuziX
+AUZIX_PUBLISH_DIR=/var/lib/auzix-build/published
+AUZIX_RECEIPT_DIR=/var/lib/auzix-build/receipts
 ```
 
-Syncing only `/srv/auzix/AuziX/src` is not enough. Before any R730 live build,
-sync the git checkout to both:
+If NS1 is needed, set it explicitly as a mirror/publish target after the build
+artifact validates. Do not push source snapshots into `/mnt/ns1/AuziX/src` as a
+normal build step; NS1 can fill up and turn source sync into the failure mode.
+
+Older notes may mention:
 
 ```text
 /srv/auzix/AuziX/src
 /mnt/ns1/AuziX/src
 ```
 
-or explicitly set `AUZIX_SOURCE_ROOT` to the intended source.
+Treat those as historical paths unless a specific pipeline deliberately selects
+them.
 
 ## Next run guardrail
 
@@ -72,4 +81,3 @@ Do not start with a new ISO loop.
    - `podman info`, `podman ps`;
    - AUZiX nginx/flask container demo page loads.
 7. If terminal/session basics regress, rollback instead of layering fixes.
-

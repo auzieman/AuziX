@@ -2,6 +2,7 @@
   "format": "auzix-os-source-contract-v1",
   "name": "AUZiX",
   "version": "alpha",
+  "base_release": "packages/auzix-base-release.alpha-0.0.1.json",
   "purpose": "Canonical inherited OS bootstrap, path, archive, permission, and lifecycle contract for AUZiX packages, live media, installers, containers, and validation roots.",
   "root_contract": {
     "canonical_roots": {

@@ -1,0 +1,17 @@
+{
+  "format": "auzix-command-suite-v1",
+  "name": "Parted",
+  "version": "auto",
+  "description": "Partition table creation and probing tools for AUZiX installer disk prep.",
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "parted", "graduation": "upstream-source"},
+  "commands": [
+    {"name": "parted", "host_command": "parted"},
+    {"name": "partprobe", "host_command": "partprobe"}
+  ],
+  "validation": {
+    "smoke_commands": [
+      "$AUZIX_COMMAND_ROOT/parted --version | grep -i parted",
+      "test -x $AUZIX_COMMAND_ROOT/partprobe"
+    ]
+  }
+}

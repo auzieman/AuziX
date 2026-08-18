@@ -1,0 +1,14 @@
+{
+  "format": "auzix-public-beta-shelf-v1",
+  "generated_at": "2026-08-16T18:48:08Z",
+  "source_commit": "5692793",
+  "artifact_status": "pending-next-iso-install-proof",
+  "repo_index": "repo/index.json",
+  "package_count": 0,
+  "iso_count": 0,
+  "paths": {
+    "repo": "repo/",
+    "isos": "isos/",
+    "receipts": "receipts/"
+  }
+}

@@ -1,0 +1,15 @@
+22fcb5144c2a29964ac92d35d957994fba4e22ea1e7c6f6316e030fef9bf19ac  /workspace/AuziX/out/rebase/lab-discovery-20260818/apt-candidates.tsv
+7a0d318b5c55b2083b3ebfd54e5dfced60bdc817a6b8599c56ca7fd7dd1bd834  /workspace/AuziX/out/rebase/lab-discovery-20260818/base-chain.tsv
+a7ecfbaa369a8137a8a3a57e41c454bdea6586cc48d842ecfac392090b684a0c  /workspace/AuziX/out/rebase/lab-discovery-20260818/base-ports.manifest.json
+b583b01da7cc75c9fc5fec11fa31a8691d0f223c4142cde50bddc0abe40cccba  /workspace/AuziX/out/rebase/lab-discovery-20260818/base-release.json
+24cab0f448344acf1558e2e579c1c06ea07dba19a1fd0b8654406e83ec1e3653  /workspace/AuziX/out/rebase/lab-discovery-20260818/compile-order.tsv
+132728f99fd48bc2aa3332c6256d07da08c3448755328d86106aa4a3027a1e66  /workspace/AuziX/out/rebase/lab-discovery-20260818/current-head-versions.tsv
+ff877839abeb262948c9fc84081e9b38645c68f850f1a9d49bb94f69836610d1  /workspace/AuziX/out/rebase/lab-discovery-20260818/dependency-chain.tsv
+aed96c5d347b4fc9caf944c76728b51cbb39c023cd088e3378635c29359530f1  /workspace/AuziX/out/rebase/lab-discovery-20260818/extended-chain.tsv
+134a553e5b2316052da15b972a088a20fd803f70aa664ea79147193de4cd915d  /workspace/AuziX/out/rebase/lab-discovery-20260818/extended-ports.manifest.json
+cc6411be3679edbcef93e9aa4cf89b47b5a313f562abd8c16e2331208e05af09  /workspace/AuziX/out/rebase/lab-discovery-20260818/final-package-manifest.json
+21a6491c05df673460c631e1c4b4f08b9744a0ddb6c6ae82d9b5ecd9c04ba93b  /workspace/AuziX/out/rebase/lab-discovery-20260818/package-chain.tsv
+a8b145bb694f938a3301f3ba3aeab5be134787a2567e7771dd19cd2e6d764bf2  /workspace/AuziX/out/rebase/lab-discovery-20260818/requested.normalized
+87d1a8aa86842901f3ee69856f4c399c2f01bc2b6b295a0be6566ad541d75e1b  /workspace/AuziX/out/rebase/lab-discovery-20260818/requested.packages
+c429d38afb66e34df87d6d07b4d6b2df7b5714e9213e4bb3633c553c67224919  /workspace/AuziX/out/rebase/lab-discovery-20260818/selected-current-head.tsv
+656c6d741e71957f6649e97e3e7969bc189f846f3efcc5a4e09a572ad759eea5  /workspace/AuziX/out/rebase/lab-discovery-20260818/substrate-provider-lock.tsv
