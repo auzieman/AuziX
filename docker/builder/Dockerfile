@@ -69,8 +69,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       xserver-xorg-video-vesa \
       xterm \
       xz-utils \
-      zstd && \
-    rm -rf /var/lib/apt/lists/*
+      zstd
+
+# AUZiX package intake uses Debian metadata as build-time evidence.  Keep the
+# apt lists in the builder image so command-suite/package scripts can resolve
+# candidate versions without silently drifting into "metadata unavailable".
 
 WORKDIR /workspace
 
