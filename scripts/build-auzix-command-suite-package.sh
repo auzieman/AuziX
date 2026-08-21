@@ -204,56 +204,52 @@ jq \
     notes: "First-pass command-suite repack. Graduate to an upstream source build before declaring the port native."
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 
-busybox_path=""
-for candidate in \
-  "${AUZIX_ROOT}"/Programs/BusyBox/*/Commands/busybox \
-  "$(command -v busybox || true)"; do
-  [[ -n "${candidate}" && -x "${candidate}" ]] || continue
-  busybox_path="$(readlink -f "${candidate}")"
-  break
-done
-[[ -n "${busybox_path}" ]] || {
-  printf '%s: validation needs busybox to execute AUZiX wrapper scripts\n' "${name}" >&2
+busybox_chroot_path="/Programs/BusyBox/current/Commands/busybox"
+[[ -x "${AUZIX_ROOT}${busybox_chroot_path}" ]] || {
+  printf '%s: validation needs AUZiX BusyBox at %s; run auzix-strict-busybox first\n' "${name}" "${busybox_chroot_path}" >&2
   exit 1
 }
 
-validation_command_root="$(mktemp -d)"
+glibc_loader_chroot_path="/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
+[[ -x "${AUZIX_ROOT}${glibc_loader_chroot_path}" ]] || {
+  printf '%s: validation needs AUZiX glibc loader at %s; run auzix-strict-dynprobe/core-runtime first\n' "${name}" "${glibc_loader_chroot_path}" >&2
+  exit 1
+}
+
+validation_command_root="${AUZIX_ROOT}/System/Validation/CommandSuite/${name}"
 cleanup_validation=()
 cleanup() {
   local path
   for path in "${cleanup_validation[@]:-}"; do
-    if [[ -L "${path}" ]]; then
-      rm -f "${path}"
-    elif [[ -d "${path}" && "${path}" == /tmp/* ]]; then
+    if [[ -d "${path}" && "${path}" == "${AUZIX_ROOT}/System/Validation/"* ]]; then
       rm -rf "${path}"
     fi
   done
 }
 trap cleanup EXIT
 
-if [[ "${program}" == "${AUZIX_ROOT}/Programs/"* && ! -e "/Programs/${name}/current/Libraries" ]]; then
-  if mkdir -p "/Programs/${name}" 2>/dev/null; then
-    ln -sfn "${program_abs}" "/Programs/${name}/current"
-    cleanup_validation+=("/Programs/${name}/current")
-  else
-    printf '%s: cannot create temporary /Programs/%s/current validation link; run builder as root or validate in a chroot\n' "${name}" "${name}" >&2
-    exit 1
-  fi
-fi
 cleanup_validation+=("${validation_command_root}")
+mkdir -p "${validation_command_root}"
 
 while IFS= read -r command_name; do
   cat >"${validation_command_root}/${command_name}" <<EOF
-#!/usr/bin/env bash
-exec "${busybox_path}" sh "${program_abs}/Commands/${command_name}" "\$@"
+#!${busybox_chroot_path} sh
+exec "/Programs/${name}/current/Commands/${command_name}" "\$@"
 EOF
   chmod 0755 "${validation_command_root}/${command_name}"
 done < <(jq -r '.commands[].name' "${RECIPE}")
 
 while IFS= read -r smoke_command; do
-  AUZIX_COMMAND_ROOT="${validation_command_root}" \
-  LD_LIBRARY_PATH="${libraries_abs}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
-    bash -o pipefail -ec "${smoke_command}"
+  smoke_script="${validation_command_root}/run-smoke.sh"
+  cat >"${smoke_script}" <<EOF
+set -e
+export PATH="/System/Compatibility/bin:/System/Compatibility/sbin:/System/Compatibility/usr/bin:/System/Compatibility/usr/sbin:/Programs/BusyBox/current/Commands"
+export AUZIX_COMMAND_ROOT="/System/Validation/CommandSuite/${name}"
+export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/Programs/${name}/current/Libraries"
+${smoke_command}
+EOF
+  chmod 0755 "${smoke_script}"
+  chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" sh "/System/Validation/CommandSuite/${name}/run-smoke.sh"
 done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
 trap - EXIT
 cleanup
