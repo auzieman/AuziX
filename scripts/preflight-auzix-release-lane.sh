@@ -120,7 +120,7 @@ check_candidate_suite() {
   }
   policy="$(apt-cache policy "$package")"
   candidate_block="$(awk -v candidate="$candidate" '
-    $1 == candidate {capture=1; print; next}
+    $1 == candidate || ($1 == "***" && $2 == candidate) {capture=1; print; next}
     capture && /^[[:space:]]{5}[0-9]+[[:space:]]/ {print; next}
     capture && /^[[:space:]]{8,}/ {print; next}
     capture && /^[[:space:]]{3}[^[:space:]]/ {capture=0}
@@ -195,4 +195,3 @@ if [[ -n "$DEB_PATH" ]]; then
   [[ -n "$DEBIAN_PACKAGE" ]] || DEBIAN_PACKAGE="$(dpkg-deb -f "$DEB_PATH" Package 2>/dev/null || printf unknown)"
   check_deb_glibc_floor "$DEBIAN_PACKAGE" "$DEB_PATH"
 fi
-
