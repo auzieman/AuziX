@@ -34,9 +34,13 @@ fi
 if [[ "${version}" == "auto" ]]; then
   source_package="$(jq -r '.source.package' "${RECIPE}")"
   version="$(
-    dpkg-query -W -f='${Version}' "${source_package}" 2>/dev/null ||
+    {
+      dpkg-query -W -f='${Version}\n' "${source_package}" 2>/dev/null || true
+      apt-cache policy "${source_package}" 2>/dev/null |
+        awk '/Candidate:/ && $2 != "(none)" {print $2; exit}'
       apt-cache show "${source_package}" 2>/dev/null |
         awk -F': ' '/^Version:/{print $2; exit}'
+    } | awk 'NF {print; exit}'
   )"
   [[ -n "${version}" ]] || {
     printf '%s: cannot resolve version for package: %s\n' "${name}" "${source_package}" >&2
