@@ -79,8 +79,14 @@ log "normalizing package owners is disabled unless explicitly requested"
 export AUZIX_PACKAGE_NORMALIZE_OWNERS="${AUZIX_PACKAGE_NORMALIZE_OWNERS:-0}"
 export AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES="${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}"
 export AUZIX_REPO_REJECT_ALT_GLIBC="${AUZIX_REPO_REJECT_ALT_GLIBC:-1}"
+export AUZIX_DEBIAN_SUITE="${AUZIX_DEBIAN_SUITE:-trixie}"
+export AUZIX_STRICT_RELEASE_LANE="${AUZIX_STRICT_RELEASE_LANE:-1}"
 
 quarantine_alt_glibc_receipts
+run_step ./scripts/preflight-auzix-release-lane.sh \
+  --root "${AUZIX_ROOT}" \
+  --suite "${AUZIX_DEBIAN_SUITE}" \
+  --lint-recipes "${ROOT_DIR}/packages"
 
 # Core and service spine. These are native AUZiX package builders and must run
 # before Debian intake so wrappers and package installation have a sane base.

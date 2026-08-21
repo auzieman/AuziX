@@ -2,7 +2,7 @@
   "format": "auzix-package-source-catalog-v1",
   "defaults": {
     "distribution": "debian",
-    "suite": "bookworm",
+    "suite": "trixie",
     "architecture": "amd64"
   },
   "packages": [

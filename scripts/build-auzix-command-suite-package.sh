@@ -33,7 +33,15 @@ if [[ "${package_self_reexec_direct}" == "true" ]]; then
 fi
 if [[ "${version}" == "auto" ]]; then
   source_package="$(jq -r '.source.package' "${RECIPE}")"
-  version="$(dpkg-query -W -f='${Version}' "${source_package}")"
+  version="$(
+    dpkg-query -W -f='${Version}' "${source_package}" 2>/dev/null ||
+      apt-cache show "${source_package}" 2>/dev/null |
+        awk -F': ' '/^Version:/{print $2; exit}'
+  )"
+  [[ -n "${version}" ]] || {
+    printf '%s: cannot resolve version for package: %s\n' "${name}" "${source_package}" >&2
+    exit 1
+  }
 fi
 program="${AUZIX_ROOT}/Programs/${name}/${version}"
 libraries="${program}/Libraries"
@@ -79,14 +87,16 @@ copy_interpreter() {
 while IFS=$'\t' read -r export_name host_command; do
   source_path="$(command -v "${host_command}" || true)"
   if [[ -z "${source_path}" ]]; then
-    source_package="$(jq -r '.source.package // empty' "${RECIPE}")"
+    source_package="$(jq -r --arg name "${export_name}" '
+      (.commands[] | select(.name == $name) | .package) // .source.package // empty
+    ' "${RECIPE}")"
     if [[ -n "${source_package}" && "${source_package}" != "null" ]] &&
       command -v apt-get >/dev/null 2>&1 &&
       command -v dpkg-deb >/dev/null 2>&1; then
       package_deb_dir="${command_extract_root}/${export_name}/debs"
       package_extract_dir="${command_extract_root}/${export_name}/extract"
       mkdir -p "${package_deb_dir}" "${package_extract_dir}"
-      if (cd "${package_deb_dir}" && apt-get download "${source_package}" >/dev/null) &&
+      if (cd "${package_deb_dir}" && apt-get -o APT::Sandbox::User=root download "${source_package}" >/dev/null) &&
         compgen -G "${package_deb_dir}/*.deb" >/dev/null; then
         for deb in "${package_deb_dir}"/*.deb; do
           dpkg-deb -x "${deb}" "${package_extract_dir}"

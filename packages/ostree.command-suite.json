@@ -3,8 +3,8 @@
   "name": "OSTree",
   "version": "2025.6",
   "description": "Content-addressed filesystem store used by Flatpak runtimes and applications.",
-  "source": {"type": "host-binary", "suite": "lab", "package": "ostree", "graduation": "upstream-source"},
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "ostree", "graduation": "debian-source"},
   "depends": ["BusyBox"],
   "commands": [{"name": "ostree", "host_command": "ostree"}],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/ostree.real --version 2>&1 | grep -i ostree"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/ostree --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^libostree|^ostree'"]}
 }

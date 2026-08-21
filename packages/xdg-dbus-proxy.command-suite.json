@@ -3,8 +3,8 @@
   "name": "XdgDbusProxy",
   "version": "0.1.6",
   "description": "D-Bus filtering proxy used by Flatpak sandbox sessions.",
-  "source": {"type": "host-binary", "suite": "lab", "package": "xdg-dbus-proxy", "graduation": "upstream-source"},
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "xdg-dbus-proxy", "graduation": "debian-source"},
   "depends": ["BusyBox", "DBus"],
   "commands": [{"name": "xdg-dbus-proxy", "host_command": "xdg-dbus-proxy"}],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/xdg-dbus-proxy.real --version 2>&1 | grep -i xdg-dbus-proxy"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/xdg-dbus-proxy --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^xdg-dbus-proxy[[:space:]]+[0-9]'"]}
 }

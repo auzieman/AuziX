@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-FROM debian:bookworm
+FROM debian:trixie
 
 ENV DEBIAN_FRONTEND=noninteractive
 

@@ -3,7 +3,7 @@
   "name": "Flatpak",
   "version": "auto",
   "description": "Desktop application distribution and sandbox substrate exposed through AUZiX program paths.",
-  "source": {"type": "host-binary", "suite": "lab", "package": "flatpak", "graduation": "upstream-source"},
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "flatpak", "graduation": "debian-source"},
   "depends": ["BusyBox", "Bubblewrap", "OSTree", "XdgDbusProxy", "DBus", "CACerts", "GnuPG"],
   "commands": [{
     "name": "flatpak",
@@ -18,5 +18,5 @@
       "/Programs/BusyBox/current/Commands/busybox chmod 0700 /System/State/gnupg 2>/dev/null || true"
     ]
   }],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/flatpak.real --version 2>&1 | grep -i flatpak"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/flatpak --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^Flatpak[[:space:]]+[0-9]'"]}
 }

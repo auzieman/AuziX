@@ -368,6 +368,14 @@ deb_path="$(find "${WORK_DIR}/debs" -maxdepth 1 -type f -name '*.deb' -print -qu
   exit 1
 }
 
+if [[ "${AUZIX_STRICT_RELEASE_LANE:-1}" == "1" ]]; then
+  "${ROOT_DIR}/scripts/preflight-auzix-release-lane.sh" \
+    --root "${AUZIX_ROOT}" \
+    --suite "${AUZIX_DEBIAN_SUITE:-trixie}" \
+    --package "${DEBIAN_PACKAGE}" \
+    --deb "${deb_path}"
+fi
+
 package_name="$(dpkg-deb -f "${deb_path}" Package)"
 package_version="$(dpkg-deb -f "${deb_path}" Version)"
 package_arch="$(dpkg-deb -f "${deb_path}" Architecture)"

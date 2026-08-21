@@ -3,8 +3,8 @@
   "name": "Bubblewrap",
   "version": "0.10.0",
   "description": "Unprivileged sandbox helper used by Flatpak.",
-  "source": {"type": "host-binary", "suite": "lab", "package": "bubblewrap", "graduation": "upstream-source"},
+  "source": {"type": "debian-binary", "suite": "trixie", "package": "bubblewrap", "graduation": "debian-source"},
   "depends": ["BusyBox"],
   "commands": [{"name": "bwrap", "host_command": "bwrap"}],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/bwrap.real --version 2>&1 | grep -i bubblewrap"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/bwrap --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^(bubblewrap|bwrap)[[:space:]]+[0-9]'"]}
 }

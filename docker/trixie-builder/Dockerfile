@@ -11,6 +11,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       abiword \
       acpid \
       alsa-utils \
+      bubblewrap \
       busybox-static \
       ca-certificates \
       dbus \
@@ -18,15 +19,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       dpkg-dev \
       enlightenment \
       file \
+      flatpak \
       g++ \
       gcc \
       git \
+      gnupg \
+      gpg-agent \
+      gpgsm \
+      gpgv \
       gnumeric \
       jq \
       less \
       make \
       openssh-client \
       openssh-server \
+      ostree \
       pkg-config \
       pulseaudio \
       python3 \
@@ -44,6 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       xserver-xorg-legacy \
       xserver-xorg-video-fbdev \
       xserver-xorg-video-vesa \
+      xdg-dbus-proxy \
       xterm \
       xz-utils && \
     rm -rf /var/lib/apt/lists/*

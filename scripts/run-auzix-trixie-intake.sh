@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export AUZIX_DEBIAN_SUITE="${AUZIX_DEBIAN_SUITE:-trixie}"
+export AUZIX_STRICT_RELEASE_LANE="${AUZIX_STRICT_RELEASE_LANE:-1}"
 PROFILE="${1:-${ROOT_DIR}/profiles/packages/auzix-trixie-user-apps.packages}"
 AUZIX_ROOT="${2:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LIMIT="${AUZIX_TRIXIE_LIMIT:-0}"
@@ -47,6 +49,7 @@ if (( LIMIT > 0 && LIMIT < ${#packages[@]} )); then
   packages=("${packages[@]:0:LIMIT}")
 fi
 log "profile_order=$([[ "${SORT_PROFILE}" == "1" ]] && printf sorted || printf preserved) package_count=${#packages[@]}"
+log "strict_release_lane=${AUZIX_STRICT_RELEASE_LANE} debian_suite=${AUZIX_DEBIAN_SUITE}"
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 results='[]'

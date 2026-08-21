@@ -14,27 +14,31 @@
     {
       "name": "gpgconf",
       "host_command": "gpgconf",
+      "package": "gpgconf",
       "environment": {"GNUPGHOME": "/System/State/gnupg"}
     },
     {
       "name": "gpg-agent",
       "host_command": "gpg-agent",
+      "package": "gpg-agent",
       "environment": {"GNUPGHOME": "/System/State/gnupg"}
     },
     {
       "name": "gpgsm",
       "host_command": "gpgsm",
+      "package": "gpgsm",
       "environment": {"GNUPGHOME": "/System/State/gnupg"}
     },
     {
       "name": "gpgv",
-      "host_command": "gpgv"
+      "host_command": "gpgv",
+      "package": "gpgv"
     }
   ],
   "validation": {
     "smoke_commands": [
-      "$AUZIX_COMMAND_ROOT/gpg.real --version 2>&1 | grep -i gnupg",
-      "$AUZIX_COMMAND_ROOT/gpgconf.real --version 2>&1 | grep -i gpgconf"
+      "$AUZIX_COMMAND_ROOT/gpg --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^gpg \\(GnuPG\\)[[:space:]]+[0-9]'",
+      "$AUZIX_COMMAND_ROOT/gpgconf --version 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -Ei '^gpgconf \\(GnuPG\\)[[:space:]]+[0-9]'"
     ]
   }
 }

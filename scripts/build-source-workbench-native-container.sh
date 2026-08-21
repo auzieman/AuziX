@@ -108,7 +108,7 @@ chmod 0755 "${ROOTFS_DIR}/System/Build/Commands/auzix-base-ports-worker"
 
 cat > "${CONTEXT_DIR}/Dockerfile" <<'DOCKERFILE'
 # syntax=docker/dockerfile:1.6
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
