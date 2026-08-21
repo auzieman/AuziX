@@ -205,10 +205,10 @@ jq \
   }' "${RECIPE}" >"${package_db}/${name}-${version}.auzix.json"
 
 busybox_chroot_path="/Programs/BusyBox/current/Commands/busybox"
-[[ -x "${AUZIX_ROOT}${busybox_chroot_path}" ]] || {
-  printf '%s: validation needs AUZiX BusyBox at %s; run auzix-strict-busybox first\n' "${name}" "${busybox_chroot_path}" >&2
+if ! chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" true >/dev/null 2>&1; then
+  printf '%s: validation needs runnable AUZiX BusyBox at %s inside the target root; run auzix-strict-busybox first\n' "${name}" "${busybox_chroot_path}" >&2
   exit 1
-}
+fi
 
 glibc_loader_chroot_path="/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
 [[ -x "${AUZIX_ROOT}${glibc_loader_chroot_path}" ]] || {
