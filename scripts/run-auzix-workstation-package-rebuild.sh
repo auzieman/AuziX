@@ -114,6 +114,15 @@ run_step env \
   profiles/packages/auzix-2026-08-11-userspace-repair.packages \
   "${AUZIX_ROOT}"
 
+# Proof builds need under-the-hood tools before app/desktop validation starts.
+# These packages are allowed in lab containers/ISOs even when the eventual base
+# image trims them back out.
+run_step env \
+  AUZIX_TRIXIE_REPORT="proof-forensics-${RUN_ID}.json" \
+  ./scripts/run-auzix-trixie-intake.sh \
+  profiles/packages/auzix-proof-forensics.packages \
+  "${AUZIX_ROOT}"
+
 # Then the broader Trixie mirror/app sweep. This should reuse already-good
 # receipts and fill dependency gaps instead of hand-carrying one library at a
 # time.

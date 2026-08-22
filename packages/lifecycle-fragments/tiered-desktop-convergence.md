@@ -35,6 +35,8 @@ Scope:
 
 - BusyBox/coreutils style front doors;
 - shell, `cat`, `df`, `du`, `id`, `ps`, `env`, `ldd`/runtime inspection;
+- proof-build forensic tools: `lsof`, `strace`, `file`, `readelf`/`objdump`,
+  `strings`, `stat`, `find`, `jq`, `curl`, and real terminfo;
 - `/Programs`, `/System`, `/Users`, `/Work`, compatibility aliases;
 - package database readability.
 
@@ -46,6 +48,25 @@ Gate:
 - no menu or GUI work starts until this tier can explain itself.
 
 If this tier fails, do not debug Enlightenment, Flatpak, or LibreOffice yet.
+
+Proof builds are allowed to be larger than the base image. They must include
+debug/forensic tooling early so failures can be inspected from inside AUZiX,
+not only from the Debian builder. The shrink pass removes these tools later;
+the proof pass keeps them.
+
+Compatibility aliases are scaffolding, not the product. For proof builds,
+record usage of `/bin`, `/sbin`, `/lib`, `/lib64`, `/usr`, `/var`, `/tmp`,
+`/home`, `/root`, and `/opt`. Unless boot/login fails without them, run a
+strict alias-gimp lane that disables or shadows the legacy root aliases and
+then re-runs Tier 0 and Tier 1 probes. Any package that breaks must be
+classified as:
+
+- boot-essential alias dependency;
+- runtime-wrapper path bug;
+- missing AUZiX-native path export;
+- upstream hardwire requiring an explicit compatibility contract.
+
+Do not silently keep an alias because one app happened to need it.
 
 ## Tier 1: runtime ladder and libraries
 

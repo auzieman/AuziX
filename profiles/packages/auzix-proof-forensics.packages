@@ -1,0 +1,44 @@
+# AUZiX proof-build forensic toolkit
+#
+# This profile is intentionally for lab/proof images and validation containers,
+# not the tiny public base. Its job is to make AUZiX observable while the path
+# model is still being hardened.
+
+# Open-file/process/runtime inspection.
+lsof
+strace
+procps
+psmisc
+
+# ELF and package payload inspection.
+binutils
+file
+libmagic1t64
+
+# Shell/core command floor so diagnostics are not BusyBox-only.
+bash
+dash
+coreutils
+findutils
+grep
+sed
+gawk
+less
+nano
+
+# Terminal capabilities; htop/nano/less should not fail on xterm-256color.
+ncurses-base
+ncurses-term
+
+# System/state visibility.
+util-linux
+bsdutils
+mount
+net-tools
+iproute2
+iputils-ping
+
+# Small JSON/log helpers used by AUZiX/BKC validation scripts.
+jq
+curl
+ca-certificates
