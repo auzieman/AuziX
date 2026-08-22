@@ -619,7 +619,7 @@ for source_dir in \\
 done
 if [ -e "\${program}/fundamentalrc" ]; then
   if [ -L "\${program}/fundamentalrc" ]; then
-    fundamental_source="\$("${BB}" readlink "\${program}/fundamentalrc")"
+    fundamental_source="\$("\${BB}" readlink "\${program}/fundamentalrc")"
     "\${BB}" rm -f "\${program}/fundamentalrc"
     "\${BB}" cp "\${fundamental_source}" "\${program}/fundamentalrc"
   fi
