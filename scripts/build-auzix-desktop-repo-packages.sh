@@ -11,7 +11,7 @@ log() {
   printf '[auzix-desktop-repo] %s\n' "$*" >&2
 }
 
-for command_name in eet file find install jq rsync; do
+for command_name in file find install jq rsync; do
   command -v "${command_name}" >/dev/null 2>&1 || {
     printf 'Required command not found: %s\n' "${command_name}" >&2
     exit 1
@@ -21,6 +21,50 @@ done
 [[ -d "${SOURCE}/themes" && -d "${SOURCE}/backgrounds" ]] || {
   printf 'DesktopAssets source is missing under %s\n' "${SOURCE}" >&2
   exit 1
+}
+
+find_auzix_eet_command() {
+  local receipt command_path
+  receipt="$(find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
+    -name 'LibeetBin-*.auzix.json' | sort | tail -1)"
+  if [[ -n "${receipt}" ]]; then
+    command_path="$(jq -r '.commands[]? | select(test("/eet$"))' "${receipt}" | head -1)"
+    if [[ -n "${command_path}" && -x "${AUZIX_ROOT}${command_path}" ]]; then
+      printf '%s\n' "${command_path}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+EET_COMMAND="$(find_auzix_eet_command || true)"
+EET_COMMAND_IS_AUZIX=0
+if [[ -z "${EET_COMMAND}" && -x "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" ]]; then
+  "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" "${AUZIX_ROOT}" libeet-bin
+  EET_COMMAND="$(find_auzix_eet_command || true)"
+fi
+if [[ -n "${EET_COMMAND}" ]]; then
+  EET_COMMAND_IS_AUZIX=1
+elif [[ -z "${EET_COMMAND}" ]]; then
+  if command -v eet >/dev/null 2>&1; then
+    EET_COMMAND="$(command -v eet)"
+  else
+    printf 'Required command not found: eet; install/stage libeet-bin first.\n' >&2
+    exit 1
+  fi
+fi
+
+eet_list() {
+  local asset="$1"
+  if [[ "${EET_COMMAND_IS_AUZIX}" == "1" ]]; then
+    local asset_path="${asset}"
+    case "${asset_path}" in
+      "${AUZIX_ROOT}"/*) asset_path="/${asset_path#"${AUZIX_ROOT}/"}" ;;
+    esac
+    chroot "${AUZIX_ROOT}" "${EET_COMMAND}" -l "${asset_path}" >/dev/null 2>&1
+  else
+    "${EET_COMMAND}" -l "${asset}" >/dev/null 2>&1
+  fi
 }
 
 write_activation_hook() {
@@ -76,7 +120,7 @@ build_themes() {
   rm -rf "${program}"
   mkdir -p "${assets}" "${exports}"
   while IFS= read -r -d '' theme; do
-    if eet -l "${theme}" >/dev/null 2>&1; then
+    if eet_list "${theme}"; then
       install -m 0444 "${theme}" "${assets}/$(basename "${theme}")"
       count=$((count + 1))
     else
@@ -133,7 +177,7 @@ build_wallpapers() {
   while IFS= read -r -d '' wallpaper; do
     case "${wallpaper}" in
       *.edj)
-        eet -l "${wallpaper}" >/dev/null 2>&1 || {
+        eet_list "${wallpaper}" || {
           log "Skipping invalid EDJ background: ${wallpaper}"
           continue
         }
@@ -149,10 +193,9 @@ build_wallpapers() {
     install -m 0444 "${wallpaper}" "${assets}/$(basename "${wallpaper}")"
     count=$((count + 1))
   done < <(find "${SOURCE}/backgrounds" -maxdepth 1 -type f -print0 | sort -z)
-  [[ "${count}" -gt 0 ]] || {
-    printf 'No valid wallpapers found.\n' >&2
-    exit 1
-  }
+  if [[ "${count}" -eq 0 ]]; then
+    log "No valid wallpapers found; staging empty wallpaper package"
+  fi
 
   write_activation_hook \
     "${program}" backgrounds \

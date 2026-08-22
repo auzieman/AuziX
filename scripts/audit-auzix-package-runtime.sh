@@ -67,9 +67,8 @@ check_declared_path() {
 
 dependency_receipt_exists() {
   local dependency="$1"
-  jq -e --arg dependency "${dependency}" '
-    (.name // "" | ascii_downcase) == ($dependency | ascii_downcase)
-  ' "${AUZIX_ROOT}/System/PackageDB/"*.auzix.json >/dev/null 2>&1
+  find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f \
+    -name "${dependency}-*.auzix.json" -print -quit 2>/dev/null | grep -q .
 }
 
 audit_app_local_libraries() {

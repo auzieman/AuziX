@@ -8,6 +8,7 @@ RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 REBASE_LOCK="${AUZIX_REBASE_LOCK:-}"
 LOG_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.log"
 SUMMARY_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.summary"
+PACKAGE_SPOOL_DIR="${AUZIX_PACKAGE_SPOOL_DIR:-${ROOT_DIR}/artifacts/auzix/package-spool-${RUN_ID}}"
 
 mkdir -p "${REPORT_DIR}"
 
@@ -81,6 +82,9 @@ export AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES="${AUZIX_PUBLISH_UNVALIDATED_DE
 export AUZIX_REPO_REJECT_ALT_GLIBC="${AUZIX_REPO_REJECT_ALT_GLIBC:-1}"
 export AUZIX_DEBIAN_SUITE="${AUZIX_DEBIAN_SUITE:-trixie}"
 export AUZIX_STRICT_RELEASE_LANE="${AUZIX_STRICT_RELEASE_LANE:-1}"
+export AUZIX_PACKAGE_SPOOL_DIR="${PACKAGE_SPOOL_DIR}"
+mkdir -p "${AUZIX_PACKAGE_SPOOL_DIR}/packages" "${AUZIX_PACKAGE_SPOOL_DIR}/entries"
+log "using AUZIX_PACKAGE_SPOOL_DIR=${AUZIX_PACKAGE_SPOOL_DIR}"
 
 quarantine_alt_glibc_receipts
 run_step ./scripts/preflight-auzix-release-lane.sh \
@@ -123,6 +127,7 @@ run_step env \
 run_step make auzix-strict-flatpak-runtime-support
 run_step make auzix-strict-flatpak-runtime
 run_step make auzix-strict-flatpak-adapters
+run_step make auzix-strict-e-assets
 run_step make auzix-strict-desktop-assets-package
 run_step make auzix-strict-desktop-repo-packages
 run_step make auzix-strict-desktop-integration
@@ -132,7 +137,12 @@ run_step make auzix-strict-live-tools
 
 # Finalize the staged root exactly as auzix-pkg install does after extraction.
 if [[ -x "${AUZIX_ROOT}/System/Tools/finalize-installed-root" ]]; then
-  run_step "${AUZIX_ROOT}/System/Tools/finalize-installed-root" "${AUZIX_ROOT}"
+  if "${AUZIX_ROOT}/System/Tools/finalize-installed-root" "${AUZIX_ROOT}" >>"${LOG_FILE}" 2>&1; then
+    log "finalized installed root via host namespace"
+  else
+    log "host namespace finalizer failed; retrying inside AUZiX root"
+    run_step chroot "${AUZIX_ROOT}" /System/Tools/finalize-installed-root /
+  fi
 fi
 
 run_step ./scripts/audit-auzix-package-runtime.sh "${AUZIX_ROOT}"

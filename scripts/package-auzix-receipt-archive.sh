@@ -2,30 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
-REPO_DIR="${AUZIX_REPO_DIR:-${ROOT_DIR}/artifacts/auzix/repo}"
+AUZIX_ROOT="${1:?usage: package-auzix-receipt-archive.sh <auzix-root> <receipt> <repo-dir>}"
+RECEIPT="${2:?usage: package-auzix-receipt-archive.sh <auzix-root> <receipt> <repo-dir>}"
+REPO_DIR="${3:?usage: package-auzix-receipt-archive.sh <auzix-root> <receipt> <repo-dir>}"
 PACKAGE_DIR="${REPO_DIR}/packages"
-INDEX_PATH="${REPO_DIR}/index.json"
-PREVIOUS_INDEX="${REPO_DIR}/index.json"
-PREVIOUS_PACKAGE_DIR="${REPO_DIR}/packages"
-MANIFEST_DIR="${AUZIX_ROOT}/System/Settings/packages"
-STACK_DIR="${AUZIX_ROOT}/Stacks/desktop-core"
+ENTRY_DIR="${REPO_DIR}/entries"
 NORMALIZE_OWNERS="${AUZIX_PACKAGE_NORMALIZE_OWNERS:-0}"
 REJECT_ALT_GLIBC="${AUZIX_REPO_REJECT_ALT_GLIBC:-1}"
 
 log() {
-  printf '[auzix-repo] %s\n' "$*" >&2
-}
-
-need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    printf 'Required command not found: %s\n' "$1" >&2
-    exit 1
-  fi
-}
-
-json_string() {
-  jq -Rs . <<<"$1"
+  printf '[auzix-package-archive] %s\n' "$*" >&2
 }
 
 safe_name() {
@@ -64,7 +50,7 @@ receipt_paths() {
 
 package_receipt() {
   local receipt="$1"
-  local name version package_name package_path tmp_list rel_path size sha normalized_owners_json metadata_path
+  local name version package_name package_path tmp_list rel_path size sha normalized_owners_json metadata_path entry_path
 
   name="$(jq -r '.name // empty' "${receipt}")"
   version="$(jq -r '.version // "unknown"' "${receipt}")"
@@ -81,6 +67,7 @@ package_receipt() {
   package_name="$(safe_name "${name}-${version}").auzix.tar.gz"
   package_path="${PACKAGE_DIR}/${package_name}"
   metadata_path="${package_path%.tar.gz}.metadata.tsv"
+  entry_path="${ENTRY_DIR}/${package_name%.tar.gz}.json"
   tmp_list="$(mktemp)"
 
   rel_path="${receipt#${AUZIX_ROOT}/}"
@@ -115,6 +102,7 @@ package_receipt() {
   fi
 
   log "Packaging ${name}-${version} -> ${package_name}"
+  mkdir -p "${PACKAGE_DIR}" "${ENTRY_DIR}"
 
   {
     printf 'path\ttype\tmode\tuid\tgid\tuser\tgroup\tflags\ttarget\n'
@@ -161,7 +149,6 @@ package_receipt() {
   fi
 
   tar "${tar_args[@]}" -czf "${package_path}" --files-from "${tmp_list}"
-
   size="$(stat -c '%s' "${package_path}")"
   sha="$(sha256sum "${package_path}" | awk '{print $1}')"
 
@@ -207,151 +194,17 @@ package_receipt() {
       },
       validation: ($receipt_json[0].validation // null),
       source: ($receipt_json[0].source // {})
-    }'
+    }' >"${entry_path}"
 
+  cat "${entry_path}"
   rm -f "${tmp_list}"
 }
 
-need_cmd jq
-need_cmd tar
-need_cmd sha256sum
-need_cmd stat
+command -v jq >/dev/null 2>&1 || { printf 'Required command not found: jq\n' >&2; exit 1; }
+command -v tar >/dev/null 2>&1 || { printf 'Required command not found: tar\n' >&2; exit 1; }
+command -v sha256sum >/dev/null 2>&1 || { printf 'Required command not found: sha256sum\n' >&2; exit 1; }
+command -v stat >/dev/null 2>&1 || { printf 'Required command not found: stat\n' >&2; exit 1; }
+[[ -f "${RECEIPT}" ]] || { printf 'Receipt missing: %s\n' "${RECEIPT}" >&2; exit 1; }
+[[ -d "${AUZIX_ROOT}" ]] || { printf 'AUZiX root missing: %s\n' "${AUZIX_ROOT}" >&2; exit 1; }
 
-if [[ ! -d "${AUZIX_ROOT}/System/PackageDB" ]]; then
-  printf 'Auzix PackageDB missing: %s\n' "${AUZIX_ROOT}/System/PackageDB" >&2
-  exit 1
-fi
-
-previous_repo="$(mktemp -d)"
-trap 'rm -rf "${previous_repo}"' EXIT
-if [[ -f "${PREVIOUS_INDEX}" && -d "${PREVIOUS_PACKAGE_DIR}" ]] &&
-  jq -e '.format == "auzix-repo-v1" and (.packages | type == "array")' "${PREVIOUS_INDEX}" >/dev/null 2>&1; then
-  mkdir -p "${previous_repo}/packages"
-  cp -f "${PREVIOUS_INDEX}" "${previous_repo}/index.json"
-  find "${PREVIOUS_PACKAGE_DIR}" -maxdepth 1 -type f -name '*.auzix.tar.gz' -exec cp -f {} "${previous_repo}/packages/" \;
-else
-  jq -n '{format: "auzix-repo-v1", packages: []}' >"${previous_repo}/index.json"
-  mkdir -p "${previous_repo}/packages"
-fi
-
-rm -rf "${REPO_DIR}"
-mkdir -p "${PACKAGE_DIR}" "${MANIFEST_DIR}" "${STACK_DIR}"
-find "${previous_repo}/packages" -maxdepth 1 -type f -name '*.auzix.tar.gz' -exec cp -f {} "${PACKAGE_DIR}/" \;
-
-entries_tmp="$(mktemp)"
-if [[ -n "${AUZIX_PACKAGE_SPOOL_DIR:-}" && -d "${AUZIX_PACKAGE_SPOOL_DIR}/entries" ]]; then
-  log "Assembling repository from package spool: ${AUZIX_PACKAGE_SPOOL_DIR}"
-  find "${AUZIX_PACKAGE_SPOOL_DIR}/packages" -maxdepth 1 -type f -name '*.auzix.tar.gz' -exec cp -f {} "${PACKAGE_DIR}/" \;
-  find "${AUZIX_PACKAGE_SPOOL_DIR}/packages" -maxdepth 1 -type f -name '*.metadata.tsv' -exec cp -f {} "${PACKAGE_DIR}/" \;
-  find "${AUZIX_PACKAGE_SPOOL_DIR}/entries" -maxdepth 1 -type f -name '*.json' -print |
-    sort |
-    xargs -r jq -c . >"${entries_tmp}"
-else
-  log "No package spool supplied; exporting package archives from staged root"
-  find "${AUZIX_ROOT}/System/PackageDB" -maxdepth 1 -type f -name '*.json' -print |
-    sort |
-    while IFS= read -r receipt; do
-      "${ROOT_DIR}/scripts/package-auzix-receipt-archive.sh" "${AUZIX_ROOT}" "${receipt}" "${REPO_DIR}"
-    done >"${entries_tmp}"
-fi
-
-jq -s \
-  --arg format "auzix-repo-v1" \
-  --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg root_contract "strict-root-prototype" \
-  '{
-    format: $format,
-    created: $created,
-    root_contract: $root_contract,
-    packages: .
-  }' "${entries_tmp}" >"${INDEX_PATH}"
-
-merged_tmp="$(mktemp)"
-jq -s '
-  .[0] as $previous
-  | .[1] as $incoming
-  | ($incoming.packages | map(.name)) as $incoming_names
-  | ($incoming.packages
-      | map(select(.source.package? != null) | .source.package)
-      | unique) as $incoming_source_packages
-  | $incoming + {
-      packages: (
-        ([
-          $previous.packages[]?
-          | select(((.validation? // {}) | tostring | contains("/Programs/Libc6/current")) | not)
-          | select(((.runtime_ladder? // {}) | tostring | contains("/Programs/Libc6/current")) | not)
-          | select(.name as $name | ($incoming_names | index($name) | not))
-          | select(
-              if (.name | startswith("Debian.")) then
-                ((.name | sub("^Debian[.]"; "")) as $source_name
-                  | ($incoming_source_packages | index($source_name) | not))
-              else
-                true
-              end
-            )
-        ] + $incoming.packages)
-        | sort_by(.name)
-      )
-    }
-' "${previous_repo}/index.json" "${INDEX_PATH}" >"${merged_tmp}"
-mv "${merged_tmp}" "${INDEX_PATH}"
-
-while IFS=$'\t' read -r archive expected_sha; do
-  package_path="${PACKAGE_DIR}/${archive}"
-  [[ -f "${package_path}" ]] || {
-    log "merged index references missing package archive: ${archive}"
-    exit 1
-  }
-  actual_sha="$(sha256sum "${package_path}" | awk '{print $1}')"
-  [[ "${actual_sha}" == "${expected_sha}" ]] || {
-    log "merged package checksum mismatch: ${archive}"
-    exit 1
-  }
-done < <(jq -r '.packages[] | [.package, .sha256] | @tsv' "${INDEX_PATH}")
-
-cp -f "${INDEX_PATH}" "${MANIFEST_DIR}/repo-index.json"
-jq '{format: "auzix-installed-v1", installed: []}' \
-  "${INDEX_PATH}" >"${MANIFEST_DIR}/installed.json"
-
-cat > "${MANIFEST_DIR}/first-apps.txt" <<'TXT'
-Terminology
-XTerm
-Curl
-NetSurf
-LightDM
-Enlightenment
-OpenSSH
-TXT
-
-cat > "${STACK_DIR}/stack.auzix.json" <<'JSON'
-{
-  "name": "desktop-core",
-  "purpose": "First usable Auzix live workstation set: E desktop, greeter, terminal access, and SSH.",
-  "services": [
-    "/Services/display-manager",
-    "/Services/ssh",
-    "/Services/udev",
-    "/Services/acpid"
-  ],
-  "programs": [
-    "/Programs/Enlightenment/host",
-    "/Programs/LightDM/host",
-    "/Programs/Terminology/host",
-    "/Programs/XTerm/379-1",
-    "/Programs/Curl/current",
-    "/Programs/NetSurf/current",
-    "/Programs/OpenSSH/host"
-  ],
-  "paths": {
-    "settings": "/System/Settings/display",
-    "state": "/System/State/display",
-    "logs": "/System/Logs/display"
-  },
-  "notes": "curl validates HTTPS/CA/iconv plumbing before browser work. NetSurf is the first small browser proof. Heavier Firefox/Chromium-style browsers remain optional full-web packages."
-}
-JSON
-
-rm -f "${entries_tmp}"
-
-log "Repository ready: ${REPO_DIR}"
-log "Index staged: ${MANIFEST_DIR}/repo-index.json"
+package_receipt "${RECEIPT}"

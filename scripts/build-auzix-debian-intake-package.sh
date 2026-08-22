@@ -1051,4 +1051,11 @@ jq -n \
     notes: "Experimental Trixie intake package. Debian payloads are staged under RootFS; detected executable payloads are exposed through AUZiX command wrappers. Packages without commands remain staging metadata until promoted."
   }' >"${receipt_path}"
 
+if [[ -n "${AUZIX_PACKAGE_SPOOL_DIR:-}" ]]; then
+  "${ROOT_DIR}/scripts/package-auzix-receipt-archive.sh" \
+    "${AUZIX_ROOT}" \
+    "${receipt_path}" \
+    "${AUZIX_PACKAGE_SPOOL_DIR}" >/dev/null
+fi
+
 log "built ${native_name} ${package_version} from ${package_name} (${repack_class}, ${payload_file_count} files, ${command_count} commands)"
