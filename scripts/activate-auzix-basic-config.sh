@@ -474,6 +474,10 @@ ensure_interactive_command_surface
 
 # Keep standard aliases visible from inside AUZiX.
 [ -e "$(p /etc)" ] || "${BB}" ln -s /System/Settings "$(p /etc)" 2>/dev/null || true
+if [ -d "$(p /etc)" ] && [ ! -L "$(p /etc)" ]; then
+  [ -e "$(p /etc/ssl)" ] || "${BB}" ln -s /System/Compatibility/etc/ssl "$(p /etc/ssl)" 2>/dev/null || true
+  [ -e "$(p /etc/pki)" ] || "${BB}" ln -s /System/Compatibility/etc/pki "$(p /etc/pki)" 2>/dev/null || true
+fi
 [ -e "$(p /usr)" ] || "${BB}" ln -s /System/Compatibility/usr "$(p /usr)" 2>/dev/null || true
 [ -e "$(p /lib)" ] || "${BB}" ln -s /System/Compatibility/lib "$(p /lib)" 2>/dev/null || true
 [ -e "$(p /lib64)" ] || "${BB}" ln -s /System/Compatibility/lib64 "$(p /lib64)" 2>/dev/null || true

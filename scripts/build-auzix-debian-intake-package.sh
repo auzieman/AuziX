@@ -733,6 +733,9 @@ fi
 exec "${rootfs}/'"${rel_command}"'" "$@"'
     if ! head -c 4 "${program_root}/RootFS/${rel_command}" | grep -q "$(printf '\177ELF')" 2>/dev/null; then
       command_loader_tail='exec "${rootfs}/'"${rel_command}"'" "$@"'
+      if head -n 1 "${program_root}/RootFS/${rel_command}" 2>/dev/null | grep -Eq '^#!.*/(env +)?python3?([.][0-9]+)?([[:space:]]|$)'; then
+        command_loader_tail='exec /Programs/Python313Minimal/current/Commands/python3.13 "${rootfs}/'"${rel_command}"'" "$@"'
+      fi
     fi
     cat >"${program_root}/Commands/${command_base}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
@@ -745,6 +748,7 @@ runtime_data_path=""
 runtime_schema_path=""
 runtime_gi_path=""
 runtime_lib_path=""
+runtime_python_path=""
 compat_lib_path=""
 runtime_loader=""
 append_existing_path() {
@@ -775,6 +779,9 @@ for runtime_package in \${runtime_packages}; do
   append_existing_path runtime_schema_path "\${runtime_root}/usr/share/glib-2.0/schemas"
   append_existing_path runtime_gi_path "\${runtime_root}/usr/lib/x86_64-linux-gnu/girepository-1.0"
   append_existing_path runtime_gi_path "\${runtime_root}/usr/lib/girepository-1.0"
+  append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3/dist-packages"
+  append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3.13"
+  append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3.13/lib-dynload"
   append_existing_path runtime_lib_path "\${runtime_root}/usr/lib/x86_64-linux-gnu"
   append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
   append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
@@ -785,6 +792,7 @@ own_data_path=""
 own_schema_path=""
 own_gi_path=""
 own_lib_path=""
+own_python_path=""
 append_existing_path own_bin_path "\${prefix}/Commands"
 append_existing_path own_bin_path "\${rootfs}/usr/bin"
 append_existing_path own_bin_path "\${rootfs}/usr/sbin"
@@ -794,6 +802,9 @@ append_existing_path own_data_path "\${rootfs}/usr/share"
 append_existing_path own_schema_path "\${rootfs}/usr/share/glib-2.0/schemas"
 append_existing_path own_gi_path "\${rootfs}/usr/lib/x86_64-linux-gnu/girepository-1.0"
 append_existing_path own_gi_path "\${rootfs}/usr/lib/girepository-1.0"
+append_existing_path own_python_path "\${rootfs}/usr/lib/python3/dist-packages"
+append_existing_path own_python_path "\${rootfs}/usr/lib/python3.13"
+append_existing_path own_python_path "\${rootfs}/usr/lib/python3.13/lib-dynload"
 append_existing_path own_lib_path "\${prefix}/Libraries"
 append_existing_path own_lib_path "\${rootfs}/usr/lib/x86_64-linux-gnu"
 append_existing_path own_lib_path "\${rootfs}/usr/lib"
@@ -820,11 +831,40 @@ export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Progra
 export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
+export HOME="\${HOME:-/Users/root}"
+if [ "\${HOME}" = "/root" ]; then
+  export HOME="/Users/root"
+fi
+export XDG_CONFIG_HOME="\${XDG_CONFIG_HOME:-\${HOME}/.config}"
+export USER="\${USER:-root}"
+export LOGNAME="\${LOGNAME:-\${USER}}"
+export TMPDIR="\${TMPDIR:-/Work/Temp}"
+[ -d "\${TMPDIR}" ] || /Programs/BusyBox/current/Commands/busybox mkdir -p "\${TMPDIR}"
 export TERM="\${TERM:-xterm-256color}"
 case "\${TERM}" in
   ""|dumb|linux) export TERM=xterm-256color ;;
 esac
 export TERMINFO_DIRS="\${TERMINFO_DIRS:-/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo}"
+export SSL_CERT_DIR="\${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
+export SSL_CERT_FILE="\${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
+export CURL_CA_BUNDLE="\${CURL_CA_BUNDLE:-\${SSL_CERT_FILE}}"
+export REQUESTS_CA_BUNDLE="\${REQUESTS_CA_BUNDLE:-\${SSL_CERT_FILE}}"
+if [ -d /Programs/Libpython313Minimal/current/RootFS/usr/lib/python3.13 ]; then
+  export PYTHONHOME="\${PYTHONHOME:-/Programs/Libpython313Minimal/current/RootFS/usr}"
+  python_path="\${own_python_path}\${runtime_python_path:+:\${runtime_python_path}}:/Programs/Libpython313Minimal/current/RootFS/usr/lib/python3.13"
+  for candidate_path in \
+    /Programs/Libpython313Stdlib/current/RootFS/usr/lib/python3.13 \
+    /Programs/Libpython313Stdlib/current/RootFS/usr/lib/python3.13/lib-dynload \
+    /Programs/Python313/current/RootFS/usr/lib/python3.13 \
+    /Programs/Python313/current/RootFS/usr/lib/python3.13/lib-dynload; do
+    [ -d "\${candidate_path}" ] || continue
+    case ":\${python_path}:" in
+      *":\${candidate_path}:"*) ;;
+      *) python_path="\${python_path}:\${candidate_path}" ;;
+    esac
+  done
+  export PYTHONPATH="\${python_path}\${PYTHONPATH:+:\${PYTHONPATH}}"
+fi
 export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc\${own_lib_path:+:\${own_lib_path}}\${runtime_lib_path:+:\${runtime_lib_path}}\${compat_lib_path:+:\${compat_lib_path}}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 ${command_loader_tail}
 EOF
@@ -904,6 +944,9 @@ while IFS= read -r rel_service; do
   command_name_allowed "${service_base}" || continue
   service_target="${AUZIX_ROOT}/System/Compatibility/${rel_service}"
   mkdir -p "$(dirname "${service_target}")"
+  if [[ -L "${service_target}" ]]; then
+    rm -f "${service_target}"
+  fi
   sed -E \
     -e 's#(^Exec=)/usr/bin/([^[:space:]]+)#\1/System/Compatibility/bin/\2#' \
     -e 's#(^Exec=)/usr/sbin/([^[:space:]]+)#\1/System/Compatibility/sbin/\2#' \

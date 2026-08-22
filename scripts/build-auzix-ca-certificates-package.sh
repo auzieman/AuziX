@@ -119,6 +119,10 @@ ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
   "${AUZIX_ROOT}/System/Compatibility/etc/ssl/cert.pem"
 rm -rf "${SETTINGS_SSL}"
 ln -sfn /System/Compatibility/etc/ssl "${SETTINGS_SSL}"
+if [[ -d "${AUZIX_ROOT}/etc" && ! -L "${AUZIX_ROOT}/etc" ]]; then
+  rm -rf "${AUZIX_ROOT}/etc/ssl"
+  ln -sfn /System/Compatibility/etc/ssl "${AUZIX_ROOT}/etc/ssl"
+fi
 ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
   "${PKI_CERTS}/ca-bundle.crt"
 

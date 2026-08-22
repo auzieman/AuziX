@@ -8,6 +8,8 @@ REPORT_PATH="${2:-${ROOT_DIR}/out/auzix-strict/proof-runtime-validation.txt}"
 ALIAS_POLICY="${AUZIX_PROOF_ALIAS_POLICY:-strict}"
 PROFILE="${AUZIX_PROOF_PROFILE:-proof}"
 CHROOT_BIN="${AUZIX_CHROOT_BIN:-$(command -v chroot || true)}"
+TIMEOUT_BIN="${AUZIX_TIMEOUT_BIN:-$(command -v timeout || true)}"
+PROBE_TIMEOUT_SECONDS="${AUZIX_PROBE_TIMEOUT_SECONDS:-15}"
 CAN_CHROOT=1
 
 failures=0
@@ -80,18 +82,26 @@ run_in_root() {
   local label="$1"
   shift
   local output status
+  local -a probe_prefix
   if [[ "${CAN_CHROOT}" != "1" ]]; then
     warn "${label} skipped because this host user cannot chroot; run inside the validation container or as root for the hard probe"
     return 0
   fi
   set +e
-  output="$(env -i \
+  if [[ -n "${TIMEOUT_BIN}" && -x "${TIMEOUT_BIN}" ]]; then
+    probe_prefix=("${TIMEOUT_BIN}" "${PROBE_TIMEOUT_SECONDS}")
+  else
+    probe_prefix=()
+  fi
+  output="$("${probe_prefix[@]}" env -i \
     AUZIX_ROOT="${AUZIX_ROOT}" \
     HOME=/Users/root \
     USER=root \
     LOGNAME=root \
     TERM=xterm-256color \
     TMPDIR=/Work/Temp \
+    PYTHONHOME=/Programs/Libpython313Minimal/current/RootFS/usr \
+    PYTHONPATH=/Programs/Libpython313Minimal/current/RootFS/usr/lib/python3.13:/Programs/Libpython313Stdlib/current/RootFS/usr/lib/python3.13:/Programs/Libpython313Stdlib/current/RootFS/usr/lib/python3.13/lib-dynload \
     PATH=/System/Compatibility/bin:/System/Compatibility/sbin:/Programs/BusyBox/current/Commands:/Programs/NcursesBase/current/Commands:/Programs/NcursesBin/current/Commands:/Programs/Python313/current/Commands \
     TERMINFO_DIRS=/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo \
     "${CHROOT_BIN}" "${AUZIX_ROOT}" "$@" 2>&1)"
@@ -99,10 +109,14 @@ run_in_root() {
   set -e
   if [[ "${status}" -eq 0 ]]; then
     pass "${label}"
-    [[ -n "${output}" ]] && report "${output}"
+    if [[ -n "${output}" ]]; then
+      report "${output}"
+    fi
   else
     fail "${label}"
-    [[ -n "${output}" ]] && report "${output}"
+    if [[ -n "${output}" ]]; then
+      report "${output}"
+    fi
   fi
 }
 
@@ -165,21 +179,48 @@ esac
 
 report ""
 report "Core runtime files"
-for lib in \
-  /System/Libraries/ld-linux-x86-64.so.2 \
-  /System/Libraries/libc.so.6 \
-  /System/Libraries/libgcc_s.so.1; do
-  if [[ -e "$(root_path "${lib}")" || -L "$(root_path "${lib}")" ]]; then
-    pass "${lib}"
-  else
-    fail "missing core runtime file ${lib}"
-  fi
-done
+if [[ -e "$(root_path /System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2)" || \
+      -L "$(root_path /System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2)" ]]; then
+  pass "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
+else
+  fail "missing core runtime loader /System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
+fi
+if [[ -e "$(root_path /System/Libraries/Runtime/glibc/libc.so.6)" || \
+      -L "$(root_path /System/Libraries/Runtime/glibc/libc.so.6)" ]]; then
+  pass "/System/Libraries/Runtime/glibc/libc.so.6"
+else
+  fail "missing core runtime libc /System/Libraries/Runtime/glibc/libc.so.6"
+fi
+if [[ -e "$(root_path /System/Libraries/Runtime/glibc/libgcc_s.so.1)" || \
+      -L "$(root_path /System/Libraries/Runtime/glibc/libgcc_s.so.1)" || \
+      -e "$(root_path /System/Libraries/libgcc_s.so.1)" || \
+      -L "$(root_path /System/Libraries/libgcc_s.so.1)" ]]; then
+  pass "core runtime libgcc_s.so.1"
+else
+  fail "missing core runtime libgcc_s.so.1"
+fi
 
 if [[ -d "$(root_path /Work/Temp)" ]]; then
   pass "/Work/Temp exists for TMPDIR"
 else
   fail "/Work/Temp missing; strict mode cannot depend on /tmp"
+fi
+
+if [[ -s "$(root_path /System/Compatibility/etc/ssl/certs/ca-certificates.crt)" ]]; then
+  pass "canonical AUZiX CA bundle exists"
+else
+  fail "missing canonical AUZiX CA bundle"
+fi
+if [[ -d "$(root_path /etc)" && ! -L "$(root_path /etc)" ]]; then
+  if [[ -L "$(root_path /etc/ssl)" && -s "$(root_path /etc/ssl/certs/ca-certificates.crt)" ]]; then
+    pass "/etc/ssl narrow compatibility alias resolves for compiled TLS defaults"
+  else
+    fail "/etc is a real directory but /etc/ssl does not resolve to AUZiX CA bundle"
+  fi
+elif [[ -s "$(root_path /etc/ssl/certs/ca-certificates.crt)" ]]; then
+  pass "/etc/ssl resolves through root compatibility policy"
+else
+  warn "/etc/ssl does not resolve in this proof root; OCI imports must add the narrow /etc/ssl alias"
 fi
 
 report ""
@@ -222,9 +263,9 @@ fi
 
 report ""
 report "Terminfo/curses probes"
-if [[ -e "$(root_path /Programs/NcursesBase/current/RootFS/usr/share/terminfo/x/xterm-256color)" || \
-      -e "$(root_path /Programs/NcursesTerm/current/RootFS/usr/share/terminfo/x/xterm-256color)" || \
-      -e "$(root_path /Programs/KittyTerminfo/current/RootFS/usr/share/terminfo/x/xterm-256color)" ]]; then
+if [[ -e "$(resolve_current /Programs/NcursesBase/current/RootFS/usr/share/terminfo/x/xterm-256color)" || \
+      -e "$(resolve_current /Programs/NcursesTerm/current/RootFS/usr/share/terminfo/x/xterm-256color)" || \
+      -e "$(resolve_current /Programs/KittyTerminfo/current/RootFS/usr/share/terminfo/x/xterm-256color)" ]]; then
   pass "xterm-256color terminfo exists in AUZiX runtime ladder"
 else
   fail "xterm-256color terminfo missing from AUZiX runtime ladder"
@@ -244,7 +285,7 @@ fi
 
 report ""
 report "Python-script runtime probes"
-if py_cmd="$(find_program_command Python313 python3.13 || true)"; [[ -n "${py_cmd:-}" ]]; then
+if py_cmd="$(find_program_command Python313Minimal python3.13 || find_program_command Python313 python3.13 || true)"; [[ -n "${py_cmd:-}" ]]; then
   run_in_root "Python can import encodings/resource" "${py_cmd}" -c 'import encodings, resource; print("python-runtime-ok")'
 else
   warn "Python313 not present in this profile"
@@ -260,11 +301,18 @@ report ""
 report "Wrapper and dependency ladder checks"
 if [[ -d "$(root_path /System/PackageDB)" ]]; then
   missing_runtime_receipts=0
+  declare -A receipt_names=()
+  while IFS= read -r receipt_index_path; do
+    receipt_index_name="$(jq -r '.name // empty' "${receipt_index_path}" 2>/dev/null || true)"
+    if [[ -n "${receipt_index_name}" ]]; then
+      receipt_names["${receipt_index_name}"]=1
+    fi
+  done < <(find "$(root_path /System/PackageDB)" -maxdepth 1 -type f -name '*.auzix.json' | sort)
   while IFS= read -r receipt; do
     package_name="$(jq -r '.name // empty' "${receipt}" 2>/dev/null || true)"
     while IFS= read -r dep; do
       [[ -n "${dep}" ]] || continue
-      if ! find "$(root_path /System/PackageDB)" -maxdepth 1 -type f -name "${dep}-*.auzix.json" -print -quit 2>/dev/null | grep -q .; then
+      if [[ -z "${receipt_names[${dep}]:-}" ]]; then
         report "MISSING-DEP: ${package_name}: ${dep}"
         missing_runtime_receipts=$((missing_runtime_receipts + 1))
       fi

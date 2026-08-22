@@ -122,6 +122,42 @@ validate_live_root_ownership() {
   log "live root user ownership gate passed"
 }
 
+ensure_core_runtime_surface() {
+  local root="$1"
+  local runtime_dir host_libgcc lib
+
+  runtime_dir="${root}/System/Libraries/Runtime/glibc"
+  mkdir -p "${runtime_dir}"
+
+  for lib in ld-linux-x86-64.so.2 libc.so.6; do
+    if [[ ! -e "${runtime_dir}/${lib}" && -e "${root}/System/Compatibility/lib64/${lib}" ]]; then
+      cp -a "${root}/System/Compatibility/lib64/${lib}" "${runtime_dir}/${lib}"
+    fi
+    if [[ ! -e "${runtime_dir}/${lib}" && -e "${root}/System/Compatibility/lib/x86_64-linux-gnu/${lib}" ]]; then
+      cp -a "${root}/System/Compatibility/lib/x86_64-linux-gnu/${lib}" "${runtime_dir}/${lib}"
+    fi
+  done
+
+  if [[ ! -e "${runtime_dir}/libgcc_s.so.1" ]]; then
+    host_libgcc="$(gcc -print-file-name=libgcc_s.so.1 2>/dev/null || true)"
+    if [[ -n "${host_libgcc}" && -e "${host_libgcc}" ]]; then
+      install -m 0644 "${host_libgcc}" "${runtime_dir}/libgcc_s.so.1"
+    elif [[ -e /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 ]]; then
+      install -m 0644 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 "${runtime_dir}/libgcc_s.so.1"
+    elif [[ -e /lib/x86_64-linux-gnu/libgcc_s.so.1 ]]; then
+      install -m 0644 /lib/x86_64-linux-gnu/libgcc_s.so.1 "${runtime_dir}/libgcc_s.so.1"
+    fi
+  fi
+
+  for lib in ld-linux-x86-64.so.2 libc.so.6 libgcc_s.so.1; do
+    if [[ ! -e "${runtime_dir}/${lib}" ]]; then
+      printf 'Core runtime surface gate failed: missing /System/Libraries/Runtime/glibc/%s\n' "${lib}" >&2
+      exit 1
+    fi
+  done
+  log "core runtime surface gate passed"
+}
+
 select_kernel() {
   if [[ -n "${KERNEL_IMAGE}" ]]; then
     return
@@ -169,6 +205,18 @@ select_root() {
     printf 'No Auzix strict root found. Run make auzix-strict-root auzix-strict-busybox first.\n' >&2
     exit 1
   fi
+}
+
+root_has_kernel_module() {
+  local root="$1"
+  local release="$2"
+  local module="$3"
+  local found
+
+  found="$(find "${root}/System/Drivers/${release}" -type f \
+    \( -name "${module}.ko" -o -name "${module}.ko.xz" -o -name "${module}.ko.zst" \) \
+    -print -quit 2>/dev/null || true)"
+  [[ -n "${found}" ]]
 }
 
 write_init() {
@@ -539,9 +587,7 @@ fi
 
 if [[ "${LIVE_ROOT_MODE}" == "iso-root" ]]; then
   for required_module in loop isofs overlay squashfs; do
-    if ! find "${ROOT_SOURCE}/System/Drivers/${KERNEL_RELEASE}" -type f \
-      \( -name "${required_module}.ko" -o -name "${required_module}.ko.xz" -o -name "${required_module}.ko.zst" \) \
-      -print -quit | grep -q .; then
+    if ! root_has_kernel_module "${ROOT_SOURCE}" "${KERNEL_RELEASE}" "${required_module}"; then
       printf 'Missing required live-ISO module %s for kernel %s. Rebuild the KernelModules receipt before building SquashFS media.\n' \
         "${required_module}" "${KERNEL_RELEASE}" >&2
       exit 1
@@ -556,6 +602,7 @@ case "${LIVE_ROOT_MODE}" in
   initramfs)
     log "Using whole-root initramfs live mode"
     copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/initramfs"
+    ensure_core_runtime_surface "${WORK_DIR}/initramfs"
     if [[ "${INCLUDE_LIVE_NATIVE_MIRRORS}" != "1" ]]; then
       rm -rf \
         "${WORK_DIR}/initramfs/System/Drivers/Xorg" \
@@ -594,6 +641,7 @@ EOF
       ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${WORK_DIR}/initramfs/bin/${applet}"
     done
     copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/rootfs-stage"
+    ensure_core_runtime_surface "${WORK_DIR}/rootfs-stage"
     if [[ "${INCLUDE_LIVE_ASSETS}" != "1" ]]; then
       rm -rf "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
       mkdir -p "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
