@@ -1,4 +1,4 @@
-.PHONY: compose-build compose-run kustomize-base kustomize-nfs auzix-installer-builder auzix-source-workbench auzix-source-workbench-review auzix-native-workbench auzix-native-workbench-review auzix-native-workbench-worker auzix-native-rebase-plan auzix-base-ports-plan auzix-package-root-tiny auzix-strict-all auzix-workstation-package-rebuild auzix-core-validation auzix-image auzix-vdi auzix-vbox-create auzix-run auzix-gui auzix-vagrant-up auzix-vagrant-up-vbox auzix-vagrant-ssh auzix-vagrant-destroy auzix-strict-root auzix-strict-probe auzix-strict-dynprobe auzix-strict-busybox auzix-strict-live-tools auzix-strict-access auzix-strict-service-runtime auzix-strict-iputils auzix-strict-package-tools auzix-strict-installer auzix-strict-installer-efl auzix-strict-package-manager-efl auzix-strict-installer-test auzix-strict-live-installer-demo-test auzix-strict-grub auzix-strict-sudo auzix-strict-dbus auzix-strict-udev auzix-strict-acpid auzix-strict-pulseaudio auzix-strict-alsa auzix-strict-strace auzix-strict-ca-certificates auzix-strict-curl auzix-strict-midori auzix-strict-userspace-tools auzix-strict-flatpak-runtime-support auzix-strict-flatpak-adapters auzix-strict-host-e auzix-strict-host-xorg auzix-strict-host-terminology auzix-strict-host-xterm auzix-strict-netsurf auzix-strict-lightdm auzix-strict-display-templates auzix-strict-e-assets auzix-strict-desktop-assets-package auzix-strict-desktop-repo-packages auzix-strict-desktop-integration auzix-strict-flatpak-runtime auzix-strict-user-defaults auzix-strict-kernel-modules auzix-strict-package-repo auzix-strict-container auzix-strict-pruned-test auzix-strict-audit auzix-strict-iso clean
+.PHONY: compose-build compose-run kustomize-base kustomize-nfs auzix-installer-builder auzix-source-workbench auzix-source-workbench-review auzix-native-workbench auzix-native-workbench-review auzix-native-workbench-worker auzix-native-rebase-plan auzix-base-ports-plan auzix-package-root-tiny auzix-strict-all auzix-workstation-package-rebuild auzix-core-validation auzix-image auzix-vdi auzix-vbox-create auzix-run auzix-gui auzix-vagrant-up auzix-vagrant-up-vbox auzix-vagrant-ssh auzix-vagrant-destroy auzix-strict-root auzix-strict-probe auzix-strict-dynprobe auzix-strict-busybox auzix-strict-live-tools auzix-strict-access auzix-strict-service-runtime auzix-strict-iputils auzix-strict-package-tools auzix-strict-installer auzix-strict-installer-efl auzix-strict-package-manager-efl auzix-strict-installer-test auzix-strict-live-installer-demo-test auzix-strict-grub auzix-strict-sudo auzix-strict-dbus auzix-strict-udev auzix-strict-acpid auzix-strict-pulseaudio auzix-strict-alsa auzix-strict-strace auzix-strict-ca-certificates auzix-strict-curl auzix-strict-midori auzix-strict-userspace-tools auzix-strict-flatpak-runtime-support auzix-strict-flatpak-adapters auzix-strict-host-e auzix-strict-host-xorg auzix-strict-host-terminology auzix-strict-host-xterm auzix-strict-netsurf auzix-strict-lightdm auzix-strict-display-templates auzix-strict-e-assets auzix-strict-desktop-assets-package auzix-strict-desktop-repo-packages auzix-strict-desktop-integration auzix-strict-flatpak-runtime auzix-strict-user-defaults auzix-strict-kernel-modules auzix-strict-package-repo auzix-container-zero auzix-strict-container auzix-proof-runtime-validation auzix-strict-pruned-test auzix-strict-audit auzix-strict-iso clean
 
 compose-build:
 	docker compose build builder
@@ -239,6 +239,9 @@ auzix-strict-package-repo:
 	./scripts/audit-auzix-package-archive-metadata.py out/auzix-strict/AuzixRoot --repo artifacts/auzix/repo --forbid-builder-owned-system-paths
 	./scripts/report-auzix-package-metadata-risk.py out/auzix-strict/AuzixRoot --repo artifacts/auzix/repo --json-out artifacts/auzix/package-metadata-risk.json --md-out artifacts/auzix/package-metadata-risk.md
 
+auzix-container-zero:
+	./scripts/build-auzix-busybox-zero-container.sh
+
 auzix-strict-container:
 	./scripts/build-auzix-strict-container.sh
 
@@ -247,6 +250,9 @@ auzix-strict-pruned-test:
 
 auzix-strict-audit:
 	./scripts/audit-auzix-strict-root.sh
+
+auzix-proof-runtime-validation:
+	./scripts/validate-auzix-proof-runtime.sh
 
 auzix-strict-iso:
 	./scripts/build-auzix-boot-iso.sh

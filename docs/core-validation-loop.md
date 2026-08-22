@@ -12,8 +12,11 @@ Use this order for sustaining work:
 1. Build the strict root.
 2. Run root and package runtime audits.
 3. Import the strict root as a container and run a small CLI smoke test.
-4. Generate an Ollama-ready triage prompt from the bounded evidence.
-5. Only then build ISO media or recreate a VM.
+4. Run the proof-runtime gate, including strict alias policy, terminfo,
+   Python-script wrappers, root/user identity, core library floor, and
+   wrapper-aware dependency ladder checks.
+5. Generate an Ollama-ready triage prompt from the bounded evidence.
+6. Only then build ISO media or recreate a VM.
 
 The local entry point is:
 
@@ -29,6 +32,7 @@ out/core-validation/ollama-prompt.md
 out/core-validation/strict-root-audit.txt
 out/core-validation/package-runtime-audit.txt
 out/core-validation/container-smoke.txt
+out/auzix-strict/proof-runtime-validation.txt
 ```
 
 ## Scope Boundary

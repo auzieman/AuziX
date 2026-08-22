@@ -693,6 +693,11 @@ if [ -n "\${font_dirs}" ]; then
 fi
 export PATH="\${prefix}/Commands:\${rootfs}/usr/bin:\${common}/usr/bin:\${rootfs}/usr/sbin:\${rootfs}/bin:\${rootfs}/sbin:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin\${PATH:+:\${PATH}}"
 export XDG_DATA_DIRS="\${rootfs}/usr/share:\${common}/usr/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export TERM="\${TERM:-xterm-256color}"
+case "\${TERM}" in
+  ""|dumb|linux) export TERM=xterm-256color ;;
+esac
+export TERMINFO_DIRS="\${TERMINFO_DIRS:-/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
 export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
@@ -815,6 +820,11 @@ export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Progra
 export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
+export TERM="\${TERM:-xterm-256color}"
+case "\${TERM}" in
+  ""|dumb|linux) export TERM=xterm-256color ;;
+esac
+export TERMINFO_DIRS="\${TERMINFO_DIRS:-/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo}"
 export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc\${own_lib_path:+:\${own_lib_path}}\${runtime_lib_path:+:\${runtime_lib_path}}\${compat_lib_path:+:\${compat_lib_path}}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 ${command_loader_tail}
 EOF

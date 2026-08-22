@@ -53,6 +53,53 @@ Different values are expected; missing answers are package-contract bugs.
 
 ## Required checks
 
+## Proof runtime gate
+
+Before a package set is allowed to become ISO media, workstation media, or a
+published repo lane, it must pass a proof-runtime gate. This gate exists because
+AUZiX previously accepted images that could boot or render a partial desktop
+while the underlying runtime was already broken.
+
+The proof gate is stricter than a boot smoke:
+
+- run the strict-root shape audit;
+- run the package receipt/runtime audit;
+- run a root-alias-gimp proof where top-level `/bin`, `/sbin`, `/lib`,
+  `/lib64`, `/usr`, `/var`, `/tmp`, `/home`, `/root`, and `/opt` are absent
+  unless the lane explicitly declares compatibility mode;
+- verify `/Work/Temp` and exported `TMPDIR` instead of accepting direct `/tmp`
+  assumptions;
+- verify core runtime files, including the loader, `libc.so.6`, and
+  `libgcc_s.so.1`, when `libgcc-s1` is treated as satisfied by
+  `/System/Libraries`;
+- verify user identity, user home ownership, and user-mode launch state, not
+  only root-mode command execution;
+- verify curses/terminal tools with `TERM=xterm-256color` and an AUZiX
+  `TERMINFO_DIRS` ladder;
+- verify Python-script packages through their front-door wrappers with
+  `PYTHONHOME`, `PYTHONPATH`, `lib-dynload`, `USER`, `LOGNAME`, and `TMPDIR`
+  set by the runtime contract;
+- verify wrapper-aware `ldd` or loader output using declared
+  `runtime_packages`, not just direct ELF paths;
+- block GUI/menu promotion until command, library, terminfo, Python, and
+  package-manager install-loop probes pass.
+
+The executable entry point for this gate is:
+
+```sh
+make auzix-proof-runtime-validation
+```
+
+It writes:
+
+```text
+out/auzix-strict/proof-runtime-validation.txt
+```
+
+When this gate fails, the fix belongs in the package contract, runtime ladder,
+or installer/build pipeline. The failed ISO, VM, or container should be kept as
+evidence, not patched into an undocumented snowflake.
+
 ## Native source guidebook gate
 
 Binary intake is not the first truth for a port. Before a package can graduate
