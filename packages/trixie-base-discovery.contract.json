@@ -1,0 +1,109 @@
+{
+  "format": "auzix-trixie-base-discovery-contract-v1",
+  "status": "planning-authority",
+  "purpose": "Select one coherent Debian Trixie release base and produce the complete immutable graph from which one AUZiX base generation is built.",
+  "upstream_model": {
+    "distribution": "Debian",
+    "suite": "trixie",
+    "snapshot": "required-immutable-snapshot-id-or-url",
+    "architectures": ["amd64"],
+    "authority": "Debian source packages, Debian patches, Debian build metadata, and Debian dependency/provider decisions from the selected snapshot",
+    "selection_rule": "All selected sources, binaries, build dependencies, runtime dependencies, and virtual providers must resolve inside the same immutable snapshot. Ambient apt candidates are forbidden after discovery."
+  },
+  "base_model": {
+    "rule": "One snapshot produces one AUZiX base generation. Every package in that generation is built against the same selected base.",
+    "protected_components": [
+      "glibc and ELF loader",
+      "compiler runtime",
+      "BusyBox and base command surface",
+      "shells",
+      "package transaction runtime",
+      "DBus, PAM, udev and service substrate",
+      "X11, EFL and Enlightenment desktop substrate",
+      "TLS and CA trust substrate"
+    ],
+    "leaf_rule": "A leaf package consumes the selected base ABI and cannot redefine or upgrade it.",
+    "base_transition_rule": "A requirement for a newer protected component rejects the leaf transaction and requires a new complete base-generation plan."
+  },
+  "discovery_inputs": [
+    "immutable Debian snapshot Release/InRelease metadata",
+    "Debian binary Packages indices",
+    "Debian Sources indices",
+    "selected AUZiX workstation root profile",
+    "Debian source package debian/control and generated package metadata",
+    "AUZiX filesystem and lifecycle translation policy"
+  ],
+  "discovery_edges": [
+    "Build-Depends",
+    "Build-Depends-Arch",
+    "Build-Depends-Indep",
+    "Pre-Depends",
+    "Depends",
+    "Conflicts",
+    "Breaks",
+    "Replaces",
+    "Provides and selected virtual providers"
+  ],
+  "phases": [
+    {
+      "id": "00-select-snapshot-and-roots",
+      "mode": "metadata-only"
+    },
+    {
+      "id": "01-resolve-complete-source-build-runtime-closure",
+      "mode": "metadata-only"
+    },
+    {
+      "id": "02-select-single-versions-and-providers",
+      "mode": "metadata-only"
+    },
+    {
+      "id": "03-detect-strongly-connected-build-groups-and-toposort",
+      "mode": "metadata-only"
+    },
+    {
+      "id": "04-prefetch-and-checksum-without-root-mutation",
+      "mode": "fetch-only"
+    },
+    {
+      "id": "05-write-reviewable-lock-and-stop",
+      "mode": "no-compile"
+    }
+  ],
+  "required_lock_outputs": [
+    "snapshot identity and repository metadata digests",
+    "requested root packages",
+    "complete selected binary and source package totals",
+    "exact versions, architectures, source URLs and checksums",
+    "selected virtual providers and alternatives",
+    "complete build and runtime graph",
+    "strongly connected build groups",
+    "complete substrate-first build order",
+    "protected base ABI and symbol floors",
+    "Git commit and proposed immutable tag"
+  ],
+  "hard_failures": [
+    "mixed suite or snapshot input",
+    "multiple selected providers for a protected component",
+    "unresolved dependency or virtual provider",
+    "selected binary requires a symbol newer than the selected base",
+    "source cannot build against the selected base",
+    "package or dependency appears after the lock",
+    "compile or root mutation begins during discovery",
+    "dirty or uncommitted build input"
+  ],
+  "build_handoff": {
+    "rule": "The build consumes only the reviewed lock and exact Git tag.",
+    "order": [
+      "bootstrap toolchain and protected base",
+      "base libraries and development surfaces",
+      "freeze and identify the AUZiX native builder",
+      "build remaining libraries and applications against that builder",
+      "package with translated Debian lifecycle semantics",
+      "validate in a fresh root as root and normal user",
+      "assemble images only from validated packages"
+    ],
+    "undeclared_dependency_action": "stop-and-return-to-discovery"
+  },
+  "terminal_condition": "Stop after producing a finite, reviewable, checksummed lock. Do not compile in the discovery run."
+}
