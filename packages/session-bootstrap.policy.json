@@ -1,0 +1,48 @@
+{
+  "format": "auzix-session-bootstrap-policy-v1",
+  "project": "AUZiX",
+  "authority_order": [
+    "packages/session-bootstrap.policy.json",
+    "packages/rebase-native-build.pipeline.json",
+    "packages/runtime-substrate.policy.json",
+    "notes/auzix-beta-factory-recenter-2026-08-23.md",
+    "notes/auzix-release-lane-guardrails-2026-08-21.md",
+    "notes/auzix-lab-operator-guardrails-2026-08-14.md"
+  ],
+  "release_lane": "compat-beta",
+  "research_lane": "strict-lab",
+  "release_rules": {
+    "working_tree": "clean",
+    "source": "exact committed and tagged lock ref",
+    "dependency_universe": "locked Debian Trixie release",
+    "dependency_discovery_during_build": "forbidden",
+    "alternate_core_runtime": "forbidden",
+    "elf_interpreter_rewrite": "forbidden",
+    "image_root_population": "package lifecycle install",
+    "promotion": "validation receipt required"
+  },
+  "core_provider": {
+    "glibc": "/System/Libraries/Runtime/glibc",
+    "parallel_glibc": "forbidden"
+  },
+  "canonical_flow": [
+    "discover-metadata",
+    "review-and-lock-graph",
+    "commit-and-tag-lock",
+    "prefetch-locked-inputs",
+    "build-substrate-and-dev-surfaces",
+    "build-native-auzix-builder",
+    "build-locked-leaf-packages",
+    "validate-container-and-normal-user-front-doors",
+    "assemble-image-from-package-lifecycle",
+    "validate-live-and-installed-vm",
+    "promote-by-receipt"
+  ],
+  "prohibited_release_entry_points": [
+    "unlocked recursive Debian intake",
+    "build from a dirty working tree",
+    "copy or rsync a validation root into an image",
+    "live repair presented as a release result",
+    "dependency discovery after compilation begins"
+  ]
+}
