@@ -9,3 +9,9 @@ artifacts/
 *.raw
 *.vdi
 __pycache__/
+
+# Operator-local and private lab state. Portable profiles and contracts belong
+# in the repository; host identities, credentials, runtime exports, and local
+# experiment state do not.
+.private/
+lab-private/
