@@ -1,5 +1,6 @@
 out/
 artifacts/
+downloads/
 .vagrant/
 *.log
 *.tmp
