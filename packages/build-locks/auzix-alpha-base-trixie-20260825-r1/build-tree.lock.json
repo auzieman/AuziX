@@ -1,0 +1,43 @@
+{
+  "format": "auzix-native-rebase-lock-v1",
+  "status": "locked-no-compile",
+  "run_id": "trixie-base-plan-20260825-r1",
+  "lock_tag": "auzix-base-lock-trixie-base-plan-20260825-r1",
+  "suggested_git_tag": "auzix-alpha-base-trixie-20260825-r1",
+  "locked_at": "2026-08-25T13:41:18Z",
+  "manifest_lock_sha256": "ed0169a0fd56b947cabd40fefb514df9a7cf70c361e39749d0fc248c1573cd3c",
+  "manifest_material": "/workspace/out/rebase/trixie-base-plan-20260825-r1/manifest-material.sha256",
+  "compile_order": "/workspace/out/rebase/trixie-base-plan-20260825-r1/compile-order.tsv",
+  "current_head_versions": "/workspace/out/rebase/trixie-base-plan-20260825-r1/current-head-versions.tsv",
+  "selected_current_head": "/workspace/out/rebase/trixie-base-plan-20260825-r1/selected-current-head.tsv",
+  "substrate_provider_lock": "/workspace/out/rebase/trixie-base-plan-20260825-r1/substrate-provider-lock.tsv",
+  "debian_policy": "/workspace/out/rebase/trixie-base-plan-20260825-r1/debian-current-head.policy.txt",
+  "apt_simulation_status": "ok",
+  "counts": {
+    "requested_roots": 356,
+    "requested_unresolved_or_virtual_roots": 2,
+    "dependency_edges": 2518,
+    "unique_dependency_packages": 914,
+    "selected_unique_packages": 1145,
+    "unresolved_or_virtual_packages": 0,
+    "substrate_providers": 47,
+    "substrate_selected_providers": 45,
+    "base_targets": 31,
+    "extended_targets": 28,
+    "planned_total_before_dependency_expansion": 415
+  },
+  "allowed_first_builds": [
+    "BusyBox",
+    "Lua",
+    "CACerts",
+    "Zlib",
+    "OpenSSL",
+    "Curl",
+    "PkgConfig",
+    "Make",
+    "CMake",
+    "Meson",
+    "Ninja"
+  ],
+  "rule": "Only this locked manifest tree may build the AUZiX BusyBox/base/build-toolchain stage. Commit and tag this lock before builders consume it. That acid/base AUZiX container becomes the authority; leaf apps wait until AUZiX can build AUZiX."
+}

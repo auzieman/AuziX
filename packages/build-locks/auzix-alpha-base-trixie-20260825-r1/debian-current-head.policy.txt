@@ -1,0 +1,15 @@
+suite=trixie
+arch=amd64
+Package files:
+ 100 /var/lib/dpkg/status
+     release a=now
+ 500 http://deb.debian.org/debian-security trixie-security/main amd64 Packages
+     release v=13,o=Debian,a=stable-security,n=trixie-security,l=Debian-Security,c=main,b=amd64
+     origin deb.debian.org
+ 500 http://deb.debian.org/debian trixie-updates/main amd64 Packages
+     release v=13-updates,o=Debian,a=stable-updates,n=trixie-updates,l=Debian,c=main,b=amd64
+     origin deb.debian.org
+ 500 http://deb.debian.org/debian trixie/main amd64 Packages
+     release v=13.6,o=Debian,a=stable,n=trixie,l=Debian,c=main,b=amd64
+     origin deb.debian.org
+Pinned packages:
