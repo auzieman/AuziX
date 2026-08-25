@@ -282,6 +282,7 @@ jq -n \
     status: $status,
     run_id: $run_id,
     lock_tag: $lock_tag,
+    git_tag: $git_tag,
     suggested_git_tag: $git_tag,
     profile: $profile,
     base_release: $base_release,
