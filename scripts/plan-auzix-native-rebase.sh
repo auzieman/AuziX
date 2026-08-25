@@ -218,6 +218,20 @@ else
     sort >"${OUT_DIR}/selected-package-set.txt"
 fi
 
+# A substrate declaration is a build requirement, not evidence that its
+# provider is already present.  Force every resolvable Debian provider from
+# the locked AUZiX base into the selected set before leaf packages are built.
+# Runtime validation will separately require the receipt and payload files in
+# the assembled root.
+while IFS= read -r substrate_package; do
+  provider="$(debian_provider_name "${substrate_package}")"
+  version="$(package_version "${provider}")"
+  [[ -n "${version}" && "${version}" != "(none)" ]] || continue
+  printf '%s\n' "${provider}"
+done < <(jq -r '.runtime_substrate[].packages[]' "${BASE_RELEASE}") \
+  >>"${OUT_DIR}/selected-package-set.txt"
+sort -u -o "${OUT_DIR}/selected-package-set.txt" "${OUT_DIR}/selected-package-set.txt"
+
 {
   printf 'package\tcandidate_version\tselection_state\n'
   awk 'BEGIN{FS=OFS="\t"}
