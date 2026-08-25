@@ -174,7 +174,7 @@ awk 'BEGIN{FS="\t"} NR > 1 && $3 != "requested-selected" {print $1 "\t" $2 "\t" 
   "${OUT_DIR}/current-head-versions.tsv" >"${OUT_DIR}/requested.unresolved"
 
 if command -v apt-cache >/dev/null 2>&1; then
-  xargs -a "${OUT_DIR}/requested.resolved" apt-cache depends --recurse \
+  xargs -a "${OUT_DIR}/requested.resolved" apt-cache depends \
     --no-conflicts --no-breaks --no-replaces --no-enhances \
     --no-suggests --no-recommends 2>/dev/null |
     awk '
@@ -202,12 +202,15 @@ if command -v apt-get >/dev/null 2>&1 && [[ -s "${OUT_DIR}/requested.resolved" ]
     xargs -a "${OUT_DIR}/requested.resolved" apt-get -s install --no-install-recommends >"${OUT_DIR}/apt-simulate.log" 2>"${OUT_DIR}/apt-simulate.stderr" ||
       apt_simulation_status="error"
   fi
-  {
-    cat "${OUT_DIR}/requested.resolved"
-    awk 'BEGIN{FS="\t"} {print $2; print $3}' "${OUT_DIR}/dependency-chain.tsv"
-  } |
-    awk 'NF && $0 != "metadata-unavailable" && !seen[$0]++ {print $0}' |
+  awk '/^Inst / {print $2}' "${OUT_DIR}/apt-simulate.log" |
+    awk 'NF && !seen[$0]++ {print $0}' |
     sort >"${OUT_DIR}/selected-package-set.txt"
+  if [[ ! -s "${OUT_DIR}/selected-package-set.txt" ]]; then
+    apt_simulation_status="${apt_simulation_status}-fallback-direct-deps"
+    awk 'BEGIN{FS="\t"} {print $2; print $3}' "${OUT_DIR}/dependency-chain.tsv" |
+      awk 'NF && $0 != "metadata-unavailable" && !seen[$0]++ {print $0}' |
+      sort >"${OUT_DIR}/selected-package-set.txt"
+  fi
 else
   apt_simulation_status="fallback-direct-deps"
   awk 'BEGIN{FS="\t"} {print $2; print $3}' "${OUT_DIR}/dependency-chain.tsv" |
