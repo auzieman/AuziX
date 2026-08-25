@@ -40,6 +40,10 @@ find_auzix_eet_command() {
 EET_COMMAND="$(find_auzix_eet_command || true)"
 EET_COMMAND_IS_AUZIX=0
 if [[ -z "${EET_COMMAND}" && -x "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" ]]; then
+  if [[ "${AUZIX_LOCKED_EXECUTION:-0}" == "1" ]]; then
+    printf 'Locked execution is missing planned package libeet-bin.\n' >&2
+    exit 2
+  fi
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" "${AUZIX_ROOT}" libeet-bin
   EET_COMMAND="$(find_auzix_eet_command || true)"
 fi
@@ -75,7 +79,7 @@ write_activation_hook() {
 
   mkdir -p "${program_root}/Commands"
   cat >"${program_root}/Commands/activate" <<EOF
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox

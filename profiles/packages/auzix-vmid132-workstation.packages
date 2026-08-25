@@ -1,7 +1,7 @@
 # AUZiX workstation mirror manifest from vmid132 / trixie-smoke-132
 # Generated from: apt-mark showmanual on Debian 13.6 Trixie LightDM/MATE/E reference host.
 # Purpose: build AUZiX workstation packages our way, preserving Debian package semantics with AUZiX paths.
-# Count: 344 manual packages at capture time.
+# Count: 356 locked workstation roots after AUZiX runtime additions.
 
 abiword
 adduser
@@ -21,6 +21,7 @@ bind9-host
 binutils
 bsdutils
 btrfs-progs
+bubblewrap
 build-essential
 busybox
 bzip2
@@ -70,6 +71,7 @@ facter
 fdisk
 file
 findutils
+flatpak
 firefox-esr
 firewall-config
 fontconfig
@@ -91,8 +93,13 @@ gnome-control-center
 gnome-disk-utility
 gnome-settings-daemon
 gnumeric
+gnupg
 gparted
 gpg
+gpg-agent
+gpgconf
+gpgsm
+gpgv
 grep
 groff-base
 grub-common
@@ -116,6 +123,8 @@ iputils-ping
 iw
 jq
 keyboard-configuration
+x11-xkb-utils
+xkb-data
 kio6
 kitty
 kmod
@@ -126,6 +135,7 @@ less
 libabw-0.1-1
 libacl1
 libapparmor1
+libeet-bin
 libapt-pkg7.0
 libattr1
 libaudit1
@@ -276,6 +286,7 @@ ninja-build
 openssh-client
 openssh-server
 openssl-provider-legacy
+ostree
 os-prober
 parted
 passwd
@@ -340,6 +351,7 @@ wpasupplicant
 wtmpdb
 xfce4-terminal
 xfsprogs
+xdg-dbus-proxy
 xinit
 xorg
 xz-utils

@@ -22,6 +22,11 @@ ensure_debian_intake_package() {
     printf '[flatpak-runtime] reuse %s from existing Debian intake\n' "${native_name}" >&2
     return 0
   fi
+  if [[ "${AUZIX_LOCKED_EXECUTION:-0}" == "1" ]]; then
+    printf '[flatpak-runtime] STOP: locked execution is missing planned package %s (%s)\n' \
+      "${native_name}" "${debian_package}" >&2
+    return 2
+  fi
   printf '[flatpak-runtime] intake missing %s via Debian package %s\n' \
     "${native_name}" "${debian_package}" >&2
   "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" \

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${AUZIX_ROOT:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 REPORT_DIR="${AUZIX_REPORT_DIR:-${ROOT_DIR}/out/package-rebuild}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+export AUZIX_LOCKED_EXECUTION=1
 REBASE_LOCK="${AUZIX_REBASE_LOCK:-}"
 LOG_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.log"
 SUMMARY_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.summary"
