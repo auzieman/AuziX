@@ -7,6 +7,7 @@ export AUZIX_STRICT_RELEASE_LANE="${AUZIX_STRICT_RELEASE_LANE:-1}"
 PROFILE="${1:-${ROOT_DIR}/profiles/packages/auzix-trixie-user-apps.packages}"
 AUZIX_ROOT="${2:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LIMIT="${AUZIX_TRIXIE_LIMIT:-0}"
+OFFSET="${AUZIX_TRIXIE_OFFSET:-0}"
 SORT_PROFILE="${AUZIX_TRIXIE_SORT_PROFILE:-0}"
 REPORT_DIR="${ROOT_DIR}/out/package-bot"
 REPORT_NAME="${AUZIX_TRIXIE_REPORT:-trixie-user-apps.report.json}"
@@ -22,6 +23,10 @@ log() {
 }
 [[ "${LIMIT}" =~ ^[0-9]+$ ]] || {
   log "AUZIX_TRIXIE_LIMIT must be a non-negative integer"
+  exit 1
+}
+[[ "${OFFSET}" =~ ^[0-9]+$ ]] || {
+  log "AUZIX_TRIXIE_OFFSET must be a non-negative integer"
   exit 1
 }
 [[ "${SORT_PROFILE}" =~ ^[01]$ ]] || {
@@ -45,6 +50,9 @@ else
     }
   ' "${PROFILE}")
 fi
+if (( OFFSET > 0 )); then
+  packages=("${packages[@]:OFFSET}")
+fi
 if (( LIMIT > 0 && LIMIT < ${#packages[@]} )); then
   packages=("${packages[@]:0:LIMIT}")
 fi
@@ -52,7 +60,8 @@ log "profile_order=$([[ "${SORT_PROFILE}" == "1" ]] && printf sorted || printf p
 log "strict_release_lane=${AUZIX_STRICT_RELEASE_LANE} debian_suite=${AUZIX_DEBIAN_SUITE}"
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-results='[]'
+results_file="$(mktemp "${TMPDIR:-/tmp}/auzix-trixie-intake-results.XXXXXX.jsonl")"
+trap 'rm -f "${results_file}"' EXIT
 package_index=0
 for package_name in "${packages[@]}"; do
   package_index=$((package_index + 1))
@@ -71,22 +80,18 @@ for package_name in "${packages[@]}"; do
     fi
   fi
   package_finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  results="$(
-    jq -cn --argjson current "${results}" --arg id "${package_name}" \
-      --arg status "${status}" --arg started_at "${package_started}" \
-      --arg finished_at "${package_finished}" \
-      '$current + [{id: $id, status: $status,
-        started_at: $started_at, finished_at: $finished_at}]'
-  )"
+  jq -cn --arg id "${package_name}" --arg status "${status}" \
+    --arg started_at "${package_started}" --arg finished_at "${package_finished}" \
+    '{id: $id, status: $status, started_at: $started_at, finished_at: $finished_at}' \
+    >>"${results_file}"
 done
 
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-jq -n \
+jq -n --slurpfile results "${results_file}" \
   --arg format "auzix-trixie-intake-report-v1" \
   --arg profile "${PROFILE#${ROOT_DIR}/}" \
   --arg started_at "${started_at}" \
   --arg finished_at "${finished_at}" \
-  --argjson results "${results}" \
   '{
     format: $format,
     profile: $profile,
