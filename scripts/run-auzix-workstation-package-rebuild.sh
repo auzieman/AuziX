@@ -9,6 +9,9 @@ REBASE_LOCK="${AUZIX_REBASE_LOCK:-}"
 LOG_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.log"
 SUMMARY_FILE="${REPORT_DIR}/workstation-package-rebuild-${RUN_ID}.summary"
 PACKAGE_SPOOL_DIR="${AUZIX_PACKAGE_SPOOL_DIR:-${ROOT_DIR}/artifacts/auzix/package-spool-${RUN_ID}}"
+LOCK_DIR="$(cd "$(dirname "${REBASE_LOCK:-.}")" 2>/dev/null && pwd || true)"
+LOCKED_SELECTION="${AUZIX_LOCKED_SELECTION:-${LOCK_DIR}/selected-current-head.tsv}"
+LOCKED_PROFILE="${REPORT_DIR}/locked-intake-${RUN_ID}.packages"
 
 mkdir -p "${REPORT_DIR}"
 
@@ -67,6 +70,19 @@ jq -e '
 
 log "using native rebase lock=${REBASE_LOCK}"
 
+if [[ ! -s "${LOCKED_SELECTION}" ]]; then
+  log "STOP: locked package selection does not exist: ${LOCKED_SELECTION}"
+  exit 2
+fi
+
+awk -F '\t' 'NR > 1 && $3 == "selected" {print $1}' "${LOCKED_SELECTION}" >"${LOCKED_PROFILE}"
+locked_package_count="$(wc -l <"${LOCKED_PROFILE}" | tr -d ' ')"
+if [[ "${locked_package_count}" -eq 0 ]]; then
+  log "STOP: locked package selection is empty: ${LOCKED_SELECTION}"
+  exit 2
+fi
+log "locked package transaction count=${locked_package_count} source=${LOCKED_SELECTION}"
+
 cat >"${SUMMARY_FILE}" <<EOF
 format=auzix-workstation-package-rebuild-v1
 run_id=${RUN_ID}
@@ -107,29 +123,14 @@ run_step make auzix-strict-acpid
 run_step make auzix-strict-sudo
 run_step make auzix-strict-userspace-tools
 
-# Targeted first: rebuild the packages we know VM135 exposed as broken/stale.
+# Consume the committed package transaction exactly once. Dependency discovery
+# happened in the planner and is forbidden here: execution must never expand
+# or reorder the locked universe while mutating the target root.
 run_step env \
-  AUZIX_TRIXIE_REPORT="userspace-repair-${RUN_ID}.json" \
+  AUZIX_TRIXIE_BUILD_DEPENDS=0 \
+  AUZIX_TRIXIE_REPORT="locked-intake-${RUN_ID}.json" \
   ./scripts/run-auzix-trixie-intake.sh \
-  profiles/packages/auzix-2026-08-11-userspace-repair.packages \
-  "${AUZIX_ROOT}"
-
-# Proof builds need under-the-hood tools before app/desktop validation starts.
-# These packages are allowed in lab containers/ISOs even when the eventual base
-# image trims them back out.
-run_step env \
-  AUZIX_TRIXIE_REPORT="proof-forensics-${RUN_ID}.json" \
-  ./scripts/run-auzix-trixie-intake.sh \
-  profiles/packages/auzix-proof-forensics.packages \
-  "${AUZIX_ROOT}"
-
-# Then the broader Trixie mirror/app sweep. This should reuse already-good
-# receipts and fill dependency gaps instead of hand-carrying one library at a
-# time.
-run_step env \
-  AUZIX_TRIXIE_REPORT="trixie-user-apps-${RUN_ID}.json" \
-  ./scripts/run-auzix-trixie-intake.sh \
-  profiles/packages/auzix-trixie-user-apps.packages \
+  "${LOCKED_PROFILE}" \
   "${AUZIX_ROOT}"
 
 # AUZiX-native desktop surfaces and Flatpak adapters sit on top of the payloads.

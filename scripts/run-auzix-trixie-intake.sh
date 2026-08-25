@@ -53,9 +53,11 @@ log "strict_release_lane=${AUZIX_STRICT_RELEASE_LANE} debian_suite=${AUZIX_DEBIA
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 results='[]'
+package_index=0
 for package_name in "${packages[@]}"; do
+  package_index=$((package_index + 1))
   package_started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  log "building ${package_name}"
+  log "transaction=${package_index}/${#packages[@]} building=${package_name} dependency_discovery=${AUZIX_TRIXIE_BUILD_DEPENDS:-1}"
   status="failed"
   if "${ROOT_DIR}/scripts/build-auzix-debian-intake-package.sh" \
     "${AUZIX_ROOT}" "${package_name}"; then
