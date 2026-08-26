@@ -1,0 +1,8 @@
+# Bounded repository-closure correction discovered by the 2026-08-26
+# immutable-spool audit. Dependency discovery remains disabled.
+apt
+libapt-pkg7.0
+libc-bin
+grub-common
+libreoffice-core-nogui
+less
