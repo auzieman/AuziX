@@ -92,7 +92,6 @@ nginx_common="$(find "${WORK}/one-nginx/root/Programs/NginxCommon" -mindepth 1 -
   || fail "packaged NginxCommon configuration is missing"
 mkdir -p \
   "${WORK}/one-nginx/root/Services/Nginx/Site" \
-  "${WORK}/one-nginx/root/System/Settings/Nginx" \
   "${WORK}/one-nginx/root/System/State/Nginx" \
   "${WORK}/one-nginx/root/System/Logs/Nginx" \
   "${WORK}/one-nginx/root/Work/Nginx/ClientBody" \
@@ -102,14 +101,14 @@ mkdir -p \
   "${WORK}/one-nginx/root/Work/Nginx/SCGI" \
   "${WORK}/one-nginx/root/Work/Temp"
 cp -a "${nginx_common}/RootFS/etc/nginx/mime.types" \
-  "${WORK}/one-nginx/root/System/Settings/Nginx/mime.types"
+  "${WORK}/one-nginx/root/Services/Nginx/mime.types"
 printf '%s\n' \
   'daemon off;' \
   'pid /System/State/Nginx/nginx.pid;' \
   'error_log stderr notice;' \
   'events { worker_connections 256; }' \
   'http {' \
-  '  include /System/Settings/Nginx/mime.types;' \
+  '  include /Services/Nginx/mime.types;' \
   '  default_type application/octet-stream;' \
   '  access_log /System/Logs/Nginx/access.log;' \
   '  client_body_temp_path /Work/Nginx/ClientBody;' \
@@ -118,12 +117,12 @@ printf '%s\n' \
   '  uwsgi_temp_path /Work/Nginx/UWSGI;' \
   '  scgi_temp_path /Work/Nginx/SCGI;' \
   '  server { listen 8080; server_name _; root /Services/Nginx/Site; location / { try_files $uri $uri/ =404; } }' \
-  '}' >"${WORK}/one-nginx/root/System/Settings/Nginx/nginx.conf"
+  '}' >"${WORK}/one-nginx/root/Services/Nginx/nginx.conf"
 printf '%s\n' '<!doctype html><title>AUZiX Nginx</title><h1>AUZiX container one</h1><p>BusyBox is zero; Nginx is one.</p>' \
   >"${WORK}/one-nginx/root/Services/Nginx/Site/index.html"
 printf '%s\n' \
   '#!/Programs/BusyBox/current/Commands/busybox sh' \
-  'exec /Programs/Nginx/current/Commands/nginx -c /System/Settings/Nginx/nginx.conf -p /' \
+  'exec /Programs/Nginx/current/Commands/nginx -c /Services/Nginx/nginx.conf -p /' \
   >"${WORK}/one-nginx/root/Services/Nginx/run"
 chmod 0755 "${WORK}/one-nginx/root/Services/Nginx/run"
 chown -R 65534:65534 \
@@ -142,7 +141,7 @@ docker run -d --name auzix-zero-busybox "${BUSYBOX_IMAGE}" \
 
 docker build --pull=false --build-arg "BASE_IMAGE=${BUSYBOX_IMAGE}" -t "${NGINX_IMAGE}" "${WORK}/one-nginx"
 docker run --rm "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
-  -c /System/Settings/Nginx/nginx.conf -p /
+  -c /Services/Nginx/nginx.conf -p /
 docker rm -f auzix-one-nginx >/dev/null 2>&1 || true
 docker run -d --name auzix-one-nginx "${NGINX_IMAGE}" >/dev/null
 
@@ -172,9 +171,60 @@ while IFS= read -r archive; do
   [[ -n "${archive}" ]] || continue
   tar --numeric-owner -xzf "${RELEASE_ROOT}/repo/packages/${archive}" -C "${WORK}/pre-hdd/root"
 done <"${WORK}/pre-hdd-order.txt"
+mkdir -p "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
+chown 1000:1000 "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
-docker run --rm "${MONSTER_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
-  'test -s /System/State/packages/installed.json; test -x /System/Libraries/Runtime/glibc/libc.so.6; test -x /Programs/Glances/current/Commands/glances; test -x /Programs/Htop/current/Commands/htop; echo auzix-pre-hdd-ok'
+monster_run() {
+  docker run --rm \
+    --user 1000:1000 \
+    -e HOME=/Users/auzix -e USER=auzix -e LOGNAME=auzix \
+    -e TERM=xterm-256color \
+    "${MONSTER_IMAGE}" "$@"
+}
+docker run --rm "${MONSTER_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec '
+  test -s /System/State/packages/installed.json
+  test -x /System/Libraries/Runtime/glibc/libc.so.6
+  test -x /Programs/Glances/current/Commands/glances
+  test -x /Programs/Htop/current/Commands/htop
+  test -x /Programs/Python313Minimal/current/Commands/python3.13
+  test -s /Programs/NcursesBase/current/RootFS/usr/share/terminfo/x/xterm-256color
+'
+monster_run /Programs/Python313Minimal/current/Commands/python3.13 -c \
+  'import curses, ssl, sqlite3; print(ssl.OPENSSL_VERSION)'
+monster_run /Programs/Glances/current/Commands/glances --version
+monster_run /Programs/Htop/current/Commands/htop --version
+monster_run /Programs/Busybox/current/Commands/busybox sh -ec '
+  printf "AUZiX LibreOffice conversion proof\n" > /Work/Validation/input.txt
+  lowriter --headless --convert-to pdf --outdir /Work/Validation /Work/Validation/input.txt
+  test -s /Work/Validation/input.pdf
+'
+python3 - "${WORK}/pre-hdd/root" <<'PY'
+import configparser, shlex, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+failures = []
+for desktop in root.glob("Programs/*/*/RootFS/usr/share/applications/*.desktop"):
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        parser.read(desktop, encoding="utf-8")
+        value = parser.get("Desktop Entry", "Exec", fallback="").strip()
+        if not value:
+            continue
+        command = shlex.split(value)[0]
+    except Exception as error:
+        failures.append(f"{desktop}: parse error: {error}")
+        continue
+    if command.startswith("/"):
+        candidates = [root / command.lstrip("/")]
+    else:
+        candidates = list(root.glob(f"Programs/*/current/Commands/{command}"))
+    if not any(path.exists() for path in candidates):
+        failures.append(f"{desktop}: unresolved Exec={command}")
+if failures:
+    print("\n".join(failures[:50]), file=sys.stderr)
+    raise SystemExit(f"desktop launcher failures={len(failures)}")
+PY
+log "pre-HDD runtime intent passed for root and uid=1000"
 docker rm -f auzix-pre-hdd >/dev/null 2>&1 || true
 docker run -d --name auzix-pre-hdd "${MONSTER_IMAGE}" \
   /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
