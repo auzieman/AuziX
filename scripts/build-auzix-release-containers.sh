@@ -128,7 +128,7 @@ docker run -d --name auzix-zero-busybox "${BUSYBOX_IMAGE}" \
   /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
 
 docker build --pull=false --build-arg "BASE_IMAGE=${BUSYBOX_IMAGE}" -t "${NGINX_IMAGE}" "${WORK}/one-nginx"
-docker run --rm --user 0:0 "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
+docker run --rm "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
   -c /System/Settings/Nginx/nginx.conf -p /
 docker rm -f auzix-one-nginx >/dev/null 2>&1 || true
 docker run -d --name auzix-one-nginx "${NGINX_IMAGE}" >/dev/null
