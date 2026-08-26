@@ -3,6 +3,7 @@ FROM ${BASE_IMAGE}
 
 COPY root/ /
 
+SHELL ["/Programs/BusyBox/current/Commands/busybox", "sh", "-c"]
 RUN /Programs/BusyBox/current/Commands/busybox chown -R 65534:65534 \
     /Services/Nginx /System/State/Nginx /System/Logs/Nginx /Work/Nginx /Work/Temp
 
