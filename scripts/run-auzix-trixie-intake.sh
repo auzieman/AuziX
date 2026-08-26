@@ -9,6 +9,7 @@ AUZIX_ROOT="${2:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 LIMIT="${AUZIX_TRIXIE_LIMIT:-0}"
 OFFSET="${AUZIX_TRIXIE_OFFSET:-0}"
 SORT_PROFILE="${AUZIX_TRIXIE_SORT_PROFILE:-0}"
+RESUME_BY_SPOOL="${AUZIX_TRIXIE_RESUME_BY_SPOOL:-1}"
 REPORT_DIR="${ROOT_DIR}/out/package-bot"
 REPORT_NAME="${AUZIX_TRIXIE_REPORT:-trixie-user-apps.report.json}"
 REPORT_FILE="${REPORT_DIR}/${REPORT_NAME}"
@@ -33,6 +34,10 @@ log() {
   log "AUZIX_TRIXIE_SORT_PROFILE must be 0 or 1"
   exit 1
 }
+[[ "${RESUME_BY_SPOOL}" =~ ^[01]$ ]] || {
+  log "AUZIX_TRIXIE_RESUME_BY_SPOOL must be 0 or 1"
+  exit 1
+}
 [[ "${REPORT_NAME}" =~ ^[A-Za-z0-9._-]+[.]json$ ]] || {
   log "AUZIX_TRIXIE_REPORT must be a JSON filename"
   exit 1
@@ -50,7 +55,25 @@ else
     }
   ' "${PROFILE}")
 fi
+requested_package_count="${#packages[@]}"
+if [[ "${RESUME_BY_SPOOL}" == "1" && -n "${AUZIX_PACKAGE_SPOOL_DIR:-}" &&
+  -d "${AUZIX_PACKAGE_SPOOL_DIR}/entries" ]]; then
+  completed_file="$(mktemp "${TMPDIR:-/tmp}/auzix-trixie-completed.XXXXXX")"
+  pending_file="$(mktemp "${TMPDIR:-/tmp}/auzix-trixie-pending.XXXXXX")"
+  trap 'rm -f "${results_file:-}" "${completed_file:-}" "${pending_file:-}"' EXIT
+  find "${AUZIX_PACKAGE_SPOOL_DIR}/entries" -maxdepth 1 -type f -name '*.json' -print0 |
+    xargs -0 -r jq -r '.source.package // empty' |
+    sort -u >"${completed_file}"
+  printf '%s\n' "${packages[@]}" |
+    grep -Fvx -f "${completed_file}" >"${pending_file}" || true
+  mapfile -t packages <"${pending_file}"
+  log "identity_resume requested=${requested_package_count} completed=$(wc -l <"${completed_file}" | tr -d ' ') pending=${#packages[@]} spool=${AUZIX_PACKAGE_SPOOL_DIR}"
+fi
 if (( OFFSET > 0 )); then
+  if [[ "${RESUME_BY_SPOOL}" == "1" ]]; then
+    log "STOP: line-offset resume cannot be combined with identity-based spool resume"
+    exit 2
+  fi
   packages=("${packages[@]:OFFSET}")
 fi
 if (( LIMIT > 0 && LIMIT < ${#packages[@]} )); then
@@ -61,7 +84,7 @@ log "strict_release_lane=${AUZIX_STRICT_RELEASE_LANE} debian_suite=${AUZIX_DEBIA
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 results_file="$(mktemp "${TMPDIR:-/tmp}/auzix-trixie-intake-results.XXXXXX.jsonl")"
-trap 'rm -f "${results_file}"' EXIT
+trap 'rm -f "${results_file}" "${completed_file:-}" "${pending_file:-}"' EXIT
 package_index=0
 for package_name in "${packages[@]}"; do
   package_index=$((package_index + 1))

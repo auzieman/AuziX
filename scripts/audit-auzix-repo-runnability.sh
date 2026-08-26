@@ -19,11 +19,11 @@ jq -r '
 ' "${INDEX_PATH}" >"${INDEX_PATH}.zero-command-programs.tsv"
 
 jq -r '
-  (.packages | map(.name) | unique) as $names
+  (.packages | map({key: .name, value: true}) | from_entries) as $names
   | .packages[]
   | .name as $package_name
   | (.depends // [])[]
-  | select(($names | index(.) | not))
+  | select($names[.] != true)
   | [$package_name, .]
   | @tsv
 ' "${INDEX_PATH}" >"${INDEX_PATH}.missing-dependencies.tsv"

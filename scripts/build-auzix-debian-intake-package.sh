@@ -404,9 +404,17 @@ if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" 
     fi
   fi
 fi
+# Preserve the direct package edges before expanding the installed dependency
+# closure.  The closure is useful to launchers, but it is not an install order;
+# auzix-pkg needs this direct graph for a deterministic dependency-first plan.
+native_direct_depends_json="${native_depends_json}"
 native_depends_words="$(native_installed_depends_closure_words "${native_depends_words}" "${AUZIX_ROOT}/System/PackageDB")"
 native_depends_words="$(tr ' ' '\n' <<<"${native_depends_words}" | awk -v self="${native_name}" 'NF && $0 != self && $0 != "Libc6" && $0 != "LibgccS1" && $0 != "GCC14Base" && !seen[$0]++' | paste -sd' ' -)"
-native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+native_runtime_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+# Package transactions are defined by direct graph edges.  The expanded
+# installed-root closure is launcher/runtime-search metadata only; publishing
+# it as `.depends` makes every leaf package pull the mutable build root.
+native_depends_json="${native_direct_depends_json}"
 validation_library_paths_json="$(
   {
     printf '/Programs/%s/%s/RootFS/usr/lib/x86_64-linux-gnu\n' "${native_name:-UNKNOWN}" "${safe_version:-UNKNOWN}"
@@ -554,6 +562,7 @@ ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
 commands_json='[]'
 compatibility_exports_json='[]'
+desktop_entries_json='[]'
 mkdir -p "${AUZIX_ROOT}/System/Compatibility/usr/share/applications"
 while IFS= read -r rel_command; do
   command_base="$(basename "${rel_command}")"
@@ -933,12 +942,48 @@ while IFS= read -r rel_desktop; do
       --arg desktop "/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}" \
       '$current + [$desktop]'
   )"
+  desktop_entries_json="$(
+    jq -cn --argjson current "${desktop_entries_json}" \
+      --arg desktop "/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}" \
+      '$current + [$desktop]'
+  )"
 done < <(
   find "${program_root}/RootFS/usr/share/applications" -maxdepth 1 \
     -type f -name '*.desktop' -printf '%P\n' 2>/dev/null |
     sed 's#^#usr/share/applications/#' |
     sort
 )
+
+# Glances is intentionally a terminal application and Debian does not ship a
+# desktop file for it.  AUZiX desktop installs still need one canonical,
+# testable launcher rather than an ad-hoc menu entry or a root-only command.
+if [[ "${native_name}" == "Glances" ]] &&
+   [[ -x "${program_root}/Commands/glances" ]]; then
+  desktop_target="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-Glances.desktop"
+  cat >"${desktop_target}" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Glances
+Comment=Monitor system resources
+Exec=/Programs/Glances/current/Commands/glances
+Icon=utilities-system-monitor
+Terminal=true
+Categories=System;Monitor;
+StartupNotify=false
+X-AUZiX-Launcher-State=validated-contract
+EOF
+  chmod 0644 "${desktop_target}"
+  compatibility_exports_json="$(
+    jq -cn --argjson current "${compatibility_exports_json}" \
+      --arg desktop "/System/Compatibility/usr/share/applications/auzix-Glances.desktop" \
+      '$current + [$desktop] | unique'
+  )"
+  desktop_entries_json="$(
+    jq -cn --argjson current "${desktop_entries_json}" \
+      --arg desktop "/System/Compatibility/usr/share/applications/auzix-Glances.desktop" \
+      '$current + [$desktop] | unique'
+  )"
+fi
 while IFS= read -r rel_service; do
   service_base="$(basename "${rel_service}")"
   command_name_allowed "${service_base}" || continue
@@ -1004,6 +1049,13 @@ done < <(
 )
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
+required_glibc="$({
+  while IFS= read -r -d '' payload_file; do
+    file "${payload_file}" 2>/dev/null | grep -q 'ELF' || continue
+    strings "${payload_file}" 2>/dev/null |
+      grep -Eo 'GLIBC_[0-9]+[.][0-9]+' || true
+  done < <(find "${program_root}/RootFS" -type f -print0)
+} | sort -V | tail -n 1)"
 command_count="$(jq 'length' <<<"${commands_json}")"
 repack_class="payload"
 if [[ "${payload_file_count}" -lt 25 && -n "${package_depends}" ]]; then
@@ -1017,9 +1069,12 @@ fi
 manifest_json_dir="$(mktemp -d)"
 trap 'rm -rf "${manifest_json_dir}"' EXIT
 printf '%s\n' "${native_depends_json}" >"${manifest_json_dir}/depends.json"
+printf '%s\n' "${native_direct_depends_json}" >"${manifest_json_dir}/direct-depends.json"
+printf '%s\n' "${native_runtime_depends_json}" >"${manifest_json_dir}/runtime-depends.json"
 printf '%s\n' "${native_recommends_json}" >"${manifest_json_dir}/recommends.json"
 printf '%s\n' "${commands_json}" >"${manifest_json_dir}/commands.json"
 printf '%s\n' "${compatibility_exports_json}" >"${manifest_json_dir}/compatibility_exports.json"
+printf '%s\n' "${desktop_entries_json}" >"${manifest_json_dir}/desktop_entries.json"
 printf '%s\n' "${maintainer_surfaces_json}" >"${manifest_json_dir}/maintainer_surfaces.json"
 printf '%s\n' "${debian_payload_manifest_json}" >"${manifest_json_dir}/debian_payload_manifest.json"
 printf '%s\n' "${debian_md5sums_json}" >"${manifest_json_dir}/debian_md5sums.json"
@@ -1033,6 +1088,7 @@ jq -n \
   --arg source_version "${package_version}" \
   --arg source_architecture "${package_arch}" \
   --arg source_suite "trixie" \
+  --arg required_glibc "${required_glibc}" \
   --arg upstream_depends "${package_depends}" \
   --arg upstream_recommends "${package_recommends}" \
   --arg description "${package_description}" \
@@ -1040,9 +1096,12 @@ jq -n \
   --arg current "/Programs/${native_name}/current" \
   --arg repack_class "${repack_class}" \
   --slurpfile depends "${manifest_json_dir}/depends.json" \
+  --slurpfile direct_depends "${manifest_json_dir}/direct-depends.json" \
+  --slurpfile runtime_depends "${manifest_json_dir}/runtime-depends.json" \
   --slurpfile recommends "${manifest_json_dir}/recommends.json" \
   --slurpfile commands "${manifest_json_dir}/commands.json" \
   --slurpfile compatibility_exports "${manifest_json_dir}/compatibility_exports.json" \
+  --slurpfile desktop_entries "${manifest_json_dir}/desktop_entries.json" \
   --slurpfile maintainer_surfaces "${manifest_json_dir}/maintainer_surfaces.json" \
   --slurpfile debian_payload_manifest "${manifest_json_dir}/debian_payload_manifest.json" \
   --slurpfile debian_md5sums "${manifest_json_dir}/debian_md5sums.json" \
@@ -1057,12 +1116,14 @@ jq -n \
     prefix: $prefix,
     paths: {prefix: $prefix, current: $current},
     depends: $depends[0],
+    direct_depends: $direct_depends[0],
     recommends: $recommends[0],
     commands: $commands[0],
     compatibility_exports: $compatibility_exports[0],
+    desktop_entries: $desktop_entries[0],
     runtime_ladder: {
       local_rootfs: true,
-      dependency_packages: $depends[0],
+      dependency_packages: $runtime_depends[0],
       system_surfaces: ["/System/Libraries", "/System/Compatibility", "/System/Settings"]
     },
     maintainer_surfaces: $maintainer_surfaces[0],
@@ -1089,6 +1150,7 @@ jq -n \
       package: $source_package,
       version: $source_version,
       architecture: $source_architecture,
+      required_glibc: (if $required_glibc == "" then null else $required_glibc end),
       control_file: ($prefix + "/Metadata/debian-control.txt"),
       control_dir: ($prefix + "/Metadata/debian-control-dir"),
       payload_list: ($prefix + "/Metadata/debian-payload.list"),
@@ -1096,6 +1158,7 @@ jq -n \
       upstream_depends: $upstream_depends,
       upstream_recommends: $upstream_recommends,
       upstream_depends_native: $depends[0],
+      upstream_direct_depends_native: $direct_depends[0],
       upstream_recommends_native: $recommends[0],
       payload_file_count: $payload_file_count,
       payload_size_bytes: $payload_size_bytes,
