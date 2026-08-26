@@ -72,20 +72,73 @@ while IFS= read -r archive; do
   tar --numeric-owner -xzf "${RELEASE_ROOT}/repo/packages/${archive}" -C "${WORK}/one-nginx/root"
 done <"${WORK}/nginx-order.txt"
 
+# Promote nginx's packaged configuration into the AUZiX service contract.
+nginx_common="$(find "${WORK}/one-nginx/root/Programs/NginxCommon" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+[[ -n "${nginx_common}" && -s "${nginx_common}/RootFS/etc/nginx/mime.types" ]] \
+  || fail "packaged NginxCommon configuration is missing"
+mkdir -p \
+  "${WORK}/one-nginx/root/Services/Nginx/Site" \
+  "${WORK}/one-nginx/root/System/Settings/Nginx" \
+  "${WORK}/one-nginx/root/System/State/Nginx" \
+  "${WORK}/one-nginx/root/System/Logs/Nginx" \
+  "${WORK}/one-nginx/root/Work/Nginx/ClientBody" \
+  "${WORK}/one-nginx/root/Work/Nginx/Proxy" \
+  "${WORK}/one-nginx/root/Work/Nginx/FastCGI" \
+  "${WORK}/one-nginx/root/Work/Nginx/UWSGI" \
+  "${WORK}/one-nginx/root/Work/Nginx/SCGI"
+cp -a "${nginx_common}/RootFS/etc/nginx/mime.types" \
+  "${WORK}/one-nginx/root/System/Settings/Nginx/mime.types"
+printf '%s\n' \
+  'daemon off;' \
+  'pid /System/State/Nginx/nginx.pid;' \
+  'error_log stderr notice;' \
+  'events { worker_connections 256; }' \
+  'http {' \
+  '  include /System/Settings/Nginx/mime.types;' \
+  '  default_type application/octet-stream;' \
+  '  access_log /System/Logs/Nginx/access.log;' \
+  '  client_body_temp_path /Work/Nginx/ClientBody;' \
+  '  proxy_temp_path /Work/Nginx/Proxy;' \
+  '  fastcgi_temp_path /Work/Nginx/FastCGI;' \
+  '  uwsgi_temp_path /Work/Nginx/UWSGI;' \
+  '  scgi_temp_path /Work/Nginx/SCGI;' \
+  '  server { listen 8080; server_name _; root /Services/Nginx/Site; location / { try_files $uri $uri/ =404; } }' \
+  '}' >"${WORK}/one-nginx/root/System/Settings/Nginx/nginx.conf"
+printf '%s\n' '<!doctype html><title>AUZiX Nginx</title><h1>AUZiX container one</h1><p>BusyBox is zero; Nginx is one.</p>' \
+  >"${WORK}/one-nginx/root/Services/Nginx/Site/index.html"
+printf '%s\n' \
+  '#!/Programs/BusyBox/current/Commands/busybox sh' \
+  'exec /Programs/Nginx/current/Commands/nginx -c /System/Settings/Nginx/nginx.conf -p /' \
+  >"${WORK}/one-nginx/root/Services/Nginx/run"
+chmod 0755 "${WORK}/one-nginx/root/Services/Nginx/run"
+chown -R 65534:65534 \
+  "${WORK}/one-nginx/root/Services/Nginx" \
+  "${WORK}/one-nginx/root/System/State/Nginx" \
+  "${WORK}/one-nginx/root/System/Logs/Nginx" \
+  "${WORK}/one-nginx/root/Work/Nginx"
+
 # Image monster: exact prepared package-built root used by the HDD lane.
 copy_tree "${PREPARED_ROOT}" "${WORK}/pre-hdd/root"
 
 docker build --pull=false -t "${BUSYBOX_IMAGE}" "${WORK}/zero-busybox"
 docker run --rm "${BUSYBOX_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
   'test -x /System/Libraries/Runtime/glibc/libc.so.6; test ! -e /usr; echo auzix-zero-ok'
+docker rm -f auzix-zero-busybox >/dev/null 2>&1 || true
+docker run -d --name auzix-zero-busybox "${BUSYBOX_IMAGE}" \
+  /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
 
 docker build --pull=false --build-arg "BASE_IMAGE=${BUSYBOX_IMAGE}" -t "${NGINX_IMAGE}" "${WORK}/one-nginx"
 docker run --rm --user 0:0 "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
   -c /System/Settings/Nginx/nginx.conf -p /
+docker rm -f auzix-one-nginx >/dev/null 2>&1 || true
+docker run -d --name auzix-one-nginx "${NGINX_IMAGE}" >/dev/null
 
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
 docker run --rm "${MONSTER_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
   'test -s /System/State/packages/installed.json; test -x /System/Libraries/Runtime/glibc/libc.so.6; echo auzix-pre-hdd-ok'
+docker rm -f auzix-pre-hdd >/dev/null 2>&1 || true
+docker run -d --name auzix-pre-hdd "${MONSTER_IMAGE}" \
+  /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
 
 for tuple in "busybox:${BUSYBOX_IMAGE}" "nginx:${NGINX_IMAGE}" "pre-hdd:${MONSTER_IMAGE}"; do
   name="${tuple%%:*}"; image="${tuple#*:}"
