@@ -879,6 +879,11 @@ seed_provided_state() {
   for receipt in /System/PackageDB/*.auzix.json /System/PackageDB/*.json; do
     [ -s "${receipt}" ] || continue
     receipt_name="$("${JQ}" -r '.name // empty' "${receipt}" 2>/dev/null || true)"
+    receipt_prefix="$("${JQ}" -r '.prefix // empty' "${receipt}" 2>/dev/null || true)"
+    # A receipt without its declared payload is historical metadata, not an
+    # installed provider. Image assembly and repository publication are
+    # separate stages and must not be conflated.
+    [ -n "${receipt_prefix}" ] && [ -e "${receipt_prefix}" ] || continue
     [ -n "${receipt_name}" ] && [ "${receipt_name}" != null ] && provided_mark "${receipt_name}"
     "${JQ}" -r '.provides[]? // empty' "${receipt}" 2>/dev/null |
       while IFS= read -r provided_name; do
@@ -903,7 +908,6 @@ dependency_satisfied() {
   package_name="$1"
   provided_has "${package_name}" ||
   substrate_present "${package_name}" ||
-  receipt_installed_by_name "${package_name}" ||
   program_present_by_name "${package_name}" ||
   compatibility_exports_present_by_name "${package_name}"
 }
@@ -911,7 +915,9 @@ dependency_satisfied() {
 receipt_installed() {
   package_json="$1"
   receipt="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.receipt // empty')"
-  [ -n "${receipt}" ] && [ -s "${receipt}" ]
+  prefix="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.prefix // empty')"
+  [ -n "${receipt}" ] && [ -s "${receipt}" ] &&
+    [ -n "${prefix}" ] && [ -e "${prefix}" ]
 }
 
 record_install() {

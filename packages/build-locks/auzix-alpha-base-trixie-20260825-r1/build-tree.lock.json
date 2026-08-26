@@ -1,7 +1,7 @@
 {
   "format": "auzix-native-rebase-lock-v1",
   "status": "locked-no-compile",
-  "git_tag": "auzix-alpha-base-trixie-20260826-r6",
+  "git_tag": "auzix-alpha-base-trixie-20260826-r7",
   "run_id": "trixie-base-plan-20260825-r1",
   "lock_tag": "auzix-base-lock-trixie-base-plan-20260825-r1",
   "suggested_git_tag": "auzix-alpha-base-trixie-20260825-r1",
