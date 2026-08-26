@@ -38,12 +38,26 @@ mkdir -p "${WORK}"/{zero-busybox,one-nginx,pre-hdd}/root "${WORK}/receipts"
 cp "${ROOT_DIR}/docker/release/zero-busybox/Dockerfile" "${WORK}/zero-busybox/Dockerfile"
 cp "${ROOT_DIR}/docker/release/one-nginx/Dockerfile" "${WORK}/one-nginx/Dockerfile"
 cp "${ROOT_DIR}/docker/release/pre-hdd/Dockerfile" "${WORK}/pre-hdd/Dockerfile"
+cp "${ROOT_DIR}/docker/release/pre-hdd/packages.list" "${WORK}/pre-hdd/packages.list"
 
 # Image zero: the canonical AUZiX substrate plus the newly packaged BusyBox.
 for path in System Programs/BusyBox Programs/Busybox; do
   copy_tree "${PREPARED_ROOT}/${path}" "${WORK}/zero-busybox/root/${path}"
 done
 mkdir -p "${WORK}/zero-busybox/root"/{Services,Work,Users/root}
+# The prepared workstation root contains compatibility links for every package.
+# Image zero must advertise only commands its BusyBox payload actually owns.
+for compat_dir in bin sbin usr/bin usr/sbin; do
+  directory="${WORK}/zero-busybox/root/System/Compatibility/${compat_dir}"
+  [[ -d "${directory}" ]] || continue
+  while IFS= read -r entry; do
+    target="$(readlink "${entry}" 2>/dev/null || true)"
+    case "${target}" in
+      /Programs/BusyBox/*|/Programs/Busybox/*) ;;
+      *) rm -f "${entry}" ;;
+    esac
+  done < <(find "${directory}" -mindepth 1 -maxdepth 1 \( -type f -o -type l \) -print)
+done
 
 # Image one: resolve nginx once from the frozen index and add that ordered
 # package closure over image zero.  There is no package discovery or rebuild.
@@ -135,9 +149,32 @@ docker run -d --name auzix-one-nginx "${NGINX_IMAGE}" >/dev/null
 # Image monster: exact prepared package-built root used by the HDD lane.  Stage
 # it only after the two small images pass so they remain available immediately.
 copy_tree "${PREPARED_ROOT}" "${WORK}/pre-hdd/root"
+python3 - "${INDEX}" "${WORK}/pre-hdd/packages.list" "${WORK}/pre-hdd-order.txt" <<'PY'
+import json, sys
+index, roots_file, output = sys.argv[1:]
+packages = json.load(open(index)).get("packages", [])
+by_name = {p["name"].casefold(): p for p in packages}
+roots = [line.strip() for line in open(roots_file) if line.strip() and not line.lstrip().startswith("#")]
+seen, active, ordered = set(), set(), []
+def visit(name):
+    key = name.casefold()
+    if key in seen or key in active: return
+    package = by_name.get(key)
+    if package is None: raise SystemExit(f"missing frozen dependency {name}")
+    active.add(key)
+    for dependency in package.get("depends") or []: visit(dependency)
+    active.remove(key); seen.add(key); ordered.append(package["package"])
+for root in roots: visit(root)
+open(output, "w").write("".join(p + "\n" for p in ordered))
+print(f"pre-hdd closure packages={len(ordered)} roots={len(roots)}")
+PY
+while IFS= read -r archive; do
+  [[ -n "${archive}" ]] || continue
+  tar --numeric-owner -xzf "${RELEASE_ROOT}/repo/packages/${archive}" -C "${WORK}/pre-hdd/root"
+done <"${WORK}/pre-hdd-order.txt"
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
 docker run --rm "${MONSTER_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
-  'test -s /System/State/packages/installed.json; test -x /System/Libraries/Runtime/glibc/libc.so.6; echo auzix-pre-hdd-ok'
+  'test -s /System/State/packages/installed.json; test -x /System/Libraries/Runtime/glibc/libc.so.6; test -x /Programs/Glances/current/Commands/glances; test -x /Programs/Htop/current/Commands/htop; echo auzix-pre-hdd-ok'
 docker rm -f auzix-pre-hdd >/dev/null 2>&1 || true
 docker run -d --name auzix-pre-hdd "${MONSTER_IMAGE}" \
   /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
