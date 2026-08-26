@@ -56,7 +56,9 @@ seen, active, ordered = set(), set(), []
 def visit(name):
     key = name.casefold()
     if key in seen: return
-    if key in active: raise SystemExit(f"dependency cycle at {name}")
+    # Debian dependency graphs contain valid strongly connected components.
+    # An active node is already scheduled by its caller; do not recurse twice.
+    if key in active: return
     package = by_name.get(key)
     if package is None: raise SystemExit(f"missing frozen dependency {name}")
     active.add(key)
