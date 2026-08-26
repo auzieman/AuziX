@@ -1,0 +1,4 @@
+# Targeted compatibility closure repair after the 15-package delta completed.
+# This package already exists in the AUZiX repository; dependency discovery
+# remains disabled and runtime validation must identify any further omission.
+libdconf1
