@@ -85,7 +85,8 @@ mkdir -p \
   "${WORK}/one-nginx/root/Work/Nginx/Proxy" \
   "${WORK}/one-nginx/root/Work/Nginx/FastCGI" \
   "${WORK}/one-nginx/root/Work/Nginx/UWSGI" \
-  "${WORK}/one-nginx/root/Work/Nginx/SCGI"
+  "${WORK}/one-nginx/root/Work/Nginx/SCGI" \
+  "${WORK}/one-nginx/root/Work/Temp"
 cp -a "${nginx_common}/RootFS/etc/nginx/mime.types" \
   "${WORK}/one-nginx/root/System/Settings/Nginx/mime.types"
 printf '%s\n' \
@@ -115,10 +116,8 @@ chown -R 65534:65534 \
   "${WORK}/one-nginx/root/Services/Nginx" \
   "${WORK}/one-nginx/root/System/State/Nginx" \
   "${WORK}/one-nginx/root/System/Logs/Nginx" \
-  "${WORK}/one-nginx/root/Work/Nginx"
-
-# Image monster: exact prepared package-built root used by the HDD lane.
-copy_tree "${PREPARED_ROOT}" "${WORK}/pre-hdd/root"
+  "${WORK}/one-nginx/root/Work/Nginx" \
+  "${WORK}/one-nginx/root/Work/Temp"
 
 docker build --pull=false -t "${BUSYBOX_IMAGE}" "${WORK}/zero-busybox"
 docker run --rm "${BUSYBOX_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
@@ -133,6 +132,9 @@ docker run --rm "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
 docker rm -f auzix-one-nginx >/dev/null 2>&1 || true
 docker run -d --name auzix-one-nginx "${NGINX_IMAGE}" >/dev/null
 
+# Image monster: exact prepared package-built root used by the HDD lane.  Stage
+# it only after the two small images pass so they remain available immediately.
+copy_tree "${PREPARED_ROOT}" "${WORK}/pre-hdd/root"
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
 docker run --rm "${MONSTER_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
   'test -s /System/State/packages/installed.json; test -x /System/Libraries/Runtime/glibc/libc.so.6; echo auzix-pre-hdd-ok'
