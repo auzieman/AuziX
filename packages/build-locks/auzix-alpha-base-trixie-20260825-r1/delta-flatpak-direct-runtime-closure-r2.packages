@@ -1,0 +1,36 @@
+# Exact direct runtime closure recorded by the packaged Flatpak receipt and
+# absent from the candidate AUZiX root on 2026-08-26. All entries already have
+# locked AUZiX repository artifacts. Dependency discovery remains disabled.
+adduser
+init-system-helpers
+libarchive13t64
+libatomic1
+libavahi-client3
+libavahi-common3
+libbz2-1.0
+libcap2
+libcurl3t64-gnutls
+libffi8
+libfuse3-4
+libgcrypt20
+libgdk-pixbuf-2.0-0
+libgnutls30t64
+libgpg-error0
+libldap2
+liblzma5
+libmount1
+libncursesw6
+libpcre2-8-0
+libreadline8t64
+libseccomp2
+libselinux1
+libsqlite3-0
+libsystemd0
+libtinfo6
+libwayland-client0
+libxau6
+libxml2
+libzstd1
+mount
+sed
+zlib1g
