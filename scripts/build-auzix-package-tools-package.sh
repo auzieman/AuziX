@@ -1158,7 +1158,7 @@ fetch_package_archive() {
     actual_sha="$("${BB}" sha256sum "${archive}" | "${BB}" awk '{print $1}')"
     if [ "${actual_sha}" = "${expected_sha}" ]; then
       echo "Cached ${name} ${archive_name}"
-      validate_archive "${archive}"
+      validate_archive "${archive}" "${package_json}"
       return 0
     fi
     "${BB}" rm -f "${archive}"
