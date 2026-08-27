@@ -11,6 +11,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RELEASE_ID="${AUZIX_RELEASE_ID:-trixie-consolidated-20260826-r3}"
 RELEASE_ROOT="${AUZIX_RELEASE_ROOT:-/var/lib/auzix-build/releases/${RELEASE_ID}}"
+PACKAGE_REPO_URL="${AUZIX_PACKAGE_REPO_URL:-http://192.168.1.10/auzix/repo}"
 PREPARED_ROOT="${AUZIX_PREPARED_ROOT:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 RUN_ID="${AUZIX_CONTAINER_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 WORK="${AUZIX_CONTAINER_WORK:-/var/lib/auzix-build/container-runs/${RUN_ID}}"
@@ -172,6 +173,8 @@ while IFS= read -r archive; do
   tar --numeric-owner -xzf "${RELEASE_ROOT}/repo/packages/${archive}" -C "${WORK}/pre-hdd/root"
 done <"${WORK}/pre-hdd-order.txt"
 mkdir -p "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
+mkdir -p "${WORK}/pre-hdd/root/System/Settings/packages"
+printf '%s\n' "${PACKAGE_REPO_URL}" >"${WORK}/pre-hdd/root/System/Settings/packages/repositories.conf"
 chown 1000:1000 "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
 monster_run() {
@@ -193,6 +196,7 @@ monster_run /Programs/Python313Minimal/current/Commands/python3.13 -c \
   'import curses, ssl, sqlite3; print(ssl.OPENSSL_VERSION)'
 monster_run /Programs/Glances/current/Commands/glances --version
 monster_run /Programs/Htop/current/Commands/htop --version
+monster_run /Programs/AuzixPackageTools/current/Commands/auzix-pkg refresh
 monster_run /Programs/Busybox/current/Commands/busybox sh -ec '
   printf "AUZiX LibreOffice conversion proof\n" > /Work/Validation/input.txt
   lowriter --headless --convert-to pdf --outdir /Work/Validation /Work/Validation/input.txt
