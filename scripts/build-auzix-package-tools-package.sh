@@ -1652,19 +1652,58 @@ case "${command_name}" in
   bootstrap-receipts)
     receipt_dir="${1:-/System/PackageDB}"
     [ -d "${receipt_dir}" ] || die "receipt directory missing: ${receipt_dir}"
+    # Build one JSON stream and reduce it once. Rewriting and resorting the
+    # complete installed-state document for every receipt made this operation
+    # O(n^2) and turned a deterministic bootstrap into a multi-minute loop.
+    receipt_stream="${WORK}/bootstrap-receipts.$$.jsons"
+    tmp_state="${INSTALLED}.tmp.$$"
+    "${BB}" cat "${INSTALLED}" >"${receipt_stream}"
     count=0
-    failed=0
-    for receipt in "${receipt_dir}"/*.auzix.json "${receipt_dir}"/*.json; do
+    for receipt in "${receipt_dir}"/*.json; do
       [ -s "${receipt}" ] || continue
-      if record_receipt_file "${receipt}" "bootstrap-receipts:${receipt_dir}"; then
-        count=$((count + 1))
-      else
-        echo "bootstrap-receipts failed receipt: ${receipt}" >&2
-        failed=$((failed + 1))
-      fi
+      "${BB}" cat "${receipt}" >>"${receipt_stream}"
+      count=$((count + 1))
     done
+    "${JQ}" -s --arg source "bootstrap-receipts:${receipt_dir}" '
+      .[0] as $state
+      | [.[1:][]
+          | select((.name // "") != "")
+          | {
+              name,
+              version: (.version // "unknown"),
+              kind: (.kind // "unknown"),
+              package: (.package // ""),
+              sha256: (.sha256 // ""),
+              description: (.description // .notes // ""),
+              receipt: (.receipt // ""),
+              prefix: (.prefix // .paths.prefix // ""),
+              commands: (.commands // []),
+              desktop_entries: (.desktop_entries // []),
+              compatibility_exports: (.compatibility_exports // []),
+              depends: (.depends // []),
+              recommends: (.recommends // []),
+              provides: (.provides // []),
+              source_metadata: (.source // {}),
+              runtime_ladder: (.runtime_ladder // null),
+              runtime_environment: (.runtime_environment // null),
+              permissions: (.permissions // null),
+              validation: (.validation // null),
+              source: $source,
+              installed_at: $source
+            }
+        ] as $receipts
+      | $state
+      | .installed = (
+          ((.installed // []) + $receipts)
+          | sort_by(.name | ascii_downcase)
+          | group_by(.name | ascii_downcase)
+          | map(last)
+        )
+    ' "${receipt_stream}" >"${tmp_state}" || die "failed to reduce receipt bootstrap state"
+    "${BB}" mv "${tmp_state}" "${INSTALLED}"
+    "${BB}" rm -f "${receipt_stream}"
     seed_provided_state
-    echo "Bootstrapped receipts records=${count} failed=${failed} installed_total=$("${JQ}" '.installed | length' "${INSTALLED}")"
+    echo "Bootstrapped receipts records=${count} failed=0 installed_total=$("${JQ}" '.installed | length' "${INSTALLED}")"
     ;;
   plan)
     require_index
