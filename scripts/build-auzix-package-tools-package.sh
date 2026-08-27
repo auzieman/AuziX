@@ -974,6 +974,7 @@ record_install() {
 
 validate_archive() {
   archive="$1"
+  package_json="${2:-}"
   "${BB}" tar -tzf "${archive}" |
     "${BB}" awk '
       /^\// { bad=1 }
@@ -982,7 +983,23 @@ validate_archive() {
     ' || die "unsafe path found in ${archive}"
   if [ "${AUZIX_PULL_ONLY:-0}" != "1" ] && ! substrate_install_allowed; then
     blocked_paths="${WORK}/protected-archive-paths.$$.txt"
+    owned_paths="${WORK}/owned-archive-paths.$$.txt"
     : >"${blocked_paths}"
+    : >"${owned_paths}"
+    # Same-package updates may replace compatibility front doors already
+    # assigned to that package by installed state. Unowned paths and the
+    # global runtime substrate remain protected.
+    if [ -n "${package_json}" ]; then
+      package_name="$(printf '%s\n' "${package_json}" | "${JQ}" -r '.name // empty')"
+      if [ -n "${package_name}" ]; then
+        "${JQ}" -r --arg name "${package_name}" '
+          .installed[]
+          | select((.name | ascii_downcase) == ($name | ascii_downcase))
+          | .compatibility_exports[]?
+          | sub("^/"; "")
+        ' "${INSTALLED}" >"${owned_paths}"
+      fi
+    fi
     "${BB}" tar -tzf "${archive}" |
       while IFS= read -r archive_path; do
         # GNU/BusyBox tar commonly prefix members with "./".  Normalize that
@@ -990,6 +1007,9 @@ validate_archive() {
         path="${archive_path#./}"
         path="${path%/}"
         [ -n "${path}" ] || continue
+        if [ -s "${owned_paths}" ] && "${BB}" grep -Fqx "${path}" "${owned_paths}"; then
+          continue
+        fi
         case "${path}" in
           bin|sbin|lib|lib64|usr|etc|var|root|opt)
             if [ -e "/${path}" ] || [ -L "/${path}" ]; then
@@ -1009,7 +1029,7 @@ validate_archive() {
       first_blocked="$("${BB}" head -n 1 "${blocked_paths}")"
       die "archive ${archive} would replace existing protected path ${first_blocked}; rerun only from installer/base lane with AUZIX_ALLOW_SUBSTRATE_INSTALL=1"
     fi
-    "${BB}" rm -f "${WORK}/protected-archive-paths.$$.txt"
+    "${BB}" rm -f "${blocked_paths}" "${owned_paths}"
   fi
 }
 
@@ -1150,7 +1170,7 @@ fetch_package_archive() {
   actual_sha="$("${BB}" sha256sum "${archive}" | "${BB}" awk '{print $1}')"
   [ "${actual_sha}" = "${expected_sha}" ] ||
     die "checksum mismatch for ${archive_name}: expected ${expected_sha}, got ${actual_sha}"
-  validate_archive "${archive}"
+  validate_archive "${archive}" "${package_json}"
 }
 
 prefetch_plan_file() {
@@ -1330,7 +1350,7 @@ install_one() {
     fetch_package_archive "${package_json}"
   fi
 
-  validate_archive "${archive}"
+  validate_archive "${archive}" "${package_json}"
   if substrate_install_allowed; then
     "${BB}" tar -xzpf "${archive}" -C /
   else
