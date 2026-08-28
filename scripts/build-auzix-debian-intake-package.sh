@@ -232,16 +232,21 @@ debian_control_field() {
 native_installed_depends_closure_words() {
   local roots_text="$1"
   local package_db="$2"
+  local repository_index="${3:-}"
   local roots_json
   roots_json="$(tr ' ' '\n' <<<"${roots_text}" | awk 'NF && !seen[$0]++' | jq -R -s 'split("\n") | map(select(length > 0))')"
-  python3 - "${package_db}" "${roots_json}" <<'PY'
+  python3 - "${package_db}" "${roots_json}" "${repository_index}" <<'PY'
 import json
 import pathlib
 import sys
 
 package_db = pathlib.Path(sys.argv[1])
 roots = json.loads(sys.argv[2])
+repository_index = pathlib.Path(sys.argv[3]) if sys.argv[3] else None
 receipts = {}
+
+if repository_index and not repository_index.is_file():
+    raise SystemExit(f"repository closure index is missing: {repository_index}")
 
 if package_db.is_dir():
     for receipt_path in package_db.glob("*.json"):
@@ -252,6 +257,17 @@ if package_db.is_dir():
         name = receipt.get("name")
         if name:
             receipts[name] = receipt
+
+# A final frozen repository is the closure authority for targeted leaf
+# finalization. Installed-root receipts may be incomplete when the package was
+# built before all immutable spools were consolidated. Repository entries
+# intentionally override those older receipts by package identity.
+if repository_index:
+    index = json.loads(repository_index.read_text(encoding="utf-8"))
+    for item in index.get("packages", []):
+        name = item.get("name")
+        if name:
+            receipts[name] = item
 
 ordered = []
 seen = set()
@@ -408,7 +424,10 @@ fi
 # closure.  The closure is useful to launchers, but it is not an install order;
 # auzix-pkg needs this direct graph for a deterministic dependency-first plan.
 native_direct_depends_json="${native_depends_json}"
-native_depends_words="$(native_installed_depends_closure_words "${native_depends_words}" "${AUZIX_ROOT}/System/PackageDB")"
+native_depends_words="$(native_installed_depends_closure_words \
+  "${native_depends_words}" \
+  "${AUZIX_ROOT}/System/PackageDB" \
+  "${AUZIX_REPOSITORY_INDEX:-}")"
 native_depends_words="$(tr ' ' '\n' <<<"${native_depends_words}" | awk -v self="${native_name}" 'NF && $0 != self && $0 != "Libc6" && $0 != "LibgccS1" && $0 != "GCC14Base" && !seen[$0]++' | paste -sd' ' -)"
 native_runtime_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 # Package transactions are defined by direct graph edges.  The expanded

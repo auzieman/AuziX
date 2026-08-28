@@ -1,0 +1,36 @@
+{
+  "format": "auzix-native-rebase-lock-v1",
+  "status": "locked-targeted-leaf-finalization",
+  "git_tag": "auzix-alpha-libreoffice-writer-finalize-20260828-r1",
+  "run_id": "libreoffice-writer-finalize-20260828-r1",
+  "lock_tag": "auzix-writer-finalize-lock-20260828-r1",
+  "suggested_git_tag": "auzix-alpha-libreoffice-writer-finalize-20260828-r1",
+  "locked_at": "2026-08-28T00:00:00Z",
+  "manifest_lock_sha256": "ed0169a0fd56b947cabd40fefb514df9a7cf70c361e39749d0fc248c1573cd3c",
+  "manifest_material": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/manifest-material.sha256",
+  "compile_order": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/compile-order.tsv",
+  "current_head_versions": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/current-head-versions.tsv",
+  "selected_current_head": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/selected-current-head.tsv",
+  "substrate_provider_lock": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/substrate-provider-lock.tsv",
+  "debian_policy": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/debian-current-head.policy.txt",
+  "apt_simulation_status": "inherited-ok",
+  "counts": {
+    "requested_roots": 1,
+    "selected_unique_packages": 1,
+    "substrate_providers": 2,
+    "substrate_selected_providers": 2
+  },
+  "allowed_first_builds": [
+    "LibreOfficeWriter"
+  ],
+  "derived_from": {
+    "lock": "packages/build-locks/auzix-alpha-base-trixie-20260825-r1/build-tree.lock.json",
+    "git_tag": "auzix-alpha-base-runtime-repair-20260828-r2",
+    "source_release": "trixie-consolidated-20260828-r5",
+    "scope": [
+      "libreoffice-writer"
+    ]
+  },
+  "closure_authority": "source-release-repository-index",
+  "rule": "Only LibreOfficeWriter may build. Dependency discovery is disabled. Its runtime ladder must be derived from the verified immutable source repository index before publication to a new release."
+}
