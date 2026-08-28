@@ -86,7 +86,7 @@ find_cmd() {
   return 1
 }
 part_path() {
-  case "${target}" in *nvme*|*mmcblk*) echo "${target}p$1";; *) echo "${target}$1";; esac
+  case "${target}" in *nvme*|*mmcblk*|*loop*) echo "${target}p$1";; *) echo "${target}$1";; esac
 }
 in_file() {
   needle="$1"; file="$2"
