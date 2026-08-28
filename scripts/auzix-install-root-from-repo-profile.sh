@@ -546,21 +546,30 @@ for mp in "${target_root}/dev/pts" "${target_root}/dev/shm" "${target_root}/dev"
 done
 
 install_stage 2 "${INSTALL_TOTAL_STAGES}" "partitioning split AUZiX disk layout"
-"${BB}" dd if=/dev/zero of="${target}" bs=1M count=8
-"${PARTED}" -s "${target}" mklabel msdos
-"${PARTED}" -s "${target}" mkpart primary ext4 1MiB 60%
-"${PARTED}" -s "${target}" mkpart primary ext4 60% 80%
-"${PARTED}" -s "${target}" mkpart primary ext4 80% 100%
-"${PARTED}" -s "${target}" set 1 boot on || true
-"${BB}" sleep 1
-
 root_part="$(part_path 1)"
 home_part="$(part_path 2)"
 work_part="$(part_path 3)"
-install_stage 3 "${INSTALL_TOTAL_STAGES}" "formatting AUZiX root, Home, and Work filesystems"
-"${MKFS}" -F -L AUZIXROOT "${root_part}" >>"${log}" 2>&1
-"${MKFS}" -F -L AUZIXHOME "${home_part}" >>"${log}" 2>&1
-"${MKFS}" -F -L AUZIXWORK "${work_part}" >>"${log}" 2>&1
+case "${AUZIX_INSTALL_PREPARED_TARGET:-0}" in
+  1|yes|true|on)
+    log_msg "PREPARED_TARGET storage layout supplied by media wrapper"
+    [ -b "${root_part}" ] && [ -b "${home_part}" ] && [ -b "${work_part}" ] ||
+      fail "prepared target partition nodes are incomplete"
+    install_stage 3 "${INSTALL_TOTAL_STAGES}" "using preformatted AUZiX root, Home, and Work filesystems"
+    ;;
+  *)
+    "${BB}" dd if=/dev/zero of="${target}" bs=1M count=8
+    "${PARTED}" -s "${target}" mklabel msdos
+    "${PARTED}" -s "${target}" mkpart primary ext4 1MiB 60%
+    "${PARTED}" -s "${target}" mkpart primary ext4 60% 80%
+    "${PARTED}" -s "${target}" mkpart primary ext4 80% 100%
+    "${PARTED}" -s "${target}" set 1 boot on || true
+    "${BB}" sleep 1
+    install_stage 3 "${INSTALL_TOTAL_STAGES}" "formatting AUZiX root, Home, and Work filesystems"
+    "${MKFS}" -F -L AUZIXROOT "${root_part}" >>"${log}" 2>&1
+    "${MKFS}" -F -L AUZIXHOME "${home_part}" >>"${log}" 2>&1
+    "${MKFS}" -F -L AUZIXWORK "${work_part}" >>"${log}" 2>&1
+    ;;
+esac
 root_uuid="$("${BB}" blkid "${root_part}" 2>/dev/null | "${BB}" sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | "${BB}" head -n 1 || true)"
 if [ -n "${root_uuid}" ]; then
   root_boot_spec="UUID=${root_uuid}"
