@@ -562,6 +562,22 @@ ln -sfn "/Programs/${native_name}/${safe_version}" \
   "${AUZIX_ROOT}/Programs/${native_name}/current"
 commands_json='[]'
 compatibility_exports_json='[]'
+
+# Libgcc is part of the negotiated AUZiX base ABI, not an application-local
+# runtime.  Its package must own the canonical runtime surface as well as its
+# retained Debian payload, otherwise fresh roots can consider LibgccS1
+# installed while still lacking libgcc_s.so.1.
+if [[ "${native_name}" == "LibgccS1" ]]; then
+  libgcc_payload="$(find "${program_root}/RootFS" -type f -o -type l | grep -E '/libgcc_s[.]so[.]1$' | head -n 1 || true)"
+  [[ -n "${libgcc_payload}" ]] || {
+    log "LibgccS1 payload does not contain libgcc_s.so.1"
+    exit 1
+  }
+  mkdir -p "${AUZIX_ROOT}/System/Libraries/Runtime/glibc"
+  cp -Lf "${libgcc_payload}" "${AUZIX_ROOT}/System/Libraries/Runtime/glibc/libgcc_s.so.1"
+  chmod 0644 "${AUZIX_ROOT}/System/Libraries/Runtime/glibc/libgcc_s.so.1"
+  compatibility_exports_json='["/System/Libraries/Runtime/glibc/libgcc_s.so.1"]'
+fi
 desktop_entries_json='[]'
 mkdir -p "${AUZIX_ROOT}/System/Compatibility/usr/share/applications"
 while IFS= read -r rel_command; do
