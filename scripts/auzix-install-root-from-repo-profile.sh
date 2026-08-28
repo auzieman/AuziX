@@ -51,7 +51,7 @@ export PATH
 
 BB=/Programs/BusyBox/current/Commands/busybox
 [ -x "${BB}" ] || BB=/Programs/BusyBox/1.36.1/Commands/busybox
-JQ=/Programs/AuzixPackageTools/current/Commands/jq
+JQ="${AUZIX_INSTALL_JQ:-/Programs/AuzixPackageTools/current/Commands/jq}"
 PKG_INSTALL=/System/Tools/auzix-install-package
 install_plan="${AUZIX_INSTALL_PLAN:-}"
 target_root=/Work/InstallTarget
