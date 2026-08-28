@@ -19,6 +19,7 @@ force=0
 repo_url="${AUZIX_REPO_URL:-http://192.168.1.10/auzix/repo}"
 profile="${AUZIX_INSTALL_PROFILE:-/System/Settings/install/auzix-vmid135-clean-workstation.packages}"
 target=""
+link_mode="${AUZIX_LINK_MODE:-strict}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,8 @@ while [ "$#" -gt 0 ]; do
     --repo=*) repo_url="${1#--repo=}"; shift ;;
     --profile) profile="${2:-}"; shift 2 ;;
     --profile=*) profile="${1#--profile=}"; shift ;;
+    --links) link_mode="${2:-strict}"; shift 2 ;;
+    --links=*) link_mode="${1#--links=}"; shift ;;
     --bootloader) shift 2 ;;
     --bootloader=*) shift ;;
     http://*|https://*) repo_url="$1"; shift ;;
@@ -191,8 +194,22 @@ seed_target_provided_state() {
 }
 link_compat() {
   link_path="$1"; link_target="$2"
-  [ -e "${target_root}${link_path}" ] && [ ! -L "${target_root}${link_path}" ] && return 0
-  rm -f "${target_root}${link_path}"
+  case "${link_mode}" in
+    full|compat|legacy) ;;
+    *)
+      echo "strict alias mode: skipping persistent ${link_path} -> ${link_target}" >>"${log}" 2>/dev/null || true
+      return 0
+      ;;
+  esac
+  if [ -L "${target_root}${link_path}" ]; then
+    current_target="$(readlink "${target_root}${link_path}" 2>/dev/null || true)"
+    if [ "${current_target}" = "${link_target}" ]; then
+      return 0
+    fi
+    echo "alias conflict: ${link_path} -> ${current_target}; wanted ${link_target}; leaving existing link" >>"${log}" 2>/dev/null || true
+    return 0
+  fi
+  [ -e "${target_root}${link_path}" ] && return 0
   ln -s "${link_target}" "${target_root}${link_path}"
 }
 copy_tree_if_present() {
@@ -297,7 +314,7 @@ lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatib
 EOF_PASSWD
   cat >"${target_root}/System/Settings/group" <<'EOF_GROUP'
 root:x:0:
-tty:x:5:
+tty:x:5:root,auzix,lightdm
 auzix:x:1000:
 sshd:x:74:
 messagebus:x:101:
@@ -305,9 +322,9 @@ lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
 input:x:104:root,auzix
-video:x:44:root,auzix
+video:x:39:root,auzix
 render:x:105:root,auzix
-audio:x:29:root,auzix
+audio:x:63:root,auzix
 EOF_GROUP
   cat >"${target_root}/System/Settings/shadow" <<'EOF_SHADOW'
 root:*:19700:0:99999:7:::
@@ -544,6 +561,13 @@ install_stage 3 "${INSTALL_TOTAL_STAGES}" "formatting AUZiX root, Home, and Work
 "${MKFS}" -F -L AUZIXROOT "${root_part}" >>"${log}" 2>&1
 "${MKFS}" -F -L AUZIXHOME "${home_part}" >>"${log}" 2>&1
 "${MKFS}" -F -L AUZIXWORK "${work_part}" >>"${log}" 2>&1
+root_uuid="$("${BB}" blkid "${root_part}" 2>/dev/null | "${BB}" sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | "${BB}" head -n 1 || true)"
+if [ -n "${root_uuid}" ]; then
+  root_boot_spec="UUID=${root_uuid}"
+else
+  root_boot_spec="${root_part}"
+  log_msg "WARN root UUID unavailable for ${root_part}; falling back to device path"
+fi
 
 install_stage 4 "${INSTALL_TOTAL_STAGES}" "mounting target filesystems"
 "${BB}" mkdir -p "${target_root}"
@@ -554,7 +578,15 @@ install_stage 4 "${INSTALL_TOTAL_STAGES}" "mounting target filesystems"
 
 install_stage 5 "${INSTALL_TOTAL_STAGES}" "scaffolding strict AUZiX root contract"
 scaffold_minimal_root >>"${log}" 2>&1
-sync_live_runtime_contract >>"${log}" 2>&1
+case "${AUZIX_INSTALL_COPY_SEED_RUNTIME:-0}" in
+  1|yes|true|on)
+    log_msg "COMPAT seed runtime copy enabled"
+    sync_live_runtime_contract >>"${log}" 2>&1
+    ;;
+  *)
+    log_msg "PACKAGE_ONLY seed runtime copy disabled; installed packages own runtime and service surfaces"
+    ;;
+esac
 ensure_target_package_state >>"${log}" 2>&1
 seed_target_provided_state >>"${log}" 2>&1
 
@@ -573,6 +605,7 @@ install_stage 9 "${INSTALL_TOTAL_STAGES}" "finalizing AUZiX runtime contract"
   echo "layout=user-work-programs"
   echo "profile=${profile}"
   echo "root=${root_part}"
+  echo "root_boot_spec=${root_boot_spec}"
   echo "home=${home_part}"
   echo "work=${work_part}"
 } >"${target_root}/System/State/install/storage-layout.txt"
@@ -622,11 +655,11 @@ fi
 cp -p "${boot_source}/vmlinuz" "${target_root}/boot/vmlinuz"
 cp -p "${boot_source}/initramfs.cpio.gz" "${target_root}/boot/initramfs.cpio.gz"
 log_msg "BOOT_PAYLOAD source=${boot_source} kernel=/boot/vmlinuz initramfs=/boot/initramfs.cpio.gz"
-cat >"${target_root}/boot/grub/grub.cfg" <<'EOF_GRUB'
+cat >"${target_root}/boot/grub/grub.cfg" <<EOF_GRUB
 set timeout=3
 set default=0
 menuentry "AUZiX package-profile root" {
-    linux /boot/vmlinuz console=ttyS0,115200 console=tty0 auzix.root=/dev/sda1
+    linux /boot/vmlinuz console=ttyS0,115200 console=tty0 root=${root_boot_spec} auzix.root=${root_part} init=/init rw
     initrd /boot/initramfs.cpio.gz
 }
 EOF_GRUB
@@ -640,7 +673,7 @@ elif [ -x /System/Compatibility/usr/sbin/grub-install ]; then
   /System/Compatibility/usr/sbin/grub-install --boot-directory="${target_root}/boot" "${target}" >>"${log}" 2>&1 || fail "grub-install failed"
 fi
 
-log_msg "PACKAGE_PROFILE_INSTALL_DONE root=${root_part} installed=$("${BB}" wc -l <"${installed_state}") missing=$("${BB}" wc -l <"${missing_state}")"
+log_msg "PACKAGE_PROFILE_INSTALL_DONE root=${root_part} boot_spec=${root_boot_spec} installed=$("${BB}" wc -l <"${installed_state}") missing=$("${BB}" wc -l <"${missing_state}")"
 if [ -s "${missing_state}" ]; then
   log_msg "PACKAGE_PROFILE_MISSING_START"
   cat "${missing_state}" | "${BB}" tee -a "${log}" >/dev/null
@@ -654,4 +687,4 @@ done
 sync
 log_msg "INSTALL_READY_TO_REBOOT"
 log_msg "ACTION remove_or_disconnect_live_iso_and_boot_from_disk"
-log_msg "INSTALL_DONE root=${root_part} layout=user-work-programs bootloader=grub"
+log_msg "INSTALL_DONE root=${root_part} boot_spec=${root_boot_spec} layout=user-work-programs bootloader=grub"
