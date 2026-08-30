@@ -218,6 +218,16 @@ ABSOLUTE_PATH = re.compile(
 )
 
 
+def _runtime_cache_is_package_owned(package_root: Path, absolute: str) -> bool:
+    parts = Path(absolute).parts
+    if "__pycache__" not in parts:
+        return False
+    cache_index = parts.index("__pycache__")
+    parent = Path(*parts[1:cache_index])
+    payload_parent = package_root / "RootFS" / parent
+    return payload_parent.is_dir()
+
+
 def _normalize_conffiles(
     source: Path, package_root: Path, source_path: str
 ) -> tuple[list[str], list[dict[str, Any]]]:
@@ -309,7 +319,11 @@ def _replace_paths(text: str, package_root: Path) -> str:
         if not any(absolute == root or absolute.startswith(root + "/") for root in PACKAGE_OWNED_ROOTS):
             return absolute
         payload = package_root / "RootFS" / absolute.lstrip("/")
-        if payload.exists() or payload.is_symlink():
+        if (
+            payload.exists()
+            or payload.is_symlink()
+            or _runtime_cache_is_package_owned(package_root, absolute)
+        ):
             return "${AUZIX_PACKAGE_ROOT}/RootFS" + absolute
         return absolute
 

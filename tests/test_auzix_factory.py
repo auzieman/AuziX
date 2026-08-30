@@ -204,6 +204,38 @@ mkdir -p /usr/local/lib/python3.13
             ]
             self.assertEqual(paths, ["/usr/bin/external-helper"])
 
+    def test_python_runtime_cache_inherits_existing_payload_parent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            package = root / "Programs/Python3Minimal/1"
+            script = package / "Metadata/control/prerm"
+            payload_parent = package / "RootFS/usr/share/python3/debpython"
+            script.parent.mkdir(parents=True)
+            payload_parent.mkdir(parents=True)
+            script.write_text(
+                "#!/bin/sh\n"
+                "rm -rf /usr/share/python3/__pycache__\n"
+                "rm -rf /usr/share/python3/debpython/__pycache__\n"
+                "rm -rf /usr/share/external/__pycache__\n"
+            )
+            result = normalize_lifecycle(root, {
+                "name": "Python3Minimal", "version": "1",
+                "prefix": "/Programs/Python3Minimal/1",
+                "maintainer_surfaces": ["/Programs/Python3Minimal/1/Metadata/control/prerm"],
+            }, Path(directory) / "review")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn(
+                "${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/python3/__pycache__", candidate
+            )
+            self.assertIn(
+                "${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/python3/debpython/__pycache__", candidate
+            )
+            self.assertIn("/usr/share/external/__pycache__", candidate)
+            self.assertEqual(result["status"], "needs-review")
+            self.assertEqual(result["findings"][0]["matches"], [
+                "/usr/share/external/__pycache__"
+            ])
+
     def test_static_intake_promotes_native_package_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
