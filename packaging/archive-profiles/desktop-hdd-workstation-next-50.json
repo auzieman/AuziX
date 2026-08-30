@@ -1,0 +1,31 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-workstation-next-50",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "X11Common", "XkbData", "X11XkbUtils", "XserverCommon",
+    "KeyboardConfiguration", "Udev", "MesaLibgallium", "XserverXorgCore",
+    "XserverXorgVideoAmdgpu", "XserverXorgVideoRadeon", "XserverXorgVideoAti",
+    "XserverXorgVideoFbdev", "XserverXorgVideoNouveau", "XserverXorgVideoVesa",
+    "XserverXorgVideoVmware", "XserverXorgVideoAll", "XserverXorgInputLibinput",
+    "XserverXorgInputAll", "XserverXorg", "XfontsEncodings", "XfontsUtils",
+    "XfontsBase", "Xfonts100dpi", "Xfonts75dpi", "XfontsScalable",
+    "FontsDejavuMono", "FontsDejavuCore", "FontconfigConfig", "Bsdextrautils",
+    "GroffBase", "ManDb", "X11Apps", "X11SessionUtils", "X11Utils",
+    "Cpp14X8664LinuxGnu", "Cpp14", "CppX8664LinuxGnu", "Cpp",
+    "X11XserverUtils", "Xauth", "Xinit", "XorgDocsCore", "Xbitmaps", "Xterm",
+    "Xorg", "AbiWordCommon", "FontsUrwBase35", "AtSpi2Common",
+    "GlibNetworkingCommon", "GlibNetworkingServices"
+  ]
+}
