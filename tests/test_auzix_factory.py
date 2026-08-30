@@ -846,6 +846,36 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
                 )
             )
 
+    def test_adapter_is_applied_when_legacy_receipt_has_no_maintainer_surfaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            (root / "Programs/CacheOwner/1").mkdir(parents=True)
+            receipt = {
+                "name": "CacheOwner",
+                "version": "1",
+                "prefix": "/Programs/CacheOwner/1",
+                "maintainer_surfaces": [],
+            }
+            package_definition = {
+                "dependencies": {"runtime": []},
+                "intake_adapter": {
+                    "format": "auzix-lifecycle-adapter-v1",
+                    "template_dir": "tests/fixtures/apk-trigger",
+                    "configuration": [],
+                    "scripts": {},
+                    "triggers": [{
+                        "template": "auzix-cache.trigger",
+                        "paths": ["/System/Compatibility/usr/share/cache-input"],
+                    }],
+                },
+            }
+            intake = normalize_lifecycle(
+                root, receipt, Path(directory) / "review", package_definition,
+            )
+            self.assertEqual(intake["status"], "ready")
+            self.assertIsNotNone(intake["adapter"])
+            self.assertEqual(len(intake["triggers"]), 1)
+
     def test_package_json_drives_fpm_dependencies_and_lifecycle(self):
         package = {
             "name": "Example",

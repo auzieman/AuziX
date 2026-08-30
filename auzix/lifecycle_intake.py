@@ -617,12 +617,16 @@ def normalize_lifecycle(
     output_dir: Path,
     package_definition: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    adapter = package_definition.get("intake_adapter") if package_definition else None
     surfaces = receipt.get("maintainer_surfaces", [])
     if not isinstance(surfaces, list) or not all(isinstance(item, str) for item in surfaces):
         raise ContractError("maintainer_surfaces must be a string array")
     retained = [path for path in surfaces if Path(path).name in LIFECYCLE_STAGES]
     other_surfaces = [path for path in surfaces if Path(path).name not in LIFECYCLE_STAGES]
-    if not retained and not other_surfaces:
+    # A checked-in adapter is authoritative package metadata.  Older donor
+    # archives may predate maintainer-surface annotation; they must not bypass
+    # the adapter and silently become scriptless APKs.
+    if not retained and not other_surfaces and adapter is None:
         return {
             "status": "static", "scripts": [], "configuration": [],
             "library_publications": [], "rules": [], "effect_candidates": [],
@@ -862,7 +866,6 @@ def normalize_lifecycle(
             "candidate": str(candidate),
         })
 
-    adapter = package_definition.get("intake_adapter") if package_definition else None
     adapter_record = None
     donor_findings: list[dict[str, Any]] = []
     trigger_scripts: list[dict[str, Any]] = []
