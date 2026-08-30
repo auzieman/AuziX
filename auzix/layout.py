@@ -14,6 +14,7 @@ ALIASES = {
     "/lib64": "/System/Compatibility/lib64",
     "/opt": "/Programs",
     "/root": "/Users/root",
+    "/run": "/System/Run",
     "/sbin": "/System/Compatibility/sbin",
     "/System/Libraries": "/Libraries",
     "/tmp": "/Work/Temp",

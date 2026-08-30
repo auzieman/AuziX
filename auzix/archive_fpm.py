@@ -59,6 +59,24 @@ def _archive_layout_domain(record: dict[str, Any]) -> str:
     return "program"
 
 
+def _automatic_library_definition(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "dependencies": {"runtime": list(record.get("depends", []))},
+        "intake_adapter": {
+            "format": "auzix-lifecycle-adapter-v1",
+            "template_dir": "packaging/packages/_auto-library/lifecycle",
+            "configuration": [],
+            "scripts": {},
+            "publish_libraries": True,
+            "operations": [{
+                "type": "publish-package-libraries",
+                "destination": "/System/Libraries",
+            }],
+            "retained_state": [],
+        },
+    }
+
+
 def _review_summary(packages: list[dict[str, Any]]) -> dict[str, Any]:
     by_rule: dict[str, set[str]] = {}
     by_semantic_class: dict[str, set[str]] = {}
@@ -175,7 +193,10 @@ def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]
         )
         if result.returncode:
             raise ContractError(f"archive is unreadable for {name}: {result.stderr.strip()}")
+        layout_domain = _archive_layout_domain(record)
         package_definition = package_definitions.get(name)
+        if package_definition is None and layout_domain == "library":
+            package_definition = _automatic_library_definition(record)
         dependencies = list(dependency_additions.get(name, []))
         if package_definition is not None:
             dependencies = [
@@ -199,7 +220,7 @@ def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]
         planned.append({
             "name": name,
             "kind": record.get("kind", "program"),
-            "layout_domain": _archive_layout_domain(record),
+            "layout_domain": layout_domain,
             "version": record["version"],
             "archive": str(archive),
             "sha256": actual,

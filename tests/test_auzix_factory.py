@@ -15,7 +15,7 @@ from auzix.layout import activate_layout
 from auzix.staging import stage_package
 from auzix.fpm import receipt_fpm_metadata
 from auzix.archive_fpm import (
-    _archive_apk_name, _archive_layout_domain, _review_summary,
+    _archive_apk_name, _archive_layout_domain, _automatic_library_definition, _review_summary,
 )
 from auzix.lifecycle_intake import normalize_lifecycle, promote_auzix_package
 from auzix.intake_ir import account_donor_script, grok_donor_script
@@ -765,6 +765,11 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             }),
             "library",
         )
+
+    def test_formulaic_library_adapter_keeps_manifest_dependencies(self):
+        definition = _automatic_library_definition({"depends": ["Libc6", "Zlib1g"]})
+        self.assertEqual(definition["dependencies"]["runtime"], ["Libc6", "Zlib1g"])
+        self.assertTrue(definition["intake_adapter"]["publish_libraries"])
         self.assertEqual(
             _archive_layout_domain({"name": "NcursesBase", "kind": "staging", "source": {"package": "ncurses-base"}}),
             "library",
@@ -991,6 +996,7 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             activate_layout(root)
             self.assertEqual((root / "etc").readlink(), Path("/System/Settings"))
             self.assertEqual((root / "lib").readlink(), Path("/System/Compatibility/lib"))
+            self.assertEqual((root / "run").readlink(), Path("/System/Run"))
             self.assertTrue((root / "System/State/apk/db/installed").is_file())
             self.assertEqual(
                 (root / "System/Compatibility/lib/apk").readlink(), Path("/System/State/apk")
