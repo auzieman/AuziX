@@ -1,0 +1,30 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-libs-remaining-50",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Libatk100t64", "Libcamel1264t64", "LibjsonGlib10Common", "LibjsonGlib100",
+    "LibsecretCommon", "Libsecret10", "Libduktape207", "Libproxy1v5",
+    "Libsoup30Common", "Libsoup300", "Libedataserver1227t64",
+    "LibebookContacts124t64", "LibtextIconvPerl", "Libaspell15", "Libenchant22",
+    "Libfribidi0", "Libgsf1Common", "Libgsf1114", "Libatspi200t64",
+    "LibatkBridge200t64", "LibcairoGobject2", "Libcloudproviders0", "Libcolord2",
+    "LibthaiData", "Libdatrie1", "Libthai0", "Libpango100", "Libpangoft2100",
+    "Libpangocairo100", "LibwaylandCursor0", "LibwaylandEgl1", "Libxdamage1",
+    "Libxkbcommon0", "Libgtk3Common", "Libgtk30t64", "Libdav1d7", "Librsvg22",
+    "Libgoffice01010Common", "Libgoffice01010t64", "Libical3t64", "Libwv124t64",
+    "Libabiword30", "Libots0", "Libtidy58", "Libwmflite027", "Libwmf027",
+    "Libwpd01010", "Libwpg033", "Libzxcvbn0", "Libzxing3"
+  ]
+}
