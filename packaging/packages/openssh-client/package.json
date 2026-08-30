@@ -8,7 +8,7 @@
   },
   "layout": {"domain": "program", "prefix": "/Programs/OpensshClient/${version}"},
   "payload": {"surfaces": ["/Programs/OpensshClient", "/System/Compatibility", "/System/PackageDB"]},
-  "dependencies": {"runtime": []},
+  "dependencies": {"runtime": ["BasePasswd", "RuntimeGlibc", "Zlib1g", "Libssl3t64"]},
   "intake_adapter": {
     "format": "auzix-lifecycle-adapter-v1",
     "template_dir": "packaging/packages/openssh-client/lifecycle",
