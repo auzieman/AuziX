@@ -21,6 +21,7 @@ LIFECYCLE_STAGES = {
 
 PATH_VARIABLES = {
     "/var/cache": "${AUZIX_CACHE}",
+    "/var/spool": "${AUZIX_STATE}/spool",
     "/var/lib": "${AUZIX_STATE}",
     "/var/log": "${AUZIX_LOGS}",
     "/etc": "${AUZIX_SETTINGS}",
@@ -105,6 +106,15 @@ DPKG_SELF_PYTHON_CACHE_BLOCK = re.compile(
     r"(?P=indent)find \$dirs[^\n]*$"
 )
 
+UCF_OBSOLETE_REGISTRY_BLOCK = re.compile(
+    r'if \[ "\$1" = "upgrade" \] && dpkg --compare-versions "\$2" lt '
+    r'(?P<prior>[^;]+); then\n'
+    r'(?P<body>(?:[ \t]+(?:rm -f (?P<path>\$\{AUZIX_SETTINGS\}/[^\n]+)|ucf [^\n]+|ucfr [^\n]+)\n)+)'
+    r'elif \[ "\$1" = "install" \] && \[ -f (?P=path) \]; then\n'
+    r'(?P<body2>(?:[ \t]+(?:rm -f (?P=path)|ucf [^\n]+|ucfr [^\n]+)\n)+)'
+    r'fi',
+)
+
 RM_CONFFILE_LINE = re.compile(
     r"^(?P<indent>\s*)dpkg-maintscript-helper\s+rm_conffile\s+"
     r"(?P<path>\S+)\s+(?P<prior_version>\S+)"
@@ -158,6 +168,19 @@ def _extract_maintscript_migrations(
         return match.group("indent") + ": # AUZiX directory migration recorded in Package/package.json"
 
     text = DIR_TO_SYMLINK_LINE.sub(replace_dir_to_symlink, text)
+
+    def replace_ucf_registry(match: re.Match[str]) -> str:
+        path = match.group("path")
+        migrations.append({
+            "operation": "remove-obsolete-managed-configuration",
+            "path": path,
+            "prior_version": match.group("prior").strip(),
+            "stage": lifecycle_name,
+            "disposition": "native-filesystem-effect-without-donor-registry",
+        })
+        return f'if [ -f {path} ]; then\n\trm -f {path}\nfi'
+
+    text = UCF_OBSOLETE_REGISTRY_BLOCK.sub(replace_ucf_registry, text)
 
     def replace_usrmerge_diversion(match: re.Match[str]) -> str:
         command = match.group(0)

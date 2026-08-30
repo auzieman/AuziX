@@ -1,0 +1,14 @@
+{
+  "fixture": "blas-lapack-provider-review",
+  "package": "Libblas3+Liblapack3",
+  "contract": {"model_output_is_review_only": true, "apk_has_no_update_alternatives_contract": true},
+  "evidence": {
+    "install": ["update-alternatives publishes libblas.so.3 or liblapack.so.3 from a package-owned nested provider at priority 10"],
+    "remove": ["remove the same provider unless this is an upgrade"],
+    "migration": ["pre-multiarch provider removal guarded by dpkg version comparison"],
+    "trigger": ["activate-noawait ldconfig"],
+    "boundary": ["AUZiX publishes libraries through /Libraries and must retain ownership-safe provider selection", "do not call dpkg, update-alternatives, or ldconfig"]
+  },
+  "question": "Propose native AUZiX provider publication and removal semantics shared by BLAS and LAPACK. Separate current portable intent from obsolete Debian migration protocol.",
+  "_oracle": {"minimum_operations": 2, "minimum_payload_rewrites": 0, "required_terms": ["provider", "publish", "ownership", "blas", "lapack"], "required_discard_terms": ["dpkg", "update-alternatives", "ldconfig"], "forbidden_terms": ["systemctl", "rm -rf"], "exclusive_concepts": [{"terms": ["update-alternatives"]}]}
+}

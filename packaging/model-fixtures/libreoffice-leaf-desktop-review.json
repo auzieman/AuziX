@@ -1,0 +1,13 @@
+{
+  "fixture": "libreoffice-leaf-desktop-review",
+  "package": "LibreOfficeWriter+Calc+Draw+Impress",
+  "contract": {"model_output_is_review_only": true, "desktop_publication_is_separate_from_maintainer_migration": true},
+  "evidence": {
+    "migration": ["generated preinst removes obsolete /etc/libreoffice/registry/*.xcd files and donor ucf/ucfr bookkeeping"],
+    "native_translation": ["retain guarded removal under ${AUZIX_SETTINGS}; discard dpkg version and ucf registry protocol"],
+    "desktop": ["each application archive contains a native .desktop entry, an AUZiX compatibility .desktop publication, and a lowriter/localc/lodraw/loimpress command wrapper", "icons are supplied by LibreOfficeCommon"],
+    "validation": ["Exec target exists", "Icon resolves", "MIME declarations survive", "launcher starts the matching component"]
+  },
+  "question": "Review the separation between lifecycle migration and desktop publication. Identify validations without inventing launcher files or package-script side effects.",
+  "_oracle": {"minimum_operations": 3, "minimum_payload_rewrites": 0, "required_terms": ["desktop", "exec", "icon", "mime", "wrapper"], "required_discard_terms": ["dpkg", "ucf"], "forbidden_terms": ["invent", "systemctl", "rm -rf"], "exclusive_concepts": [{"terms": ["ucfr"]}]}
+}

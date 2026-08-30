@@ -1,0 +1,14 @@
+{
+  "fixture": "libreoffice-common-review",
+  "package": "LibreOfficeCommon",
+  "contract": {"model_output_is_review_only": true, "package_effects_must_be_stage_correct": true, "apk_has_no_distinct_purge": true},
+  "evidence": {
+    "configuration": ["materialize main.xcd from package payload into ${AUZIX_SETTINGS}/libreoffice/registry with preserve-existing policy", "four AppArmor conffiles are declared but absent from this package payload"],
+    "triggers": ["bundled extension changes touch package extension state", "LibreOffice Online systemplate update is conditional on an external command, account, and state tree"],
+    "migrations": ["symlink_to_dir and ucf/ucfr are donor protocols around real configuration intent", "old extension zero-byte-file repair is version-gated"],
+    "removal": ["normal removal cleans generated preregistration state", "purge-only AppArmor and configuration cleanup cannot run on ordinary APK removal"],
+    "desktop": ["shared start-center desktop entries and icon hierarchy are package payload requiring publication validation"]
+  },
+  "question": "Classify native configuration, generated state, deferred external integration, obsolete migrations, purge-only cleanup, and desktop publication. Do not collapse these into one shell script.",
+  "_oracle": {"minimum_operations": 4, "minimum_payload_rewrites": 0, "required_terms": ["configuration", "extension", "defer", "purge", "desktop", "apparmor"], "required_discard_terms": ["dpkg", "ucf", "purge"], "normal_remove_must_retain_state": true, "forbidden_terms": ["systemctl", "immediate host", "rm -rf /"], "exclusive_concepts": [{"terms": ["dpkg-maintscript-helper"]}, {"terms": ["ucfr"]}]}
+}

@@ -397,6 +397,49 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             self.assertIn("-name '*.pyc'", candidate)
             self.assertIn("-name __pycache__ -empty -delete", candidate)
 
+    def test_libreoffice_ucf_cleanup_keeps_native_filesystem_effect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/LibreOfficeWriter/1/Metadata/control/preinst"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+set -e
+if [ "$1" = "upgrade" ] && dpkg --compare-versions "$2" lt 4:25.2.1~rc1-3; then
+\trm -f /etc/libreoffice/registry/writer.xcd
+\tucf --purge /etc/libreoffice/registry/writer.xcd
+\tucfr --force --purge libreoffice-writer /etc/libreoffice/registry/writer.xcd
+elif [ "$1" = "install" ] && [ -f /etc/libreoffice/registry/writer.xcd ]; then
+\trm -f /etc/libreoffice/registry/writer.xcd
+\tucf --purge /etc/libreoffice/registry/writer.xcd
+\tucfr --force --purge libreoffice-writer /etc/libreoffice/registry/writer.xcd
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "LibreOfficeWriter", "version": "1",
+                "prefix": "/Programs/LibreOfficeWriter/1",
+                "maintainer_surfaces": [str(script.relative_to(root)).join(("/", ""))],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["migrations"][0]["operation"], "remove-obsolete-managed-configuration")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("rm -f ${AUZIX_SETTINGS}/libreoffice/registry/writer.xcd", candidate)
+            self.assertNotIn("dpkg", candidate)
+            self.assertNotIn("ucf", candidate)
+
+    def test_var_spool_maps_to_mutable_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Example/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text('#!/bin/sh\nrm -rf /var/spool/example\n')
+            result = normalize_lifecycle(root, {
+                "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
+                "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("rm -rf ${AUZIX_STATE}/spool/example", candidate)
+
     def test_dependency_package_python_cache_query_stays_in_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
