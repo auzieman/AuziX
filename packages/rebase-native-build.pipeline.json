@@ -14,7 +14,8 @@
     "Build-toolchain helpers do not automatically become target/workstation packages unless they are explicitly selected in the target manifest.",
     "Leaf apps build only after the native builder exposes the locked substrate headers, pkg-config files, CMake files, GIR/typelibs, schemas, and helper tools.",
     "Leaf apps must not bundle core/security/desktop substrate libraries into app-local Libraries.",
-    "If a leaf app needs a newer substrate, stop and negotiate a new base release."
+    "If a leaf app needs a newer substrate, stop and negotiate a new base release.",
+    "Package fetching is a distinct no-mutation phase: resolve the bounded transaction, fetch/checksum artifacts, and run protected-path gates before extracting the first package."
   ],
   "flow": [
     {
@@ -65,6 +66,16 @@
         "suggested git tag/ref"
       ],
       "gate": "Required before any compile or package build starts. The lock must be pulled back to git and tagged before builders consume it."
+    },
+    {
+      "id": "03a-prefetch-selected-artifacts",
+      "mode": "fetch-only",
+      "outputs": [
+        "out/rebase/<run_id>/prefetch-manifest.tsv",
+        "out/rebase/<run_id>/prefetch-checksums.tsv",
+        "out/rebase/<run_id>/protected-path-gate.tsv"
+      ],
+      "description": "Fetch selected package artifacts before extraction/build mutation. This mirrors `auzix-pkg pull PACKAGE`: no root mutation is allowed during this phase."
     },
     {
       "id": "04-build-base-and-dev-surfaces",

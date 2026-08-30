@@ -148,7 +148,7 @@ LOADER="/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
 
 for command_name in "${COMMANDS[@]}"; do
   cat >"${PROGRAM}/Commands/${command_name}" <<EOF
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 export XDG_DATA_DIRS="/Programs/${NAME}/current/Resources/usr/share:/System/Compatibility/usr/share"
 export GSETTINGS_SCHEMA_DIR="/Programs/${NAME}/current/Resources/usr/share/glib-2.0/schemas"

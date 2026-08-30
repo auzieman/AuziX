@@ -78,7 +78,7 @@ if [[ -d /etc/acpi ]]; then
 fi
 
 cat > "${AUZIX_ROOT}/Services/acpid/run" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands

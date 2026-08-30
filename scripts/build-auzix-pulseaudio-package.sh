@@ -90,21 +90,24 @@ mkdir -p \
 copy_binary "$(command -v pulseaudio)" "${PULSE_PROGRAM}/Commands/pulseaudio"
 copy_binary "$(command -v pactl)" "${PULSE_PROGRAM}/Commands/pactl"
 
-copy_dir_if_present /usr/lib/pulse-16.1+dfsg1 "${RUNTIME_USR}/lib/pulse-16.1+dfsg1"
+for pulse_lib_dir in /usr/lib/pulse-*; do
+  [[ -d "${pulse_lib_dir}" ]] || continue
+  copy_dir_if_present "${pulse_lib_dir}" "${RUNTIME_USR}/lib/$(basename "${pulse_lib_dir}")"
+done
 copy_dir_if_present /usr/lib/x86_64-linux-gnu/pulseaudio "${RUNTIME_USR}/lib/x86_64-linux-gnu/pulseaudio"
 copy_dir_if_present /usr/share/pulseaudio "${RUNTIME_USR}/share/pulseaudio"
 copy_dir_if_present /usr/share/alsa "${RUNTIME_USR}/share/alsa"
 copy_dir_if_present /usr/share/alsa-card-profile "${RUNTIME_USR}/share/alsa-card-profile"
 copy_dir_if_present /etc/pulse "${AUZIX_ROOT}/System/Settings/pulse"
 
-find \
-  "${RUNTIME_USR}/lib/pulse-16.1+dfsg1" \
-  "${RUNTIME_USR}/lib/x86_64-linux-gnu/pulseaudio" \
-  -type f 2>/dev/null |
-while IFS= read -r file_path; do
-  if file "${file_path}" | grep -q 'ELF'; then
-    copy_runtime_deps "${file_path}" || true
-  fi
+for runtime_pulse_dir in "${RUNTIME_USR}"/lib/pulse-* "${RUNTIME_USR}/lib/x86_64-linux-gnu/pulseaudio"; do
+  [[ -d "${runtime_pulse_dir}" ]] || continue
+  find "${runtime_pulse_dir}" -type f 2>/dev/null |
+  while IFS= read -r file_path; do
+    if file "${file_path}" | grep -q 'ELF'; then
+      copy_runtime_deps "${file_path}" || true
+    fi
+  done
 done
 
 ln -sfn "/Programs/PulseAudio/${PULSE_VERSION}/Commands/pulseaudio" "${AUZIX_ROOT}/System/Compatibility/bin/pulseaudio"

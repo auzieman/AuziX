@@ -118,10 +118,15 @@ docker run --rm --name "${RUN_NAME}" \
   -e AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
   -e AUZIX_ISO_NAME="${ISO_NAME}" \
   -e AUZIX_DISPLAY_AUTOSTART="${AUZIX_DISPLAY_AUTOSTART:-x11}" \
+  -e AUZIX_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+  -e AUZIX_LEGACY_POLICY="${AUZIX_LEGACY_POLICY:-strict}" \
+  -e AUZIX_STRICT_ROOT_AUDIT_MODE="${AUZIX_STRICT_ROOT_AUDIT_MODE:-fail}" \
+  -e AUZIX_SKIP_ELF_NORMALIZE="${AUZIX_SKIP_ELF_NORMALIZE:-0}" \
   -e AUZIX_INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}" \
   -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
   -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
   -e AUZIX_LIVE_CURRENT_ONLY="${AUZIX_LIVE_CURRENT_ONLY:-0}" \
+  -e AUZIX_EXTRA_KERNEL_ARGS="${AUZIX_EXTRA_KERNEL_ARGS:-}" \
   "${BUILDER_IMAGE}" \
   "${build_command[@]}" 2>&1 | tee -a "${work_log}"
 
@@ -142,6 +147,8 @@ docker run --rm \
   -v "${work_source}:/workspace:ro" \
   -w /workspace \
   -e AUZIX_REQUIRE_UEFI=1 \
+  -e AUZIX_EXPECT_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+  -e AUZIX_REQUIRE_LIVE_SSH="${AUZIX_REQUIRE_LIVE_SSH:-0}" \
   "${BUILDER_IMAGE}" \
   ./scripts/validate-auzix-boot-iso.sh "/workspace/artifacts/auzix/${ISO_NAME}" 2>&1 | tee -a "${work_log}"
 
@@ -163,9 +170,13 @@ for extra_iso_name in ${EXTRA_ISO_NAMES}; do
     -e AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
     -e AUZIX_ISO_NAME="${extra_iso_name}" \
     -e AUZIX_DISPLAY_AUTOSTART="${AUZIX_DISPLAY_AUTOSTART:-x11}" \
+    -e AUZIX_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+    -e AUZIX_LEGACY_POLICY="${AUZIX_LEGACY_POLICY:-strict}" \
+    -e AUZIX_STRICT_ROOT_AUDIT_MODE="${AUZIX_STRICT_ROOT_AUDIT_MODE:-fail}" \
     -e AUZIX_INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}" \
     -e AUZIX_INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}" \
     -e AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}" \
+    -e AUZIX_EXTRA_KERNEL_ARGS="${AUZIX_EXTRA_KERNEL_ARGS:-}" \
     "${BUILDER_IMAGE}" \
     ./scripts/build-auzix-boot-iso.sh 2>&1 | tee -a "${work_log}"
   extra_work_iso="${work_source}/artifacts/auzix/${extra_iso_name}"
@@ -174,6 +185,8 @@ for extra_iso_name in ${EXTRA_ISO_NAMES}; do
     -v "${work_source}:/workspace:ro" \
     -w /workspace \
     -e AUZIX_REQUIRE_UEFI=1 \
+    -e AUZIX_EXPECT_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+    -e AUZIX_REQUIRE_LIVE_SSH="${AUZIX_REQUIRE_LIVE_SSH:-0}" \
     "${BUILDER_IMAGE}" \
     ./scripts/validate-auzix-boot-iso.sh "/workspace/artifacts/auzix/${extra_iso_name}" 2>&1 | tee -a "${work_log}"
   sha256sum "${extra_work_iso}" | tee "${extra_work_iso}.sha256" | tee -a "${work_log}"

@@ -152,6 +152,32 @@ layer first, then used to rebuild or validate newer leaf packages. They are not
 per-app hotfixes and must not be applied by force-installing package libc,
 GTK/EFL, or libssl over an active live root.
 
+## Runtime linker lifecycle
+
+Shared-library installs have a mandatory linker-cache stage. Debian packages
+regularly express this through maintainer scripts and triggers such as
+`ldconfig`; AUZiX must preserve that intent instead of hoping wrapper paths hide
+it.
+
+`auzix-pkg` refreshes the runtime linker after extraction/finalization/post
+hooks, but the global cache is limited to the active runtime substrate:
+
+```text
+/System/Libraries
+/System/Libraries/Runtime/glibc
+/System/Compatibility/lib*
+/System/Compatibility/usr/lib*
+```
+
+Package-local libraries under `/Programs/<Name>/current/RootFS` are not added to
+the global loader cache. Those remain package-wrapper/runtime-ladder inputs.
+This keeps leaf installs from making the running desktop accidentally load a
+newer or incompatible libc, EFL, GTK, OpenSSL, or other substrate library.
+
+If a leaf transaction would require changing the global linker substrate, the
+transaction must fail closed and become a planned base/security/desktop runtime
+layer rebuild.
+
 The wrapper/runtime-ladder model may expose leaf package libraries such as GTK,
 ncurses, OpenSSL, font, media, or editor support libraries, but those libraries
 must themselves be built against the active AUZiX core. It must not mix

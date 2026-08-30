@@ -253,18 +253,30 @@ EOF
   chmod 0755 "${validation_command_root}/${command_name}"
 done < <(jq -r '.commands[].name' "${RECIPE}")
 
-while IFS= read -r smoke_command; do
-  smoke_script="${validation_command_root}/run-smoke.sh"
-  cat >"${smoke_script}" <<EOF
+if [[ "$(jq -r 'if (.validation | has("chroot_smoke")) then .validation.chroot_smoke else true end' "${RECIPE}")" == "true" ]]; then
+  while IFS= read -r smoke_command; do
+    smoke_script="${validation_command_root}/run-smoke.sh"
+    cat >"${smoke_script}" <<EOF
 set -e
 export PATH="/System/Compatibility/bin:/System/Compatibility/sbin:/System/Compatibility/usr/bin:/System/Compatibility/usr/sbin:/Programs/BusyBox/current/Commands"
 export AUZIX_COMMAND_ROOT="/System/Validation/CommandSuite/${name}"
 export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64:/Programs/${name}/current/Libraries"
 ${smoke_command}
 EOF
-  chmod 0755 "${smoke_script}"
-  chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" sh "/System/Validation/CommandSuite/${name}/run-smoke.sh"
-done < <(jq -r '.validation.smoke_commands[]' "${RECIPE}")
+    chmod 0755 "${smoke_script}"
+    chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" sh "/System/Validation/CommandSuite/${name}/run-smoke.sh"
+  done < <(jq -r '.validation.smoke_commands[]?' "${RECIPE}")
+fi
+
+while IFS= read -r smoke_command; do
+  [[ -n "${smoke_command}" ]] || continue
+  export PATH="${program_abs}/Commands:${PATH}"
+  export AUZIX_COMMAND_ROOT="${program_abs}/Commands"
+  export AUZIX_LOADER_HOST="${AUZIX_ROOT}/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
+  export AUZIX_LIBRARY_PATH_HOST="${AUZIX_ROOT}/System/Libraries:${AUZIX_ROOT}/System/Libraries/Runtime/glibc:${libraries_abs}:${AUZIX_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64"
+  export LD_LIBRARY_PATH="${AUZIX_ROOT}/System/Libraries:${AUZIX_ROOT}/System/Libraries/Runtime/glibc:${libraries_abs}:${AUZIX_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu:${AUZIX_ROOT}/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+  eval "${smoke_command}"
+done < <(jq -r '.validation.host_smoke_commands[]?' "${RECIPE}")
 trap - EXIT
 cleanup
 cleanup_command_extract

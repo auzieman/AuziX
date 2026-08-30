@@ -68,6 +68,11 @@ mount_if_needed "${devshm_path}" tmpfs tmpfs "mode=1777,nosuid,nodev" || echo "A
 mount_if_needed "${run_path}" tmpfs tmpfs "mode=0755,nosuid,nodev" || echo "AuzixServiceRuntime: run mount unavailable: ${run_path}" >&2
 mount_if_needed "${cgroup_path}" cgroup2 cgroup2 || echo "AuzixServiceRuntime: cgroup2 mount unavailable: ${cgroup_path}" >&2
 
+if [ "${ROOT}" = "/" ]; then
+  "${BB}" chgrp tty /dev/ptmx /dev/tty /dev/tty[0-9]* 2>/dev/null || true
+  "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx /dev/tty 2>/dev/null || true
+fi
+
 if [ "${ROOT}" = "/" ] && [ -w /proc/sys/net/ipv4/ping_group_range ]; then
   echo "0 2147483647" >/proc/sys/net/ipv4/ping_group_range 2>/dev/null || true
 fi

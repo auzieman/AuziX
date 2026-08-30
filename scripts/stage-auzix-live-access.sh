@@ -15,7 +15,10 @@ SSH_KEYGEN="${AUZIX_SSH_KEYGEN:-$(command -v ssh-keygen || true)}"
 fail() { printf '[auzix-live-access] FAIL: %s\n' "$*" >&2; exit 1; }
 log() { printf '[auzix-live-access] %s\n' "$*"; }
 
-[[ -x "${AUZIX_ROOT}/Programs/OpenSSH/host/Commands/sshd" ]] || fail 'baseline OpenSSH daemon is missing'
+if [[ ! -x "${AUZIX_ROOT}/Programs/OpenSSH/host/Commands/sshd" ]]; then
+  log 'baseline OpenSSH daemon is absent; leaving live access to BusyBox/rescue console'
+  exit 0
+fi
 [[ -x "${AUZIX_ROOT}/Services/ssh/run" ]] || fail 'baseline SSH service runner is missing'
 [[ -f "${AUZIX_ROOT}/System/Settings/ssh/sshd_config" ]] || fail 'baseline sshd_config is missing'
 [[ -f "${AUZIX_ROOT}/System/Settings/shadow" ]] || fail 'baseline shadow file is missing'

@@ -164,7 +164,12 @@ cat > "${MIDORI_PROGRAM}/Resources/midori/distribution/policies.json" <<'EOF'
     "DisableTelemetry": true,
     "DontCheckDefaultBrowser": true,
     "OverrideFirstRunPage": "",
-    "OverridePostUpdatePage": ""
+    "OverridePostUpdatePage": "",
+    "Homepage": {
+      "URL": "https://auzietek.com",
+      "Locked": false,
+      "StartPage": "homepage"
+    }
   }
 }
 EOF
@@ -177,6 +182,15 @@ pref("security.enterprise_roots.enabled", true);
 pref("security.osclientcerts.autoload", true);
 pref("browser.shell.checkDefaultBrowser", false);
 pref("browser.startup.homepage_override.mstone", "ignore");
+pref("browser.aboutwelcome.enabled", false);
+pref("browser.startup.homepage", "https://auzietek.com|https://linux-users.auzietek.com/post/auzix-alpha-install-field-note?page=1&page_size=100&tag=linux&theme=linux-pro&lane=linux#article-start");
+pref("browser.startup.page", 1);
+pref("browser.newtabpage.enabled", false);
+pref("browser.newtabpage.activity-stream.feeds.topsites", false);
+pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
+pref("browser.newtabpage.activity-stream.showSponsored", false);
+pref("browser.newtabpage.activity-stream.showSponsoredTopSites", false);
+pref("trailhead.firstrun.didSeeAboutWelcome", true);
 pref("datareporting.policy.dataSubmissionEnabled", false);
 pref("app.update.enabled", false);
 EOF
@@ -186,6 +200,15 @@ user_pref("security.enterprise_roots.enabled", true);
 user_pref("security.osclientcerts.autoload", true);
 user_pref("browser.shell.checkDefaultBrowser", false);
 user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.startup.homepage", "https://auzietek.com|https://linux-users.auzietek.com/post/auzix-alpha-install-field-note?page=1&page_size=100&tag=linux&theme=linux-pro&lane=linux#article-start");
+user_pref("browser.startup.page", 1);
+user_pref("browser.newtabpage.enabled", false);
+user_pref("browser.newtabpage.activity-stream.feeds.topsites", false);
+user_pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
+user_pref("browser.newtabpage.activity-stream.showSponsored", false);
+user_pref("browser.newtabpage.activity-stream.showSponsoredTopSites", false);
+user_pref("trailhead.firstrun.didSeeAboutWelcome", true);
 user_pref("datareporting.policy.dataSubmissionEnabled", false);
 user_pref("app.update.enabled", false);
 EOF
@@ -223,8 +246,17 @@ else
 fi
 find "${profile_dir}" -type f -exec chmod 0644 {} + 2>/dev/null || true
 
+live_profile_dir="${AUZIX_ROOT}/Users/auzix/.midori"
+if [[ -d "${AUZIX_ROOT}/Users/auzix" ]]; then
+  mkdir -p "${live_profile_dir}"
+  cp -a "${profile_dir}/." "${live_profile_dir}/"
+  find "${live_profile_dir}" -type d -exec chmod 0755 {} + 2>/dev/null || true
+  find "${live_profile_dir}" -type f -exec chmod 0644 {} + 2>/dev/null || true
+  chown -R 1000:1000 "${live_profile_dir}" 2>/dev/null || true
+fi
+
 cat > "${MIDORI_PROGRAM}/Commands/midori" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 export HOME="${HOME:-/Users/auzix}"

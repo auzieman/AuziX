@@ -16,6 +16,8 @@ BUILDER_IMAGE="${AUZIX_BUILDER_IMAGE:-auzix/builder:lab}"
 REFRESH_BUILDER="${AUZIX_REFRESH_BUILDER:-0}"
 STAGE_LIVE_ACCESS="${AUZIX_STAGE_LIVE_ACCESS:-0}"
 STAGE_EFL_INSTALLER="${AUZIX_STAGE_EFL_INSTALLER:-0}"
+STAGE_BROWSER_TRUST="${AUZIX_STAGE_BROWSER_TRUST:-0}"
+STAGE_PACKAGE_TOOLS="${AUZIX_STAGE_PACKAGE_TOOLS:-1}"
 RUN_ID="${AUZIX_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 ISO_NAME="${AUZIX_ISO_NAME:-auzix-live-efl-baseline-${RUN_ID}.iso}"
 RUN_NAME="auzix-live-assemble-${RUN_ID}"
@@ -73,6 +75,8 @@ baseline_root=${BASELINE_ROOT}
 worker_root=${work_root}
 source_snapshot=${work_source}
 deltas=approved-access-and-installer-only
+stage_browser_trust=${STAGE_BROWSER_TRUST}
+stage_package_tools=${STAGE_PACKAGE_TOOLS}
 iso_name=${ISO_NAME}
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
@@ -101,6 +105,8 @@ docker run --rm --name "${RUN_NAME}" \
   -e AUZIX_ISO_NAME="${ISO_NAME}" \
   -e AUZIX_STAGE_LIVE_ACCESS="${STAGE_LIVE_ACCESS}" \
   -e AUZIX_STAGE_EFL_INSTALLER="${STAGE_EFL_INSTALLER}" \
+  -e AUZIX_STAGE_BROWSER_TRUST="${STAGE_BROWSER_TRUST}" \
+  -e AUZIX_STAGE_PACKAGE_TOOLS="${STAGE_PACKAGE_TOOLS}" \
   -e AUZIX_ACCESS_PROFILE=lab-password \
   -e AUZIX_AUTHORIZED_KEYS_SOURCE=/run/auzix-runtime/authorized_keys \
   -e AUZIX_ROOT_PASSWORD_HASH_FILE=/run/auzix-runtime/live-root-shadow \
@@ -111,12 +117,39 @@ docker run --rm --name "${RUN_NAME}" \
     if [ "${AUZIX_STAGE_EFL_INSTALLER}" = 1 ]; then
       ./scripts/build-auzix-installer-efl-package.sh /auzix-root
     fi
+    if [ "${AUZIX_STAGE_PACKAGE_TOOLS}" = 1 ]; then
+      ./scripts/build-auzix-package-tools-package.sh /auzix-root
+    fi
+    if [ "${AUZIX_STAGE_BROWSER_TRUST}" = 1 ]; then
+      ./scripts/build-auzix-ca-certificates-package.sh /auzix-root
+      ./scripts/build-auzix-midori-package.sh /auzix-root
+    fi
     # The selected baseline already owns the live desktop, session, and
     # service configuration.  Do not re-run its broad live-tools provisioner
     # here: alpha assembly is intentionally a thin consumer plus explicitly
     # approved deltas only.
-    test -x /auzix-root/Services/ssh/run
-    test -x /auzix-root/Programs/Midori/11.8/Commands/midori
+    if [ -e /auzix-root/Services/ssh/run ]; then
+      test -x /auzix-root/Services/ssh/run
+    fi
+    if [ "${AUZIX_STAGE_BROWSER_TRUST}" = 1 ]; then
+      test -x /auzix-root/Programs/Midori/11.8/Commands/midori
+      test -s /auzix-root/System/Compatibility/etc/ssl/certs/ca-certificates.crt
+      test -s /auzix-root/System/Settings/browser/midori-default-profile/user.js
+      test -s /auzix-root/Programs/Midori/11.8/Resources/midori/distribution/policies.json
+      grep -Fq "ImportEnterpriseRoots" /auzix-root/Programs/Midori/11.8/Resources/midori/distribution/policies.json
+      grep -Fq "Homepage" /auzix-root/Programs/Midori/11.8/Resources/midori/distribution/policies.json
+      grep -Fq "NSS_DEFAULT_DB_TYPE" /auzix-root/Programs/Midori/11.8/Commands/midori
+      grep -Fq "set -- --profile" /auzix-root/Programs/Midori/11.8/Commands/midori
+      test -s /auzix-root/Users/auzix/.midori/user.js
+      grep -Fq "browser.aboutwelcome.enabled" /auzix-root/Users/auzix/.midori/user.js
+      grep -Fq "browser.newtabpage.enabled" /auzix-root/Users/auzix/.midori/user.js
+      test -s /auzix-root/Users/auzix/.midori/cert9.db
+    fi
+    pkg_tools=/auzix-root/Programs/AuzixPackageTools/0.1/Commands/auzix-pkg
+    test -x "${pkg_tools}"
+    grep -Fq "auzix-pkg pull PACKAGE" "${pkg_tools}"
+    grep -Fq "PULL_PLAN package=" "${pkg_tools}"
+    grep -Fq "protected runtime paths" "${pkg_tools}"
     ./scripts/build-auzix-boot-iso.sh
   ' 2>&1 | tee -a "${work_log}"
 

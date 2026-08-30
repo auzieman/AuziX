@@ -32,6 +32,87 @@ chmod 0775 \
   "${AUZIX_ROOT}/System/Logs/installer" \
   "${AUZIX_ROOT}/System/Logs/packages" 2>/dev/null || true
 
+# STRICT BOOT USER HANDOFF CONTRACT:
+# r4 proved PID1/StartSequence reaches the display stage, but the final
+# openvt->E handoff failed because BusyBox `su auzix` consults libc account
+# lookup state that is not guaranteed to exist in strict root.  This tiny helper
+# is the r5 additive fix: drop to numeric uid/gid/groups without needing
+# /etc/passwd or NSS.  Do not replace it with `su auzix` unless strict-root user
+# lookup has first been proven in the init path.
+cat > "${AUZIX_ROOT}/System/Tools/auzix-run-as-uid.c" <<'EOF'
+#define _GNU_SOURCE
+#include <errno.h>
+#include <grp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+static void die(const char *msg) {
+  perror(msg);
+  exit(111);
+}
+
+static unsigned long parse_ulong(const char *s, const char *what) {
+  char *end = NULL;
+  errno = 0;
+  unsigned long value = strtoul(s, &end, 10);
+  if (errno || end == s || *end != '\0') {
+    fprintf(stderr, "auzix-run-as-uid: invalid %s: %s\n", what, s);
+    exit(64);
+  }
+  return value;
+}
+
+int main(int argc, char **argv) {
+  if (argc < 5) {
+    fprintf(stderr, "usage: %s UID GID GROUPS COMMAND [ARGS...]\n", argv[0]);
+    return 64;
+  }
+
+  uid_t uid = (uid_t)parse_ulong(argv[1], "uid");
+  gid_t gid = (gid_t)parse_ulong(argv[2], "gid");
+
+  gid_t groups[64];
+  int group_count = 0;
+  char *group_spec = strdup(argv[3]);
+  if (!group_spec) die("strdup");
+  char *save = NULL;
+  for (char *tok = strtok_r(group_spec, ",", &save);
+       tok && group_count < (int)(sizeof(groups) / sizeof(groups[0]));
+       tok = strtok_r(NULL, ",", &save)) {
+    if (*tok == '\0') continue;
+    groups[group_count++] = (gid_t)parse_ulong(tok, "group");
+  }
+
+  if (setgroups((size_t)group_count, groups) != 0) die("setgroups");
+  if (setgid(gid) != 0) die("setgid");
+  if (setuid(uid) != 0) die("setuid");
+
+  execv(argv[4], &argv[4]);
+  die("execv");
+}
+EOF
+if command -v gcc >/dev/null 2>&1; then
+  # Strict-root means this helper must not depend on /lib64 or a dynamic loader.
+  # If static linking is unavailable, stop here and fix the builder/toolchain
+  # instead of baking a dynamically linked handoff that fails at boot.
+  gcc -static -Os -s -o "${AUZIX_ROOT}/System/Tools/auzix-run-as-uid" \
+    "${AUZIX_ROOT}/System/Tools/auzix-run-as-uid.c"
+  rm -f "${AUZIX_ROOT}/System/Tools/auzix-run-as-uid.c"
+  chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-run-as-uid"
+else
+  printf 'add-auzix-live-tools: gcc is required to build static auzix-run-as-uid\n' >&2
+  exit 1
+fi
+
+if [ -x "${ROOT_DIR}/scripts/probe-auzix-desktop-launchers.sh" ]; then
+  install -D -m 0755 \
+    "${ROOT_DIR}/scripts/probe-auzix-desktop-launchers.sh" \
+    "${AUZIX_ROOT}/System/Tools/probe-auzix-desktop-launchers"
+fi
+
 cat > "${AUZIX_ROOT}/System/Settings/mdev.conf" <<'EOF'
 null 0:0 0666
 random 0:0 0666
@@ -39,7 +120,7 @@ urandom 0:0 0666
 EOF
 
 cat > "${AUZIX_ROOT}/System/Boot/StartSequence" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -47,15 +128,39 @@ PATH=/Programs/BusyBox/1.36.1/Commands:${PATH:-}
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
+# PROVEN BOOT CONTRACT:
+# Keep StartSequence self-hosted on static BusyBox primitives.  r4 reached this
+# script, mounted runtime filesystems, DHCP'd, started services, and reached the
+# display stage.  Changes here must be additive and evidence-driven; do not
+# rewrite the init/runtime path while debugging desktop/package issues.
+LINK_MODE="${AUZIX_LINK_MODE:-}"
+if [ -z "${LINK_MODE}" ] && [ -r /proc/cmdline ]; then
+  for arg in $(${BB} cat /proc/cmdline 2>/dev/null || true); do
+    case "${arg}" in
+      auzix.links=*) LINK_MODE="${arg#auzix.links=}" ;;
+      auzix.strict-links|auzix.links=off|auzix.links=none) LINK_MODE=strict ;;
+    esac
+  done
+fi
+LINK_MODE="${LINK_MODE:-strict}"
+
+compat_links_enabled() {
+  case "${LINK_MODE}" in
+    full|compat|legacy|on|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 log() {
   echo "[StartSequence] $*"
 }
 
 console_note() {
   msg="[StartSequence] $*"
+  # PID 1 already inherits the selected kernel console.  Writing the same
+  # message to tty1 and an unattended ttyS0 can block startup when QEMU has no
+  # serial client, as well as duplicating every line on the framebuffer.
   echo "${msg}"
-  [ -c /dev/tty1 ] && echo "${msg}" >/dev/tty1 2>/dev/null || true
-  [ -c /dev/ttyS0 ] && echo "${msg}" >/dev/ttyS0 2>/dev/null || true
 }
 
 is_mounted() {
@@ -81,13 +186,15 @@ prepare_live_runtime_state() {
     "${BB}" mount -t tmpfs tmpfs /System/Logs 2>/dev/null || true
   fi
 
-  "${BB}" mkdir -p /System/State/ssh /System/State/dbus /System/State/display /System/State/packages /System/Logs/display /System/Logs/installer /System/Logs/packages 2>/dev/null || true
+  "${BB}" mkdir -p /System/State/ssh /System/State/dbus /System/State/display /System/State/desktop /System/State/packages /System/Logs/display /System/Logs/installer /System/Logs/packages 2>/dev/null || true
   if [ -d /run/auzix-state-seed/ssh ]; then
     "${BB}" cp -a /run/auzix-state-seed/ssh/. /System/State/ssh/ 2>/dev/null || true
   fi
   "${BB}" chown -R 0:0 /System/State/ssh 2>/dev/null || true
   "${BB}" chown -R 0:1000 /System/State/packages /System/Logs/installer /System/Logs/packages 2>/dev/null || true
-  "${BB}" chmod 0755 /System/State /System/State/dbus /System/Logs /System/Logs/display 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /System/State/display /System/State/desktop /System/Logs/display 2>/dev/null || true
+  "${BB}" chmod 0755 /System/State /System/State/dbus /System/Logs 2>/dev/null || true
+  "${BB}" chmod 0775 /System/State/display /System/State/desktop /System/Logs/display 2>/dev/null || true
   "${BB}" chmod 0775 /System/State/packages /System/Logs/installer /System/Logs/packages 2>/dev/null || true
   "${BB}" chmod 0700 /System/State/ssh 2>/dev/null || true
   "${BB}" chmod 0600 /System/State/ssh/ssh_host_*_key 2>/dev/null || true
@@ -113,9 +220,24 @@ mount_runtime() {
     "${BB}" rm -rf /run/user /run/dbus /run/sshd 2>/dev/null || true
   fi
   "${BB}" rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true
-  "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /var/cache /var/lib /var/log /Work/Temp /System/State /System/Logs /Network/DNS
-  "${BB}" touch /var/log/lastlog 2>/dev/null || true
+  "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /Work/Temp /System/State /System/Cache /System/Logs /Network/DNS
+  "${BB}" touch /System/Logs/lastlog 2>/dev/null || true
   "${BB}" ln -sfn /run/resolv.conf /System/Settings/resolv.conf 2>/dev/null || true
+  # POSIX/libc contract: user/group/name-service lookups are conventionally
+  # rooted in /etc.  The working moon ISO kept /etc as a symlink to
+  # /System/Settings, so getpwnam/getgrnam, chgrp, Xorg, and desktop helpers
+  # all saw the AUZiX account database without duplicating state.
+  if [ -d /etc ] && [ ! -L /etc ]; then
+    "${BB}" rmdir /etc 2>/dev/null || true
+  fi
+  [ -e /etc ] || "${BB}" ln -s /System/Settings /etc 2>/dev/null || true
+  "${BB}" mkdir -p /System/Compatibility/etc 2>/dev/null || true
+  for settings_file in passwd group shadow shells nsswitch.conf hosts; do
+    if [ -e "/System/Settings/${settings_file}" ]; then
+      "${BB}" ln -sfn "/System/Settings/${settings_file}" "/System/Compatibility/etc/${settings_file}" 2>/dev/null || true
+    fi
+  done
+  "${BB}" ln -sfn /run/resolv.conf /System/Compatibility/etc/resolv.conf 2>/dev/null || true
   if [ -d /System/Compatibility/etc/ssl ]; then
     "${BB}" ln -sfn /System/Compatibility/etc/ssl /System/Settings/ssl 2>/dev/null || true
     "${BB}" mkdir -p /System/Compatibility/usr/lib 2>/dev/null || true
@@ -138,15 +260,27 @@ tmpfs /dev/shm tmpfs mode=1777,nosuid,nodev 0 0
 tmpfs /run tmpfs defaults 0 0
 FSTAB
   fi
-  [ -e /var/tmp ] || "${BB}" ln -s /Work/Temp /var/tmp 2>/dev/null || true
-  [ -e /var/run ] || "${BB}" ln -s /run /var/run 2>/dev/null || true
-  [ -e /var/lock ] || "${BB}" ln -s /run/lock /var/lock 2>/dev/null || true
-  [ -e /opt ] || "${BB}" ln -s /Programs /opt 2>/dev/null || true
-  if [ -d /root ] && [ ! -L /root ]; then
-    "${BB}" rmdir /root 2>/dev/null || true
+  [ -e /System/State/tmp ] || "${BB}" ln -s /Work/Temp /System/State/tmp 2>/dev/null || true
+  # Strict mode means no legacy top-level AUZiX root aliases at runtime either.
+  # These links are allowed only when booted with auzix.links=compat/full for
+  # break-glass package triage.
+  if compat_links_enabled; then
+    [ -e /opt ] || "${BB}" ln -s /Programs /opt 2>/dev/null || true
+    if [ -d /root ] && [ ! -L /root ]; then
+      "${BB}" rmdir /root 2>/dev/null || true
+    fi
+    [ -e /root ] || "${BB}" ln -s /Users/root /root 2>/dev/null || true
   fi
-  [ -e /root ] || "${BB}" ln -s /Users/root /root 2>/dev/null || true
-  "${BB}" chown 0:0 /usr/local 2>/dev/null || true
+  # Xorg/xkbcomp still contain an upstream default XKB lookup rooted at
+  # /usr/share/X11/xkb.  Keep this as a narrow display compatibility alias; do
+  # not restore broad top-level /usr payloads from here.
+  if [ -d /System/Settings/X11/xkb ]; then
+    "${BB}" mkdir -p /usr/share/X11 2>/dev/null || true
+    if [ ! -e /usr/share/X11/xkb ]; then
+      "${BB}" ln -s /System/Settings/X11/xkb /usr/share/X11/xkb 2>/dev/null || true
+    fi
+  fi
+  [ -d /usr/local ] && "${BB}" chown 0:0 /usr/local 2>/dev/null || true
   if [ -e /Programs/Sudo/host/Commands/sudo ]; then
     "${BB}" chown root:root /Programs/Sudo/host/Commands/sudo 2>/dev/null || true
     "${BB}" chmod 4755 /Programs/Sudo/host/Commands/sudo 2>/dev/null || true
@@ -186,13 +320,13 @@ root:x:0:0:root:/Users/root:/System/Compatibility/bin/sh
 auzix:x:1000:1000:Auzix User:/Users/auzix:/System/Compatibility/bin/sh
 sshd:x:74:74:sshd privilege separation:/run/sshd:/System/Compatibility/bin/false
 messagebus:x:101:101:DBus message bus:/run/dbus:/System/Compatibility/bin/false
-lightdm:x:102:102:LightDM display manager:/var/lib/lightdm:/System/Compatibility/bin/false
+lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatibility/bin/false
 EOF
   fi
   if ! "${BB}" grep -q '^auzix:' /System/Settings/group 2>/dev/null; then
     cat > /System/Settings/group <<'EOF'
 root:x:0:
-tty:x:5:
+tty:x:5:root,auzix,lightdm
 auzix:x:1000:
 sshd:x:74:
 messagebus:x:101:
@@ -200,9 +334,9 @@ lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
 input:x:104:root,auzix,lightdm
-video:x:44:root,auzix,lightdm
+video:x:39:root,auzix,lightdm
 render:x:105:root,auzix,lightdm
-audio:x:29:root,auzix
+audio:x:63:root,auzix
 EOF
   fi
   if [ ! -s /System/Settings/shadow ]; then
@@ -285,7 +419,7 @@ EOF
 start_network() {
   console_note "network: starting DHCP"
   cat > /run/auzix-udhcpc.script <<'NETSCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
 case "$1" in
@@ -359,6 +493,33 @@ live_media_ready() {
   [ -d /run/auzix-iso/live ] || [ -d /run/auzix-iso/LIVE ] || [ -d /run/auzix-iso/boot ]
 }
 
+live_media_candidates() {
+  # Moon reference behavior: only probe actual live-media style devices.  Do
+  # not scan HDD/root block devices here.  The HDD image regressed when this
+  # grew to include /dev/vda,/dev/sda and partitions, causing installed/root
+  # boots to repeatedly try to mount their own disk as live media before X/E.
+  for dev in \
+    /dev/disk/by-label/AUZIXLIVE \
+    /dev/disk/by-label/ISOIMAGE \
+    /dev/sr0 /dev/cdrom /dev/hdc
+  do
+    [ -e "${dev}" ] || continue
+    printf '%s\n' "${dev}"
+  done
+}
+
+try_mount_live_media_dev() {
+  dev="$1"
+  for fstype in iso9660 ext4 vfat; do
+    "${BB}" mount -t "${fstype}" -o ro "${dev}" /run/auzix-iso 2>/dev/null || continue
+    if live_media_ready; then
+      return 0
+    fi
+    unmount_live_media
+  done
+  return 1
+}
+
 unmount_live_media() {
   while is_mounted /run/auzix-iso; do
     "${BB}" umount /run/auzix-iso 2>/dev/null && continue
@@ -375,14 +536,10 @@ mount_live_media() {
   fi
 
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE; do
-      [ -e "${dev}" ] || continue
-      if "${BB}" mount -t iso9660 -o ro "${dev}" /run/auzix-iso 2>/dev/null; then
-        if live_media_ready; then
-          log "live media mounted from ${dev}"
-          return 0
-        fi
-        unmount_live_media
+    for dev in $(live_media_candidates); do
+      if try_mount_live_media_dev "${dev}"; then
+        log "live media mounted from ${dev}"
+        return 0
       fi
     done
     "${BB}" sleep 1
@@ -429,6 +586,10 @@ prepare_enlightenment_background_path() {
 }
 
 stage_live_assets() {
+  [ "${AUZIX_STAGE_LIVE_ASSETS:-1}" = "1" ] || {
+    log "live display assets skipped"
+    return 0
+  }
   mount_live_media
   asset_dir="$(find_live_assets || true)"
   [ -n "${asset_dir}" ] || return 0
@@ -508,20 +669,20 @@ fix_session_permissions() {
     "${BB}" chmod 4755 "${helper}" 2>/dev/null || true
   done
   if [ -d /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment ] && [ ! -e /System/Compatibility/usr/lib/enlightenment ]; then
-    "${BB}" mkdir -p /usr/lib
+    "${BB}" mkdir -p /System/Compatibility/usr/lib
     "${BB}" ln -s /System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment /System/Compatibility/usr/lib/enlightenment 2>/dev/null || true
   fi
-  "${BB}" mkdir -p /run/user/1000
+  "${BB}" mkdir -p /run/user/1000 /System/State/display /System/State/desktop
   "${BB}" chown 1000:1000 /run/user/1000 2>/dev/null || true
   "${BB}" chmod 0700 /run/user/1000 2>/dev/null || true
-  "${BB}" mkdir -p /System/Logs/display
+  "${BB}" mkdir -p /System/Logs/display /System/State/display /System/State/desktop
   "${BB}" touch \
     /System/Logs/display/start-e.log \
     /System/Logs/display/openvt.log \
     /System/Logs/display/hardware-display.log \
     /System/Logs/display/e-module-tuning.log 2>/dev/null || true
-  "${BB}" chown -R 1000:1000 /System/Logs/display 2>/dev/null || true
-  "${BB}" chmod 0755 /System/Logs/display 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /System/Logs/display /System/State/display /System/State/desktop 2>/dev/null || true
+  "${BB}" chmod 0775 /System/Logs/display /System/State/display /System/State/desktop 2>/dev/null || true
   "${BB}" chown 1000:1000 \
     /System/Logs/display/start-e.log \
     /System/Logs/display/openvt.log \
@@ -530,19 +691,25 @@ fix_session_permissions() {
 }
 
 ensure_dbus_machine_id() {
-  "${BB}" mkdir -p /System/State/dbus /var/lib/dbus /etc 2>/dev/null || true
+  # Machine-id/system DBus state is root-owned runtime state.  User sessions may
+  # read it, but must not create/chown/overwrite it after we drop to uid 1000.
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
+  "${BB}" mkdir -p /System/State/dbus /run/dbus-state 2>/dev/null || true
+  # /run/dbus-state is live runtime state, not packaged truth.  In strict live
+  # mode /System/State may be read-only from squashfs, so DBus must always have
+  # a writable, root-readable fallback before system/session bus startup.
+  "${BB}" chown root:root /run/dbus-state /System/State/dbus 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state /System/State/dbus 2>/dev/null || true
   if [ ! -d /System/State/dbus ]; then
     "${BB}" mkdir -p /run/dbus-state 2>/dev/null || true
     [ -e /System/State/dbus ] || "${BB}" ln -s /run/dbus-state /System/State/dbus 2>/dev/null || true
   fi
 
   machine_id=""
-  if [ -s /etc/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /etc/machine-id 2>/dev/null || true)"
-  elif [ -s /var/lib/dbus/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /var/lib/dbus/machine-id 2>/dev/null || true)"
-  elif [ -s /System/State/dbus/machine-id ]; then
+  if [ -s /System/State/dbus/machine-id ]; then
     machine_id="$("${BB}" head -n 1 /System/State/dbus/machine-id 2>/dev/null || true)"
+  elif [ -s /run/dbus-state/machine-id ]; then
+    machine_id="$("${BB}" head -n 1 /run/dbus-state/machine-id 2>/dev/null || true)"
   fi
 
   if [ -z "${machine_id}" ] && [ -r /proc/sys/kernel/random/uuid ]; then
@@ -558,18 +725,25 @@ ensure_dbus_machine_id() {
   if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
     dbus_state_dir=/run/dbus-state
     "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chown root:root "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chmod 0755 "${dbus_state_dir}" 2>/dev/null || true
   else
     "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
   fi
 
-  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
-  "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" mkdir -p /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chown root:root /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  if ! printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  fi
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /run/dbus-state/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /run/dbus-state/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
   command -v dbus-daemon >/dev/null 2>&1 || return 0
   ensure_dbus_machine_id
   "${BB}" mkdir -p /run/dbus
@@ -578,7 +752,7 @@ start_system_bus() {
     return 0
   fi
   "${BB}" rm -f /run/dbus/system_bus_socket 2>/dev/null || true
-  dbus-daemon --system --fork --nopidfile >/System/Logs/dbus-system.log 2>&1 || true
+  "${BB}" timeout 5 dbus-daemon --system --fork --nopidfile >/System/Logs/dbus-system.log 2>&1 || true
 }
 
 first_event_for_name() {
@@ -649,6 +823,34 @@ Section "InputDevice"
     Option "${core_opt}" "true"
 EndSection
 EOF
+}
+
+audit_runtime_devices() {
+  log_file=/System/Logs/dev-audit.log
+  {
+    echo "== mounts =="
+    "${BB}" mount | "${BB}" grep -E ' on /(dev|dev/pts|dev/shm|proc|sys|run)( |$)' || true
+    echo "== core nodes =="
+    "${BB}" ls -l \
+      /dev/console \
+      /dev/null \
+      /dev/tty \
+      /dev/tty0 \
+      /dev/tty1 \
+      /dev/tty2 \
+      /dev/tty7 \
+      /dev/ttyS0 \
+      /dev/ptmx \
+      /dev/pts/ptmx 2>&1 || true
+    echo "== input =="
+    "${BB}" ls -l /dev/input 2>&1 || true
+    "${BB}" ls -l /dev/input/* 2>&1 || true
+    echo "== dri =="
+    "${BB}" ls -l /dev/dri 2>&1 || true
+    "${BB}" ls -l /dev/dri/* 2>&1 || true
+    echo "== xorg config =="
+    [ -s /System/Settings/X11/xorg.conf ] && "${BB}" sed -n '1,120p' /System/Settings/X11/xorg.conf || true
+  } >"${log_file}" 2>&1 || true
 }
 
 write_xorg_config() {
@@ -790,9 +992,16 @@ start_services() {
 
 report_service_status() {
   console_note "services: process summary follows"
-  "${BB}" ps | "${BB}" grep -E "sshd|dbus-daemon|acpid|udevd|Xorg|enlightenment|start-e" | "${BB}" grep -v grep | while IFS= read -r line; do
+  # Diagnostics must never become a boot gate.  On minimal PID 1 systems a
+  # pipeline-backed `while read` can retain the pipe through a daemon child and
+  # block StartSequence forever.  Snapshot to a file, then read it normally.
+  process_snapshot=/run/auzix-service-processes.txt
+  "${BB}" ps >"${process_snapshot}" 2>/dev/null || true
+  "${BB}" grep -E "sshd|dbus-daemon|acpid|udevd|Xorg|enlightenment|start-e" "${process_snapshot}" 2>/dev/null |
+    "${BB}" grep -v grep >"${process_snapshot}.filtered" 2>/dev/null || true
+  while IFS= read -r line; do
     console_note "services: ${line}"
-  done
+  done <"${process_snapshot}.filtered"
   if command -v nc >/dev/null 2>&1; then
     for _probe in 1 2 3 4 5; do
       nc -z 127.0.0.1 22 >/dev/null 2>&1 && break
@@ -812,15 +1021,13 @@ start_device_manager() {
 
 start_display() {
   [ -e /System/Settings/display/autostart ] || return 0
-  [ -x /System/Tools/start-e ] || return 0
+  [ -x /System/Tools/start-gui-stage ] || return 0
   display_mode="$("${BB}" head -n 1 /System/Settings/display/autostart 2>/dev/null || echo manual)"
   [ "${display_mode}" = "manual" ] && return 0
-  if "${BB}" ps | "${BB}" grep -E "enlightenment|start-e" | "${BB}" grep -v grep >/dev/null 2>&1; then
+  if "${BB}" ps | "${BB}" grep -E "enlightenment|start-e|Xorg|xinit" | "${BB}" grep -v grep >/dev/null 2>&1; then
     return 0
   fi
 
-  "${BB}" mkdir -p /System/Logs/display
-  "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
   delay="${AUZIX_GUI_DELAY:-15}"
   if [ "${delay}" -gt 0 ] 2>/dev/null; then
     console_note "gui: starting in ${delay}s; run 'touch /run/auzix-skip-gui' from rescue shell to stop autostart"
@@ -837,21 +1044,83 @@ start_display() {
     console_note "gui: autostart skipped by /run/auzix-skip-gui"
     return 0
   }
-  log "starting display on tty7"
-  [ -n "${display_mode}" ] || display_mode=x11
-  case "${display_mode}" in
-    wayland)
-      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=wayland AUZIX_X_VT=7 E_WL_FORCE=drm"
-      ;;
-    auto)
-      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=x11 AUZIX_X_VT=7"
-      ;;
-    *)
-      display_env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${display_mode} AUZIX_X_VT=7"
-      ;;
-  esac
-  "${BB}" openvt -c 7 -s -- "${BB}" su auzix -c "${display_env} /System/Tools/start-e" \
-    >/System/Logs/display/openvt.log 2>&1 &
+
+  # Keep exactly one graphical boot contract.  Earlier HDD experiments drifted
+  # because StartSequence carried a copied mini-launcher while start-gui-stage
+  # received the real DBus/state/E ownership fixes.  Boot must delegate to the
+  # stage wrapper so manual and autostart paths exercise the same code.
+  log "starting display via start-gui-stage mode=${display_mode}"
+  AUZIX_E_MODE="${display_mode}" /System/Tools/start-gui-stage
+}
+
+report_display_status() {
+  delay="${AUZIX_DISPLAY_VERIFY_DELAY:-8}"
+  if [ "${delay}" -gt 0 ] 2>/dev/null; then
+    console_note "display: waiting ${delay}s for X/E process evidence"
+    "${BB}" sleep "${delay}"
+  fi
+
+  observed=0
+  console_note "display: process summary follows"
+  "${BB}" ps | "${BB}" grep -E "Xorg|enlightenment|start-e|xinit|efreetd" | "${BB}" grep -v grep | while IFS= read -r line; do
+    console_note "display: ${line}"
+  done
+  if "${BB}" ps | "${BB}" grep -E "Xorg|enlightenment|start-e|xinit" | "${BB}" grep -v grep >/dev/null 2>&1; then
+    observed=1
+  fi
+
+  if [ "${observed}" = "1" ]; then
+    console_note "display: X/E process observed"
+  else
+    console_note "display: no X/E process observed"
+  fi
+
+  smoke_midori=0
+  if [ -r /proc/cmdline ]; then
+    for arg in $(${BB} cat /proc/cmdline 2>/dev/null || true); do
+      case "${arg}" in
+        auzix.smoke.midori=1|auzix.smoke.midori|auzix.midori.smoke=1) smoke_midori=1 ;;
+      esac
+    done
+  fi
+  if [ "${smoke_midori}" = "1" ] && [ "${observed}" = "1" ] && [ -x /System/Tools/launch-auzix-browser ]; then
+    console_note "display: launching Midori smoke URL"
+    /System/Tools/auzix-run-as-uid 1000 1000 "${desktop_groups}" \
+      "${BB}" env \
+      HOME=/Users/auzix \
+      XDG_RUNTIME_DIR=/run/user/1000 \
+      DISPLAY=:0 \
+      DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+      /System/Tools/launch-auzix-browser https://auzietek.com \
+      >/System/Logs/display/midori-smoke.log 2>&1 &
+    "${BB}" sleep 8
+    if "${BB}" ps | "${BB}" grep -E "midori|midori-bin" | "${BB}" grep -v grep >/dev/null 2>&1; then
+      console_note "display: Midori process observed"
+    else
+      console_note "display: no Midori process observed"
+    fi
+  fi
+
+  if [ -x /System/Tools/auzix-live-agent ]; then
+    console_note "display: midori-check follows"
+    /System/Tools/auzix-live-agent midori-check 2>&1 | while IFS= read -r line; do
+      console_note "midori-check: ${line}"
+    done
+  fi
+
+  for log_file in \
+    /System/Logs/display/openvt.log \
+    /System/Logs/display/start-e.log \
+    /Users/auzix/.local/share/xorg/Xorg.0.log \
+    /System/Logs/display/midori-smoke.log \
+    /Users/auzix/.e-log.log \
+    /Users/auzix/.xsession-errors; do
+    [ -s "${log_file}" ] || continue
+    console_note "display: tail ${log_file}"
+    "${BB}" tail -12 "${log_file}" 2>/dev/null | while IFS= read -r line; do
+      console_note "display-log: ${line}"
+    done
+  done
 }
 
 console_note "stage: mounting runtime filesystems"
@@ -867,6 +1136,7 @@ stage_live_assets
 console_note "stage: detecting hardware"
 start_hardware
 write_xorg_config
+audit_runtime_devices
 console_note "stage: fixing session permissions"
 fix_session_permissions
 if [ -x /System/Tools/repair-auzix-desktop-session ]; then
@@ -896,6 +1166,7 @@ display_autostart="$("${BB}" head -n 1 /System/Settings/display/autostart 2>/dev
 if [ "${AUZIX_GUI_AUTOSTART:-0}" = "1" ] || [ "${display_autostart}" != "manual" ]; then
   console_note "stage: starting display"
   start_display
+  report_display_status
 else
   console_note "gui: autostart disabled; run /System/Tools/start-gui-stage or AUZIX_GUI_AUTOSTART=1 /System/Boot/StartSequence"
 fi
@@ -905,7 +1176,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Boot/StartSequence"
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-live-agent" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 # Auzix live diagnostic agent: local evidence collection only.
 # It opens no listener, changes no network state, and carries no credentials.
 set -u
@@ -1006,7 +1277,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-live-agent"
 
 cat > "${AUZIX_ROOT}/System/Tools/prepare-livecd-state" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1241,11 +1512,10 @@ if is_mounted /run/auzix-iso && ! live_media_ready; then
 fi
 if ! is_mounted /run/auzix-iso; then
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE; do
-      [ -e "${dev}" ] || continue
-      "${BB}" mount -t iso9660 -o ro "${dev}" /run/auzix-iso 2>/dev/null || continue
-      live_media_ready && break 2
-      unmount_live_media
+    for dev in $(live_media_candidates); do
+      if try_mount_live_media_dev "${dev}"; then
+        break 2
+      fi
     done
     "${BB}" sleep 1
   done
@@ -1304,7 +1574,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/prepare-livecd-state"
 
 cat > "${AUZIX_ROOT}/System/Tools/repair-e-state" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/Programs/EFL/1.28.1/Commands:/System/Compatibility/usr/bin
@@ -1398,7 +1668,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/repair-e-state"
 
 cat > "${AUZIX_ROOT}/System/Tools/reset-e-theme-state" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/System/Compatibility/usr/bin
@@ -1409,7 +1679,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/reset-e-theme-state"
 
 cat > "${AUZIX_ROOT}/System/Tools/start-e-supervisor" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands:/System/Compatibility/usr/bin
@@ -1467,8 +1737,287 @@ echo "supervisor=stopped" >>"${log}"
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-e-supervisor"
 
+cat > "${AUZIX_ROOT}/System/Tools/auzix-stage-realworld-x11" <<'SCRIPT'
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
+set -u
+
+# AUZiX real-world graphical handoff.
+#
+# This is intentionally boring Linux.  The prior failure loop came from forcing
+# a stale monolithic xorg.conf and hand-launching E while bypassing the normal
+# udev -> xorg.conf.d -> LightDM -> session path.  Debian-style live systems do
+# not guess fixed event devices; they stage tiny transient InputClass/Device
+# snippets, let Xorg/udev/libinput probe the bus, then let the display manager
+# own the session handoff.
+
+BB=/Programs/BusyBox/1.36.1/Commands/busybox
+PATH=/System/Compatibility/sbin:/System/Compatibility/bin:/System/Compatibility/usr/sbin:/System/Compatibility/usr/bin:/Programs/BusyBox/1.36.1/Commands
+export PATH
+
+log=/System/Logs/display/realworld-x11-stage.log
+
+say() {
+  "${BB}" mkdir -p /System/Logs/display 2>/dev/null || true
+  printf '[realworld-x11] %s\n' "$*" | "${BB}" tee -a "${log}" >/dev/null 2>&1 || true
+}
+
+ensure_link() {
+  name="$1"
+  target="$2"
+  # Compatibility aliases are the POSIX ABI contract for software that does not
+  # honor AUZiX paths yet.  Do not replace real directories here; that belongs
+  # in the image/package build, not in the graphical bootstrap.
+  if [ -L "/${name}" ]; then
+    current="$("${BB}" readlink "/${name}" 2>/dev/null || true)"
+    [ "${current}" = "${target}" ] || {
+      "${BB}" rm -f "/${name}" 2>/dev/null || true
+      "${BB}" ln -s "${target}" "/${name}" 2>/dev/null || true
+    }
+  elif [ ! -e "/${name}" ]; then
+    "${BB}" ln -s "${target}" "/${name}" 2>/dev/null || true
+  fi
+}
+
+ensure_posix_contract() {
+  ensure_link etc /System/Settings
+  ensure_link usr /System/Compatibility/usr
+  ensure_link lib /System/Compatibility/lib
+  ensure_link lib64 /System/Compatibility/lib64
+
+  if [ ! -e /var ]; then
+    "${BB}" mkdir -p /System/State/var 2>/dev/null || true
+    "${BB}" ln -s /System/State/var /var 2>/dev/null || true
+  fi
+
+  "${BB}" mkdir -p \
+    /System/Logs/display \
+    /System/Logs/lightdm \
+    /System/State/lightdm/cache \
+    /System/State/lightdm/data/lightdm \
+    /System/State/var/log \
+    /System/State/var/lib/lightdm/data \
+    /run/lightdm \
+    /run/user/1000 \
+    /tmp/.X11-unix 2>/dev/null || true
+
+  "${BB}" chown root:root / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
+  "${BB}" chmod 0755 / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
+  "${BB}" chmod 1777 /tmp /tmp/.X11-unix 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 /run/user/1000 /Users/auzix/.cache /Users/auzix/.config /Users/auzix/.local /Users/auzix/.e /Users/auzix/.elementary 2>/dev/null || true
+  "${BB}" chmod 0700 /run/user/1000 2>/dev/null || true
+}
+
+ensure_dbus_machine_id() {
+  "${BB}" mkdir -p /System/State/dbus /run/dbus-state /run/dbus 2>/dev/null || true
+  "${BB}" chown root:root /System/State/dbus /run/dbus-state /run/dbus 2>/dev/null || true
+  "${BB}" chmod 0755 /System/State/dbus /run/dbus-state /run/dbus 2>/dev/null || true
+
+  machine_id=""
+  [ -s /System/State/dbus/machine-id ] && machine_id="$("${BB}" head -n 1 /System/State/dbus/machine-id 2>/dev/null || true)"
+  [ -z "${machine_id}" ] && [ -s /run/dbus-state/machine-id ] && machine_id="$("${BB}" head -n 1 /run/dbus-state/machine-id 2>/dev/null || true)"
+  [ -z "${machine_id}" ] && [ -r /proc/sys/kernel/random/uuid ] && machine_id="$("${BB}" tr -d '-' </proc/sys/kernel/random/uuid 2>/dev/null || true)"
+  [ -n "${machine_id}" ] || machine_id=00000000000000000000000000000000
+
+  printf '%s\n' "${machine_id}" >/System/State/dbus/machine-id 2>/dev/null || true
+  "${BB}" cp -f /System/State/dbus/machine-id /run/dbus-state/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /System/State/dbus/machine-id /run/dbus-state/machine-id 2>/dev/null || true
+}
+
+start_system_bus() {
+  command -v dbus-daemon >/dev/null 2>&1 || return 0
+  ensure_dbus_machine_id
+  if [ -S /run/dbus/system_bus_socket ] &&
+     "${BB}" ps | "${BB}" grep "dbus-daemon --system" | "${BB}" grep -v grep >/dev/null 2>&1; then
+    return 0
+  fi
+  "${BB}" rm -f /run/dbus/system_bus_socket 2>/dev/null || true
+  dbus-daemon --system --fork --nopidfile >/System/Logs/lightdm/dbus-system.log 2>&1 || true
+}
+
+stage_xorg_conf_d() {
+  xconf=/etc/X11/xorg.conf.d
+  "${BB}" mkdir -p "${xconf}" /System/Settings/X11/xorg.conf.d 2>/dev/null || true
+  "${BB}" rm -f "${xconf}/10-video.conf" "${xconf}/40-input.conf" "${xconf}/50-keyboard.conf" 2>/dev/null || true
+
+  # Xorg feeds its generated keymap to xkbcomp through stdin
+  # (`xkbcomp ... - ...`).  On the current AUZiX root the Xorg/XKB pairing can
+  # hand xkbcomp an empty stdin stream during first server bootstrap.  Debian's
+  # normal package/config stack supplies sane defaults before this point; AUZiX
+  # must do that explicitly until the package scripts own it.
+  if [ -x /Programs/Xorg/host/Commands/xkbcomp.real ]; then
+    if [ -f /Programs/Xorg/host/Commands/xkbcomp ] &&
+       "${BB}" grep -q 'xkbcomp-wrapper.log' /Programs/Xorg/host/Commands/xkbcomp 2>/dev/null; then
+      "${BB}" mv /Programs/Xorg/host/Commands/xkbcomp /Programs/Xorg/host/Commands/xkbcomp.wrapper-disabled 2>/dev/null || true
+    fi
+    if [ -L /Programs/Xorg/host/Commands/xkbcomp ]; then
+      "${BB}" rm -f /Programs/Xorg/host/Commands/xkbcomp 2>/dev/null || true
+    fi
+    cat >/Programs/Xorg/host/Commands/xkbcomp <<'EOF'
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
+set -u
+BB=/Programs/BusyBox/1.36.1/Commands/busybox
+REAL=/Programs/Xorg/host/Commands/xkbcomp.real
+needs_stdin=0
+for arg in "$@"; do
+  [ "${arg}" = "-" ] && needs_stdin=1
+done
+if [ "${needs_stdin}" = "1" ]; then
+  in=/tmp/auzix-xkbcomp-stdin-$$.xkb
+  "${BB}" cat >"${in}" 2>/dev/null || true
+  if [ ! -s "${in}" ]; then
+    cat >"${in}" <<'XKB'
+xkb_keymap {
+  xkb_keycodes  { include "evdev+aliases(qwerty)" };
+  xkb_types     { include "complete" };
+  xkb_compat    { include "complete" };
+  xkb_symbols   { include "pc+us+inet(evdev)" };
+  xkb_geometry  { include "pc(pc105)" };
+};
+XKB
+  fi
+  exec "${REAL}" "$@" <"${in}"
+fi
+exec "${REAL}" "$@"
+EOF
+    "${BB}" chmod 0755 /Programs/Xorg/host/Commands/xkbcomp 2>/dev/null || true
+    "${BB}" ln -sfn /Programs/Xorg/host/Commands/xkbcomp /usr/bin/xkbcomp 2>/dev/null || true
+  fi
+
+  video_driver=modesetting
+  if command -v udevadm >/dev/null 2>&1; then
+    if udevadm info --export-db 2>/dev/null | "${BB}" grep -qi "qxl"; then
+      # modesetting is the safest baseline across QXL/VirtIO/VMware in AUZiX
+      # because it avoids binding the live image to one hypervisor-specific DDX.
+      video_driver=modesetting
+    elif udevadm info --export-db 2>/dev/null | "${BB}" grep -qi "virtio"; then
+      video_driver=modesetting
+    fi
+  fi
+
+  cat >"${xconf}/10-video.conf" <<EOF
+Section "Device"
+    Identifier "AuzixAutodetectedVideo"
+    Driver     "${video_driver}"
+    Option     "AccelMethod" "none"
+    Option     "DRI" "false"
+EndSection
+EOF
+
+  cat >"${xconf}/40-input.conf" <<'EOF'
+Section "InputClass"
+    Identifier "QEMU Explicit Keyboard"
+    MatchIsKeyboard "on"
+    MatchDevicePath "/dev/input/event*"
+    Driver "libinput"
+    Option "XkbRules" "evdev"
+    Option "XkbModel" "pc105"
+    Option "XkbLayout" "us"
+EndSection
+
+Section "InputClass"
+    Identifier "Auzix libinput pointer catchall"
+    MatchIsPointer "on"
+    MatchDevicePath "/dev/input/event*"
+    Driver "libinput"
+EndSection
+
+Section "InputClass"
+    Identifier "Auzix libinput tablet catchall"
+    MatchIsTablet "on"
+    MatchDevicePath "/dev/input/event*"
+    Driver "libinput"
+EndSection
+EOF
+
+  cat >"${xconf}/50-keyboard.conf" <<'EOF'
+Section "InputClass"
+    Identifier "Auzix default keyboard"
+    MatchIsKeyboard "on"
+    Driver "libinput"
+    Option "XkbRules" "evdev"
+    Option "XkbModel" "pc105"
+    Option "XkbLayout" "us"
+EndSection
+EOF
+
+  # Keep a mirror under /System/Settings for inspection, but LightDM/Xorg should
+  # discover the snippets through the standard /etc/X11/xorg.conf.d path.
+  "${BB}" cp -f "${xconf}/"*.conf /System/Settings/X11/xorg.conf.d/ 2>/dev/null || true
+  [ -f /etc/X11/xorg.conf ] && "${BB}" mv /etc/X11/xorg.conf /etc/X11/xorg.conf.auzix-disabled 2>/dev/null || true
+  say "xorg-conf-d=ready video=${video_driver}"
+}
+
+write_lightdm_conf() {
+  "${BB}" mkdir -p /System/Settings/lightdm /System/State/lightdm/cache /System/Logs/lightdm /run/lightdm 2>/dev/null || true
+  cat >/System/Tools/auzix-xorg-realworld <<'EOF'
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
+set -u
+
+BB=/Programs/BusyBox/1.36.1/Commands/busybox
+PATH=/System/Compatibility/sbin:/System/Compatibility/bin:/System/Compatibility/usr/sbin:/System/Compatibility/usr/bin:/Programs/BusyBox/1.36.1/Commands
+export PATH
+
+export XKB_BINDIR=/usr/bin
+export XKB_CONFIG_ROOT=/usr/share/X11/xkb
+export XLOCALEDIR=/usr/share/X11/locale
+export XKB_DEFAULT_RULES=evdev
+export XKB_DEFAULT_MODEL=pc105
+export XKB_DEFAULT_LAYOUT=us
+
+"${BB}" mkdir -p /System/Logs/display /tmp/.X11-unix 2>/dev/null || true
+"${BB}" chmod 1777 /tmp /tmp/.X11-unix 2>/dev/null || true
+{
+  printf '[auzix-xorg-realworld] argv:'
+  for arg in "$@"; do printf ' <%s>' "$arg"; done
+  printf '\n'
+  printf '[auzix-xorg-realworld] XKB_CONFIG_ROOT=%s XKB_BINDIR=%s\n' "${XKB_CONFIG_ROOT}" "${XKB_BINDIR}"
+} >>/System/Logs/display/auzix-xorg-realworld.log 2>&1 || true
+
+exec /System/Compatibility/bin/Xorg "$@"
+EOF
+  "${BB}" chmod 0755 /System/Tools/auzix-xorg-realworld 2>/dev/null || true
+
+  cat >/System/Settings/lightdm/lightdm.conf <<'EOF'
+[LightDM]
+run-directory=/run/lightdm
+cache-directory=/System/State/lightdm/cache
+log-directory=/System/Logs/lightdm
+sessions-directory=/Programs/Enlightenment/host/Resources/share/xsessions:/System/Compatibility/usr/share/xsessions:/usr/share/xsessions
+greeters-directory=/System/Compatibility/usr/share/xgreeters:/usr/share/xgreeters
+
+[Seat:*]
+user-session=enlightenment-auzix
+autologin-user=auzix
+autologin-user-timeout=0
+autologin-session=enlightenment-auzix
+session-wrapper=/System/Tools/lightdm-auzix-session
+greeter-session=lightdm-gtk-greeter
+xserver-command=/System/Tools/auzix-xorg-realworld -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
+EOF
+  say "lightdm-conf=ready"
+}
+
+clean_stale_display() {
+  "${BB}" touch /System/State/display/stop-gui 2>/dev/null || true
+  "${BB}" killall lightdm lightdm-gtk-greeter efreetd enlightenment enlightenment_start Xorg xinit start-e-supervisor 2>/dev/null || true
+  "${BB}" sleep 1
+  "${BB}" killall lightdm lightdm-gtk-greeter efreetd enlightenment enlightenment_start Xorg xinit start-e-supervisor 2>/dev/null || true
+  "${BB}" rm -f /System/State/display/stop-gui /tmp/.X*-lock /tmp/.X11-unix/X* /run/lightdm/* 2>/dev/null || true
+}
+
+ensure_posix_contract
+start_system_bus
+stage_xorg_conf_d
+write_lightdm_conf
+clean_stale_display
+
+say "ready"
+exit 0
+SCRIPT
+chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-stage-realworld-x11"
+
 cat > "${AUZIX_ROOT}/System/Tools/start-lightdm-stage" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/sbin:/System/Compatibility/bin:/System/Compatibility/usr/sbin:/System/Compatibility/usr/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1477,15 +2026,19 @@ BB=/Programs/BusyBox/1.36.1/Commands/busybox
 log=/System/Logs/lightdm/start-lightdm-stage.log
 
 ensure_dbus_machine_id() {
-  "${BB}" mkdir -p /System/State/dbus /var/lib/dbus /etc 2>/dev/null || true
+  # Machine-id/system DBus state is root-owned runtime state.  User sessions may
+  # read it, but must not create/chown/overwrite it after we drop to uid 1000.
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
+  "${BB}" mkdir -p /System/State/dbus /run/dbus-state 2>/dev/null || true
+  # Runtime DBus state must remain writable after squashfs/live mounting.
+  "${BB}" chown root:root /run/dbus-state /System/State/dbus 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state /System/State/dbus 2>/dev/null || true
 
   machine_id=""
-  if [ -s /etc/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /etc/machine-id 2>/dev/null || true)"
-  elif [ -s /var/lib/dbus/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /var/lib/dbus/machine-id 2>/dev/null || true)"
-  elif [ -s /System/State/dbus/machine-id ]; then
+  if [ -s /System/State/dbus/machine-id ]; then
     machine_id="$("${BB}" head -n 1 /System/State/dbus/machine-id 2>/dev/null || true)"
+  elif [ -s /run/dbus-state/machine-id ]; then
+    machine_id="$("${BB}" head -n 1 /run/dbus-state/machine-id 2>/dev/null || true)"
   fi
 
   if [ -z "${machine_id}" ] && [ -r /proc/sys/kernel/random/uuid ]; then
@@ -1497,18 +2050,25 @@ ensure_dbus_machine_id() {
   if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
     dbus_state_dir=/run/dbus-state
     "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chown root:root "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chmod 0755 "${dbus_state_dir}" 2>/dev/null || true
   else
     "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
   fi
 
-  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
-  "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" mkdir -p /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chown root:root /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  if ! printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  fi
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /run/dbus-state/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /run/dbus-state/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
   command -v dbus-daemon >/dev/null 2>&1 || return 0
   ensure_dbus_machine_id
   "${BB}" mkdir -p /run/dbus 2>/dev/null || true
@@ -1522,33 +2082,15 @@ start_system_bus() {
 
 "${BB}" chown root:root / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
 "${BB}" chmod 0755 / /System /System/Settings /System/Compatibility /Programs /Services /System/State /tmp 2>/dev/null || true
-"${BB}" mkdir -p /System/Logs/lightdm /System/State/lightdm/cache /var/lib/lightdm/data/lightdm /run/lightdm /run/user /System/State/display 2>/dev/null || true
+"${BB}" mkdir -p /System/Logs/lightdm /System/State/lightdm/cache /System/State/lightdm/data/lightdm /run/lightdm /run/user /System/State/display 2>/dev/null || true
 start_system_bus
 
-if "${BB}" ps | "${BB}" grep -E "[/]lightdm( |$)|[l]ightdm-gtk-greeter" >/dev/null 2>&1; then
-  echo "lightdm-stage=already-running"
-  exit 0
+if [ -x /System/Tools/auzix-stage-realworld-x11 ]; then
+  /System/Tools/auzix-stage-realworld-x11
 fi
 
-"${BB}" touch /System/State/display/stop-gui 2>/dev/null || true
-"${BB}" killall efreetd enlightenment enlightenment_start Xorg xinit start-e-supervisor 2>/dev/null || true
-for attempt in 1 2 3 4 5; do
-  "${BB}" ps | "${BB}" grep -E "[X]org|[x]init|[e]nlightenment|[s]tart-e-supervisor" >/dev/null 2>&1 || break
-  "${BB}" sleep 1
-done
-"${BB}" rm -f /tmp/.X*-lock /tmp/.X11-unix/X* /run/lightdm/* 2>/dev/null || true
-
-if [ -x /System/Tools/generate-lightdm-config ]; then
-  /System/Tools/generate-lightdm-config
-fi
-
-if [ "${AUZIX_LIGHTDM_AUTOLOGIN:-0}" = "1" ] &&
-   [ -s /System/Settings/lightdm/lightdm-autologin.conf.template ]; then
-  "${BB}" cp -f /System/Settings/lightdm/lightdm-autologin.conf.template /System/Settings/lightdm/lightdm.conf 2>/dev/null || true
-fi
-
-"${BB}" chown -R lightdm:lightdm /System/State/lightdm /var/lib/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
-"${BB}" chmod 0755 /System/State/lightdm /var/lib/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
+"${BB}" chown -R lightdm:lightdm /System/State/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
+"${BB}" chmod 0755 /System/State/lightdm /System/Logs/lightdm /run/lightdm 2>/dev/null || true
 
 echo "lightdm-stage=starting" >>"${log}"
 exec /System/Compatibility/sbin/lightdm --config /System/Settings/lightdm/lightdm.conf --debug >>"${log}" 2>&1
@@ -1556,7 +2098,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-lightdm-stage"
 
 cat > "${AUZIX_ROOT}/System/Tools/start-gui-stage" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1564,15 +2106,19 @@ export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
 ensure_dbus_machine_id() {
-  "${BB}" mkdir -p /System/State/dbus /var/lib/dbus /etc 2>/dev/null || true
+  # Machine-id/system DBus state is root-owned runtime state.  User sessions may
+  # read it, but must not create/chown/overwrite it after we drop to uid 1000.
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
+  "${BB}" mkdir -p /System/State/dbus /run/dbus-state 2>/dev/null || true
+  # Runtime DBus state must remain writable after squashfs/live mounting.
+  "${BB}" chown root:root /run/dbus-state /System/State/dbus 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state /System/State/dbus 2>/dev/null || true
 
   machine_id=""
-  if [ -s /etc/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /etc/machine-id 2>/dev/null || true)"
-  elif [ -s /var/lib/dbus/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /var/lib/dbus/machine-id 2>/dev/null || true)"
-  elif [ -s /System/State/dbus/machine-id ]; then
+  if [ -s /System/State/dbus/machine-id ]; then
     machine_id="$("${BB}" head -n 1 /System/State/dbus/machine-id 2>/dev/null || true)"
+  elif [ -s /run/dbus-state/machine-id ]; then
+    machine_id="$("${BB}" head -n 1 /run/dbus-state/machine-id 2>/dev/null || true)"
   fi
 
   if [ -z "${machine_id}" ] && [ -r /proc/sys/kernel/random/uuid ]; then
@@ -1580,15 +2126,36 @@ ensure_dbus_machine_id() {
   fi
   [ -n "${machine_id}" ] || machine_id=00000000000000000000000000000000
 
-  printf '%s\n' "${machine_id}" >/System/State/dbus/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f /System/State/dbus/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
-  "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id /System/State/dbus/machine-id 2>/dev/null || true
+  dbus_state_dir=/System/State/dbus
+  if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chown root:root "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chmod 0755 "${dbus_state_dir}" 2>/dev/null || true
+  else
+    "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
+  fi
+
+  "${BB}" mkdir -p /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chown root:root /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  if ! printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  fi
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /run/dbus-state/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /run/dbus-state/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 ensure_dbus_machine_id
-/System/Tools/prepare-livecd-state
+if [ "${AUZIX_PREPARE_LIVECD_STATE:-auto}" != "0" ]; then
+  # HDD/live-disk boots do not always have /run/live/iso.  prepare-livecd-state
+  # is useful for true live media, but must not be allowed to poison the normal
+  # Debian-like display path when no live payload exists.
+  if [ -d /run/live/iso ] || [ "${AUZIX_PREPARE_LIVECD_STATE:-auto}" = "1" ]; then
+    /System/Tools/prepare-livecd-state || true
+  fi
+fi
 
 # The seeded Enlightenment profile can contain directories copied from package
 # payloads/root-owned live assets.  Do the ownership normalization while this
@@ -1634,14 +2201,25 @@ vt="${AUZIX_X_VT:-7}"
 "${BB}" rm -f /System/State/display/stop-gui 2>/dev/null || true
 env="HOME=/Users/auzix XDG_RUNTIME_DIR=/run/user/1000 AUZIX_E_MODE=${mode} AUZIX_X_VT=${vt}"
 env="${env} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
-"${BB}" openvt -c "${vt}" -s -- "${BB}" su auzix -c "${env} /System/Tools/start-e-supervisor" \
-  >/System/Logs/display/openvt.log 2>&1 &
+desktop_groups="$("${BB}" awk -F: '
+  $1=="tty" || $1=="audio" || $1=="video" || $1=="input" || $1=="render" {
+    if (out != "") out = out ",";
+    out = out $3
+  }
+  END { print out }
+' /System/Settings/group 2>/dev/null || true)"
+[ -n "${desktop_groups}" ] || desktop_groups="5,63,39,104,105"
+"${BB}" openvt -c "${vt}" -s -- /System/Tools/auzix-run-as-uid 1000 1000 "${desktop_groups}" \
+  "${BB}" env ${env} /System/Tools/start-e-supervisor \
+  </dev/console >/System/Logs/display/openvt.log 2>&1 &
 echo "gui-stage=starting mode=${mode} vt=${vt}"
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-gui-stage"
 
+# InstalledInit is PID1 for disk boots, so it has the same rule as the
+# initramfs handoff: static BusyBox first, compatibility aliases later.
 cat > "${AUZIX_ROOT}/System/Boot/InstalledInit" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1651,7 +2229,21 @@ BB=/Programs/BusyBox/1.36.1/Commands/busybox
 "${BB}" chown root:root / /System /System/Settings /System/Compatibility /Programs /Services 2>/dev/null || true
 "${BB}" chmod 0755 / /System /System/Settings /System/Compatibility /Programs /Services /System/State /tmp 2>/dev/null || true
 
-/System/Boot/StartSequence
+# Installed-root boots do not get the ISO tmpfs /System/State and /System/Logs
+# preparation from /run/live/iso.  Before StartSequence can drop from root to
+# the desktop uid, the full parent chain must already be searchable and the
+# display/session leaves must be writable by uid 1000.  If only the leaf is
+# fixed later, openvt/start-e can still fail like a classic /var/www parent
+# permission mistake.
+"${BB}" mkdir -p /System/Logs/display /System/State/display /System/State/desktop /run/user/1000 /Users/auzix /Work/Temp /tmp /dev/shm 2>/dev/null || true
+"${BB}" chmod 0755 / /System /System/Logs /System/State /run /run/user /Users 2>/dev/null || true
+"${BB}" chmod 0775 /System/Logs/display /System/State/display /System/State/desktop 2>/dev/null || true
+"${BB}" chmod 1777 /Work/Temp /tmp /dev/shm 2>/dev/null || true
+"${BB}" chmod 0700 /run/user/1000 2>/dev/null || true
+"${BB}" chown -R 1000:1000 /System/Logs/display /System/State/display /System/State/desktop /run/user/1000 /Users/auzix 2>/dev/null || true
+
+export AUZIX_STAGE_LIVE_ASSETS="${AUZIX_STAGE_LIVE_ASSETS:-0}"
+/System/Boot/StartSequence || true
 
 echo
 echo "Auzix installed-root shell"
@@ -1672,7 +2264,8 @@ if [ -e /System/Settings/display/autostart ] &&
   exec "${BB}" sh -c 'while true; do sleep 3600; done'
 fi
 
-exec "${BB}" cttyhack "${BB}" sh
+"${BB}" cttyhack "${BB}" sh </dev/console >/dev/console 2>&1 || true
+exec "${BB}" sh -c 'while true; do sleep 3600; done'
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Boot/InstalledInit"
@@ -1683,7 +2276,7 @@ ${AUZIX_DISPLAY_AUTOSTART:-x11}
 TXT
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-load-module" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1697,6 +2290,7 @@ DEPS="${BASE}/modules.dep"
 module_key() {
   local path
   path="$1"
+  path="${path%.xz}"
   "${BB}" basename "${path}" .ko | "${BB}" tr '-' '_'
 }
 
@@ -1714,17 +2308,43 @@ line_for_module() {
   third="$(echo "${module}" | "${BB}" tr '-' '_').ko"
 
   "${BB}" grep -m 1 "/${first}:" "${DEPS}" 2>/dev/null && return 0
+  "${BB}" grep -m 1 "/${first}.xz:" "${DEPS}" 2>/dev/null && return 0
   if [ "${second}" != "${first}" ]; then
     "${BB}" grep -m 1 "/${second}:" "${DEPS}" 2>/dev/null && return 0
+    "${BB}" grep -m 1 "/${second}.xz:" "${DEPS}" 2>/dev/null && return 0
   fi
   if [ "${third}" != "${first}" ]; then
     "${BB}" grep -m 1 "/${third}:" "${DEPS}" 2>/dev/null && return 0
+    "${BB}" grep -m 1 "/${third}.xz:" "${DEPS}" 2>/dev/null && return 0
+  fi
+  return 1
+}
+
+materialize_module() {
+  local rel path out
+  rel="$1"
+  path="${BASE}/${rel}"
+  if [ -f "${path}" ]; then
+    printf '%s\n' "${path}"
+    return 0
+  fi
+  if [ -f "${path}.xz" ]; then
+    out="/run/auzix-modules/${rel}"
+    "${BB}" mkdir -p "$("${BB}" dirname "${out}")" 2>/dev/null || true
+    if [ ! -s "${out}" ]; then
+      "${BB}" xzcat "${path}.xz" >"${out}" 2>/run/auzix-xzcat.err || {
+        "${BB}" cat /run/auzix-xzcat.err >&2 2>/dev/null || true
+        return 1
+      }
+    fi
+    printf '%s\n' "${out}"
+    return 0
   fi
   return 1
 }
 
 load_path() {
-  local rel path key deps reversed dep_line dep err
+  local rel path key deps reversed dep_line dep err insmod_path dep_rel
   rel="$1"
   path="${BASE}/${rel}"
   key="$(module_key "${rel}")"
@@ -1740,7 +2360,8 @@ load_path() {
   if [ -n "${dep_line}" ]; then
     deps="${dep_line#*:}"
     for dep in ${deps}; do
-      reversed="${dep} ${reversed}"
+      dep_rel="${dep%.xz}"
+      reversed="${dep_rel} ${reversed}"
     done
     for dep in ${reversed}; do
       [ -n "${dep}" ] || continue
@@ -1748,10 +2369,11 @@ load_path() {
     done
   fi
 
-  if [ -f "${path}" ]; then
+  insmod_path="$(materialize_module "${rel}" || true)"
+  if [ -n "${insmod_path}" ]; then
     err="/run/auzix-insmod.err"
     : > "${err}"
-    if "${BB}" insmod "${path}" 2>"${err}"; then
+    if "${BB}" insmod "${insmod_path}" 2>"${err}"; then
       return 0
     fi
     if "${BB}" grep -q "File exists" "${err}" 2>/dev/null; then
@@ -1790,7 +2412,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-load-module"
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-hw-detect" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -1814,14 +2436,8 @@ load_best_effort() {
 }
 
 load_path_best_effort() {
-  base="/System/Drivers/$(uname -r)"
   for rel in "$@"; do
-    [ -f "${base}/${rel}" ] || continue
-    err="${XDG_RUNTIME_DIR:-/tmp}/auzix-hw-insmod.err"
-    : > "${err}"
-    if ! "${BB}" insmod "${base}/${rel}" >>"${LOG}" 2>"${err}"; then
-      "${BB}" grep -q "File exists" "${err}" 2>/dev/null || "${BB}" cat "${err}" >>"${LOG}" 2>/dev/null || true
-    fi
+    "${LOAD}" "${rel}" >>"${LOG}" 2>&1 || true
   done
 }
 
@@ -1876,7 +2492,7 @@ log "mode=${MODE}"
 log "kernel=$(uname -r)"
 
 load_best_effort \
-  uhci-hcd ehci-hcd ehci-pci xhci-hcd xhci-pci \
+  ehci-hcd ehci-pci uhci-hcd ohci-hcd ohci-pci xhci-hcd xhci-pci \
   evdev joydev psmouse hid-generic usbhid
 
 for dev in /sys/bus/pci/devices/*; do
@@ -1912,24 +2528,37 @@ log "dri=$("${BB}" ls /dev/dri 2>/dev/null | "${BB}" tr '\n' ' ')"
 log "input=$("${BB}" ls /sys/class/input 2>/dev/null | "${BB}" tr '\n' ' ')"
 log "sound=$("${BB}" ls /sys/class/sound 2>/dev/null | "${BB}" tr '\n' ' ')"
 
+group_gid() {
+  "${BB}" awk -F: -v name="$1" '$1 == name { print $3; exit }' /System/Settings/group 2>/dev/null
+}
+
+video_gid="$(group_gid video)"
+render_gid="$(group_gid render)"
+input_gid="$(group_gid input)"
+audio_gid="$(group_gid audio)"
+[ -n "${video_gid}" ] || video_gid=39
+[ -n "${render_gid}" ] || render_gid=105
+[ -n "${input_gid}" ] || input_gid=104
+[ -n "${audio_gid}" ] || audio_gid=63
+
 for node in /dev/dri/card*; do
   [ -e "${node}" ] || continue
-  "${BB}" chgrp video "${node}" 2>/dev/null || true
+  "${BB}" chgrp "${video_gid}" "${node}" 2>/dev/null || true
   "${BB}" chmod 0660 "${node}" 2>/dev/null || true
 done
 for node in /dev/dri/renderD*; do
   [ -e "${node}" ] || continue
-  "${BB}" chgrp render "${node}" 2>/dev/null || true
+  "${BB}" chgrp "${render_gid}" "${node}" 2>/dev/null || true
   "${BB}" chmod 0660 "${node}" 2>/dev/null || true
 done
 for node in /dev/input/event* /dev/input/mice /dev/input/mouse*; do
   [ -e "${node}" ] || continue
-  "${BB}" chgrp input "${node}" 2>/dev/null || true
+  "${BB}" chgrp "${input_gid}" "${node}" 2>/dev/null || true
   "${BB}" chmod 0660 "${node}" 2>/dev/null || true
 done
 for node in /dev/snd/*; do
   [ -e "${node}" ] || continue
-  "${BB}" chgrp audio "${node}" 2>/dev/null || true
+  "${BB}" chgrp "${audio_gid}" "${node}" 2>/dev/null || true
   "${BB}" chmod 0660 "${node}" 2>/dev/null || true
 done
 
@@ -2041,7 +2670,7 @@ Icon=applications-other
 EOF_DIRECTORY
 
 cat > "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 PATH=/System/Compatibility/bin:/Programs/XTerm/current/Commands:/Programs/Terminology/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
@@ -2059,7 +2688,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal"
 
 cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-browser" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 PATH=/System/Compatibility/bin:/Programs/Midori/current/Commands:/Programs/NetSurf/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
@@ -2082,7 +2711,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-browser"
 
 cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-files" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -2102,7 +2731,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-files"
 
 cat > "${AUZIX_ROOT}/System/Tools/start-enlightenment-session" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -2119,8 +2748,8 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/usr/local/share:/usr/share}"
-export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg:/etc/xdg}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share}"
+export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
 export E_PREFIX="${E_PREFIX:-/System/Compatibility/usr}"
 export E_BIN_DIR="${E_BIN_DIR:-/System/Compatibility/usr/bin}"
 export E_LIB_DIR="${E_LIB_DIR:-/System/Compatibility/usr/lib/x86_64-linux-gnu}"
@@ -2138,7 +2767,7 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
-export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
+export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
 export E_START="${E_START:-1}"
 export E_MODULE_TUNING="${E_MODULE_TUNING:-vm-safe}"
 export AUZIX_MASK_GL_EVAS="${AUZIX_MASK_GL_EVAS:-1}"
@@ -2467,7 +3096,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-enlightenment-session"
 
 cat > "${AUZIX_ROOT}/System/Tools/start-e" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -2478,6 +3107,11 @@ BB=/Programs/BusyBox/1.36.1/Commands/busybox
 MODE="${AUZIX_E_MODE:-x11}"
 LOG=/System/Logs/display/start-e.log
 
+trace_start_e() {
+  msg="[start-e] $*"
+  echo "${msg}" >>"${LOG}" 2>/dev/null || true
+}
+
 export HOME="${HOME:-/Users/root}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/0}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
@@ -2487,8 +3121,8 @@ export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-x11}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share:/usr/local/share:/usr/share}"
-export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg:/etc/xdg}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share}"
+export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
 export XORG_RUN_AS_USER_OK="${XORG_RUN_AS_USER_OK:-1}"
 export XKB_BINDIR="${XKB_BINDIR:-/Programs/Xorg/current/Commands}"
 export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/System/Settings/X11/xkb}"
@@ -2502,18 +3136,21 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
-export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
+export GCONV_PATH="${GCONV_PATH:-/System/Compatibility/usr/lib/x86_64-linux-gnu/gconv:/System/Compatibility/lib/x86_64-linux-gnu/gconv}"
 export LANG="${LANG:-C}"
 export LC_ALL="${LC_ALL:-C}"
 "${BB}" mkdir -p /System/Logs/display /System/State/display /Work/Temp /dev/shm 2>/dev/null || true
 "${BB}" mount -t tmpfs tmpfs /dev/shm -o mode=1777,nosuid,nodev 2>/dev/null || true
 "${BB}" chmod 1777 /dev/shm /Work/Temp /tmp 2>/dev/null || true
 "${BB}" touch "${LOG}" 2>/dev/null || LOG="${HOME}/.auzix-start-e.log"
+trace_start_e "begin uid=$("${BB}" id -u 2>/dev/null || echo unknown) home=${HOME} runtime=${XDG_RUNTIME_DIR} mode=${MODE} log=${LOG}"
 "${BB}" mkdir -p "${HOME}" "${XDG_RUNTIME_DIR}" "${XDG_CACHE_HOME}" "${XDG_CONFIG_HOME}" "${XDG_DATA_HOME}" "${XDG_CACHE_HOME}/efreet"
 "${BB}" chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
 "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
+trace_start_e "base-runtime-ready"
 
 if [ "${HOME}" = "/Users/auzix" ]; then
+  trace_start_e "user-home-prep-begin"
   "${BB}" mkdir -p \
     /Users/auzix/.cache \
     /Users/auzix/.cache/efreet \
@@ -2538,8 +3175,11 @@ if [ "${HOME}" = "/Users/auzix" ]; then
     "${BB}" rm -f /run/auzix-e-profile 2>/dev/null || true
 	  fi
 	  "${BB}" chown -R "$(id -u 2>/dev/null || echo 1000):$(id -g 2>/dev/null || echo 1000)" /Users/auzix 2>/dev/null || true
+	  trace_start_e "user-home-chown-done"
 	  if [ -x /System/Tools/repair-e-state ]; then
+	    trace_start_e "repair-e-state-begin"
 	    /System/Tools/repair-e-state /Users/auzix auzix >/System/Logs/display/repair-e-state.log 2>&1 || true
+	    trace_start_e "repair-e-state-done"
 	  fi
 fi
 
@@ -2549,15 +3189,19 @@ if [ -x /System/Tools/auzix-hw-detect ]; then
 fi
 
 ensure_dbus_machine_id() {
-  "${BB}" mkdir -p /System/State/dbus /var/lib/dbus /etc 2>/dev/null || true
+  # Machine-id/system DBus state is root-owned runtime state.  User sessions may
+  # read it, but must not create/chown/overwrite it after we drop to uid 1000.
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
+  "${BB}" mkdir -p /System/State/dbus /run/dbus-state 2>/dev/null || true
+  # Runtime DBus state must remain writable after squashfs/live mounting.
+  "${BB}" chown root:root /run/dbus-state /System/State/dbus 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state /System/State/dbus 2>/dev/null || true
 
   machine_id=""
-  if [ -s /etc/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /etc/machine-id 2>/dev/null || true)"
-  elif [ -s /var/lib/dbus/machine-id ]; then
-    machine_id="$("${BB}" head -n 1 /var/lib/dbus/machine-id 2>/dev/null || true)"
-  elif [ -s /System/State/dbus/machine-id ]; then
+  if [ -s /System/State/dbus/machine-id ]; then
     machine_id="$("${BB}" head -n 1 /System/State/dbus/machine-id 2>/dev/null || true)"
+  elif [ -s /run/dbus-state/machine-id ]; then
+    machine_id="$("${BB}" head -n 1 /run/dbus-state/machine-id 2>/dev/null || true)"
   fi
 
   if [ -z "${machine_id}" ] && [ -r /proc/sys/kernel/random/uuid ]; then
@@ -2573,18 +3217,25 @@ ensure_dbus_machine_id() {
   if ! ( : >"${dbus_state_dir}/.write-test" ) 2>/dev/null; then
     dbus_state_dir=/run/dbus-state
     "${BB}" mkdir -p "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chown root:root "${dbus_state_dir}" 2>/dev/null || true
+    "${BB}" chmod 0755 "${dbus_state_dir}" 2>/dev/null || true
   else
     "${BB}" rm -f "${dbus_state_dir}/.write-test" 2>/dev/null || true
   fi
 
-  printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /etc/machine-id 2>/dev/null || true
-  "${BB}" cp -f "${dbus_state_dir}/machine-id" /var/lib/dbus/machine-id 2>/dev/null || true
-  "${BB}" chmod 0444 /etc/machine-id 2>/dev/null || true
-  "${BB}" chmod 0644 /var/lib/dbus/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
+  "${BB}" mkdir -p /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chown root:root /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  "${BB}" chmod 0755 /run/dbus-state "${dbus_state_dir}" 2>/dev/null || true
+  if ! printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null; then
+    dbus_state_dir=/run/dbus-state
+    printf '%s\n' "${machine_id}" >"${dbus_state_dir}/machine-id" 2>/dev/null || true
+  fi
+  "${BB}" cp -f "${dbus_state_dir}/machine-id" /run/dbus-state/machine-id 2>/dev/null || true
+  "${BB}" chmod 0644 /run/dbus-state/machine-id "${dbus_state_dir}/machine-id" 2>/dev/null || true
 }
 
 start_system_bus() {
+  [ "$("${BB}" id -u 2>/dev/null || echo 0)" = "0" ] || return 0
   if ! command -v dbus-daemon >/dev/null 2>&1; then
     return 0
   fi
@@ -2744,9 +3395,10 @@ run_x11() {
   export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
   export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
   export DISPLAY=:0
-  echo "mode=x11 command=${xinit} ${enlightenment} -- ${xorg} :0 vt${vt} -keeptty -nolisten tcp -config xorg.conf" | "${BB}" tee "${LOG}"
+  xorg_config="${XORG_CONFIG_FILE:-/System/Settings/X11/xorg.conf}"
+  echo "mode=x11 command=${xinit} ${enlightenment} -- ${xorg} :0 vt${vt} -keeptty -nolisten tcp -config ${xorg_config} -xkbdir ${XKB_CONFIG_ROOT}" | "${BB}" tee "${LOG}"
   trace_exec "${xinit}" "${enlightenment}" -- "${xorg}" :0 "vt${vt}" -keeptty -nolisten tcp \
-    -config xorg.conf >>"${LOG}" 2>&1
+    -config "${xorg_config}" -xkbdir "${XKB_CONFIG_ROOT}" >>"${LOG}" 2>&1
 }
 
 case "${MODE}" in
@@ -2795,17 +3447,35 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/start-e"
 
 cat > "${AUZIX_ROOT}/System/Tools/finalize-installed-root" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 TARGET="${1:-/}"
+LINK_MODE="${AUZIX_LINK_MODE:-}"
 
 case "${TARGET}" in
   "") TARGET="/" ;;
 esac
+
+if [ -z "${LINK_MODE}" ] && [ -r /proc/cmdline ]; then
+  for arg in $(${BB} cat /proc/cmdline 2>/dev/null || true); do
+    case "${arg}" in
+      auzix.links=*) LINK_MODE="${arg#auzix.links=}" ;;
+      auzix.strict-links|auzix.links=off|auzix.links=none) LINK_MODE=strict ;;
+    esac
+  done
+fi
+LINK_MODE="${LINK_MODE:-strict}"
+
+compat_links_enabled() {
+  case "${LINK_MODE}" in
+    full|compat|legacy|on|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 target_path() {
   case "${TARGET}" in
@@ -2855,10 +3525,18 @@ link_file() {
       ;;
   esac
   "${BB}" mkdir -p "$("${BB}" dirname "${target_abs}")" 2>/dev/null || true
-  if [ -e "${target_abs}" ] && [ ! -L "${target_abs}" ]; then
-    "${BB}" mv "${target_abs}" "${target_abs}.before-auzix-finalizer" 2>/dev/null || true
+  if [ -L "${target_abs}" ]; then
+    current_target="$("${BB}" readlink "${target_abs}" 2>/dev/null || true)"
+    [ "${current_target}" = "${link_source}" ] && return 0
+    # Do not churn live inodes by default.  A mismatched compatibility link is
+    # safer left alone than relinked under running X/E/DBus/libc consumers.
+    compat_links_enabled || return 0
+    "${BB}" rm -f "${target_abs}" 2>/dev/null || return 0
+  elif [ -e "${target_abs}" ]; then
+    compat_links_enabled || return 0
+    "${BB}" mv "${target_abs}" "${target_abs}.before-auzix-finalizer" 2>/dev/null || return 0
   fi
-  "${BB}" ln -sfn "${link_source}" "${target_abs}" 2>/dev/null || true
+  [ -e "${target_abs}" ] || "${BB}" ln -s "${link_source}" "${target_abs}" 2>/dev/null || true
 }
 
 link_tree_files() {
@@ -2888,9 +3566,15 @@ ensure_busybox_applets() {
     find xargs tar gzip gunzip zcat ar dd stat df du free mount umount sync \
     less more vi which; do
     target_abs="$(target_path "/System/Compatibility/bin/${applet}")"
-    if [ ! -e "${target_abs}" ] || [ -L "${target_abs}" ]; then
-      "${BB}" ln -sfn "${busybox_link}" "${target_abs}" 2>/dev/null || true
+    if [ -L "${target_abs}" ]; then
+      current_target="$("${BB}" readlink "${target_abs}" 2>/dev/null || true)"
+      [ "${current_target}" = "${busybox_link}" ] && continue
+      compat_links_enabled || continue
+      "${BB}" rm -f "${target_abs}" 2>/dev/null || continue
+    elif [ -e "${target_abs}" ]; then
+      continue
     fi
+    "${BB}" ln -s "${busybox_link}" "${target_abs}" 2>/dev/null || true
   done
 }
 
@@ -2904,11 +3588,28 @@ normalize_target_symlinks() {
     link_target="$("${BB}" readlink "${link_path}" 2>/dev/null || true)"
     case "${link_target}" in
       "${target_prefix}"/*)
+        # This is not creation of a legacy compatibility surface.  It removes
+        # the temporary installer mount from an otherwise valid absolute link.
+        # Skipping this in strict mode leaves /init, sh, mount, and every other
+        # BusyBox applet unexecutable after switch_root.
         fixed_target="${link_target#${target_prefix}}"
         "${BB}" ln -sfn "${fixed_target}" "${link_path}" 2>/dev/null || true
         ;;
     esac
   done
+}
+
+assert_no_staging_symlinks() {
+  case "${TARGET}" in
+    /|"") return 0 ;;
+  esac
+  target_prefix="${TARGET%/}"
+  stale_links="$("${BB}" find "${target_prefix}" -xdev -type l -lname "${target_prefix}/*" -print 2>/dev/null || true)"
+  if [ -n "${stale_links}" ]; then
+    echo "fatal: installed root retains staging-qualified symlinks:" >&2
+    echo "${stale_links}" >&2
+    return 1
+  fi
 }
 
 ensure_program_current_links() {
@@ -2960,6 +3661,11 @@ refresh_program_surfaces() {
   [ -d "${programs_root}" ] || return 0
 
   ensure_program_current_links
+
+  if ! compat_links_enabled; then
+    printf 'finalizer link mode %s: skipping compatibility surface refresh\n' "${LINK_MODE}" >&2
+    return 0
+  fi
 
   mkdir_p \
     /System/Compatibility/usr/share/applications \
@@ -3039,16 +3745,18 @@ mkdir_p \
   /System/Logs/packages \
   /System/State/dbus \
   /System/State/display \
+  /System/State/desktop \
   /System/State/packages \
   /System/State/tmp \
   /Work/Temp \
   /dev/shm \
+  /run/dbus-state \
   /run/user/1000 \
   /run/dbus \
   /run/lock
 
 chown_path 0:0 /Users /Users/root
-chmod_path 0755 /Users /Users/root /System/Logs /System/Logs/display /System/State /System/State/dbus /System/State/display
+chmod_path 0755 /Users /Users/root /System/Logs /System/State /System/State/dbus /System/State/display /run/dbus-state /run/dbus
 chown_path 1000:1000 /Users/auzix /run/user/1000
 chmod_path 0755 /Users/auzix
 chmod_path 0700 /run/user/1000
@@ -3065,9 +3773,12 @@ chown_path 1000:1000 \
   /Users/auzix/.e \
   /Users/auzix/.elementary \
   /Users/auzix/.local \
-  /Users/auzix/.midori
+  /Users/auzix/.midori \
+  /System/Logs/display \
+  /System/State/display \
+  /System/State/desktop
 chown_path 0:1000 /System/State/packages /System/Logs/installer /System/Logs/packages
-chmod_path 0775 /System/State/packages /System/Logs/installer /System/Logs/packages
+chmod_path 0775 /System/State/packages /System/Logs/installer /System/Logs/packages /System/Logs/display
 chmod_path 1777 /Work/Temp /dev/shm
 
 if [ -e "$(target_path /Programs/Sudo/host/Commands/sudo)" ]; then
@@ -3102,14 +3813,15 @@ ensure_busybox_applets
 ensure_program_current_links
 refresh_program_surfaces
 normalize_target_symlinks
+assert_no_staging_symlinks
 disable_live_installer_autostart
 
-printf 'finalized-installed-root=%s\n' "${TARGET}"
+printf 'finalized-installed-root=%s link_mode=%s\n' "${TARGET}" "${LINK_MODE}"
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/finalize-installed-root"
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-packages" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -3165,7 +3877,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-packages"
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-install-package" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -3295,7 +4007,8 @@ if [ -x "${JQ}" ]; then
 fi
 rm -f "${before_receipts}" "${after_receipts}" "${new_receipts}"
 if [ -x "${target_root%/}/System/Tools/finalize-installed-root" ]; then
-  "${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"
+    AUZIX_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+    "${target_root%/}/System/Tools/finalize-installed-root" "${target_root}"
 fi
 echo "Installed package ${package} into ${target_root}"
 SCRIPT
@@ -3303,7 +4016,7 @@ SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-package"
 
 cat > "${AUZIX_ROOT}/System/Tools/auzix-install-disk" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
@@ -3425,6 +4138,102 @@ install_stage() {
   echo "INSTALL_STAGE step=${step} total=${total} label=$*"
 }
 
+activate_installed_desktop_surfaces() {
+  target_root="$1"
+  prefix="${target_root%/}/Programs/AuzixDesktopIntegration/current"
+  [ -d "${prefix}/Resources" ] || return 0
+
+  "${BB}" mkdir -p \
+    "${target_root%/}/etc/xdg/menus" \
+    "${target_root%/}/System/Settings/xdg/menus" \
+    "${target_root%/}/System/Compatibility/usr/share/desktop-directories" \
+    "${target_root%/}/System/Compatibility/usr/share/applications" \
+    "${target_root%/}/Users/auzix/.config" \
+    "${target_root%/}/Users/auzix/.local/share/applications" \
+    "${target_root%/}/Users/auzix/.e/e/applications/menu/all" \
+    "${target_root%/}/Users/auzix/.e/e/applications/menu/favorite" \
+    "${target_root%/}/Users/auzix/.e/e/applications/bar/default" \
+    "${target_root%/}/Users/auzix/.cache/efreet"
+
+  if [ -f "${prefix}/Resources/xdg/menus/e-applications.menu" ]; then
+    "${BB}" cp "${prefix}/Resources/xdg/menus/e-applications.menu" \
+      "${target_root%/}/etc/xdg/menus/e-applications.menu"
+    "${BB}" cp "${prefix}/Resources/xdg/menus/e-applications.menu" \
+      "${target_root%/}/System/Settings/xdg/menus/e-applications.menu"
+  fi
+  for item in "${prefix}"/Resources/desktop-directories/*.directory; do
+    [ -f "${item}" ] || continue
+    "${BB}" cp "${item}" "${target_root%/}/System/Compatibility/usr/share/desktop-directories/$("${BB}" basename "${item}")"
+  done
+  for item in "${prefix}"/Resources/applications/*.desktop; do
+    [ -f "${item}" ] || continue
+    base="$("${BB}" basename "${item}")"
+    "${BB}" cp "${item}" "${target_root%/}/System/Compatibility/usr/share/applications/${base}"
+    "${BB}" cp "${item}" "${target_root%/}/Users/auzix/.local/share/applications/${base}"
+  done
+  if [ -f "${prefix}/Resources/config/mimeapps.list" ]; then
+    "${BB}" cp "${prefix}/Resources/config/mimeapps.list" "${target_root%/}/Users/auzix/.config/mimeapps.list"
+    "${BB}" cp "${prefix}/Resources/config/mimeapps.list" "${target_root%/}/Users/auzix/.local/share/applications/mimeapps.list"
+  fi
+
+  appdir="${target_root%/}/System/Compatibility/usr/share/applications"
+  ebase="${target_root%/}/Users/auzix/.e/e/applications"
+  approved='
+auzix-libreoffice-startcenter.desktop
+auzix-libreoffice-calc.desktop
+auzix-libreoffice-writer.desktop
+auzix-libreoffice-impress.desktop
+auzix-libreoffice-draw.desktop
+auzix-libreoffice-math.desktop
+auzix-libreoffice-base.desktop
+auzix-AbiWord-abiword.desktop
+auzix-abiword.desktop
+auzix-Gnumeric-org.gnumeric.gnumeric.desktop
+auzix-gnumeric.desktop
+auzix-Geany-geany.desktop
+auzix-Pluma-pluma.desktop
+auzix-Micro-micro.desktop
+auzix-Htop-htop.desktop
+auzix-Galculator-galculator.desktop
+auzix-midori.desktop
+auzix-netsurf.desktop
+netsurf-gtk.desktop
+io.github.kolunmi.Bazaar.desktop
+auzix-flatpak.desktop
+auzix-installer.desktop
+auzix-package-setup.desktop
+auzix-terminal.desktop
+terminology.desktop
+auzix-xterm.desktop
+'
+  for name in ${approved}; do
+    [ -f "${appdir}/${name}" ] || continue
+    "${BB}" cp "${appdir}/${name}" "${ebase}/menu/all/${name}" 2>/dev/null || true
+  done
+  cat >"${ebase}/bar/default/.order" <<'ORDER'
+auzix-midori.desktop
+auzix-installer.desktop
+auzix-package-setup.desktop
+auzix-terminal.desktop
+terminology.desktop
+auzix-xterm.desktop
+ORDER
+  cat >"${ebase}/menu/favorite/.order" <<'ORDER'
+auzix-midori.desktop
+auzix-installer.desktop
+auzix-package-setup.desktop
+auzix-terminal.desktop
+terminology.desktop
+auzix-xterm.desktop
+ORDER
+  "${BB}" rm -f "${target_root%/}/Users/auzix/.cache/efreet/"* 2>/dev/null || true
+  "${BB}" chown -R 1000:1000 \
+    "${target_root%/}/Users/auzix/.config" \
+    "${target_root%/}/Users/auzix/.local" \
+    "${target_root%/}/Users/auzix/.e" \
+    "${target_root%/}/Users/auzix/.cache" 2>/dev/null || true
+}
+
 find_cmd() {
   for cmd in "$@"; do
     [ -x "${cmd}" ] && {
@@ -3488,9 +4297,25 @@ mount_live_media_for_install() {
   if is_mounted /run/auzix-iso; then
     return 0
   fi
-  for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE; do
+  for dev in \
+    /dev/disk/by-label/AUZIXLIVE \
+    /dev/disk/by-label/ISOIMAGE \
+    /dev/vda3 /dev/vda2 \
+    /dev/sda3 /dev/sda2 \
+    /dev/sdb3 /dev/sdb2 \
+    /dev/xvda3 /dev/xvda2 \
+    /dev/nvme0n1p3 /dev/nvme0n1p2 \
+    /dev/sdb /dev/sda /dev/vda /dev/xvda \
+    /dev/sr0 /dev/cdrom /dev/hdc
+  do
     [ -e "${dev}" ] || continue
-    "${BB}" mount -t iso9660 -o ro "${dev}" /run/auzix-iso 2>/dev/null && return 0
+    for fstype in iso9660 ext4 vfat; do
+      "${BB}" mount -t "${fstype}" -o ro "${dev}" /run/auzix-iso 2>/dev/null || continue
+      if [ -d /run/auzix-iso/boot ]; then
+        return 0
+      fi
+      "${BB}" umount /run/auzix-iso 2>/dev/null || true
+    done
   done
   return 1
 }
@@ -3504,6 +4329,7 @@ copy_boot_payload() {
 
 write_installed_fstab() {
   root_fstype="$1"
+  root_mount_spec="${root_boot_spec:-LABEL=AUZIXROOT}"
   cat > /Work/InstallTarget/System/Settings/fstab <<EOF
 proc /proc proc defaults 0 0
 sysfs /sys sysfs defaults 0 0
@@ -3511,7 +4337,7 @@ devtmpfs /dev devtmpfs defaults 0 0
 devpts /dev/pts devpts gid=5,mode=620,ptmxmode=666 0 0
 tmpfs /dev/shm tmpfs mode=1777,nosuid,nodev 0 0
 tmpfs /run tmpfs defaults 0 0
-LABEL=AUZIXROOT / ${root_fstype} defaults 0 1
+${root_mount_spec} / ${root_fstype} defaults 0 1
 EOF
   if [ "${storage_layout}" = "user-work-programs" ]; then
     cat >> /Work/InstallTarget/System/Settings/fstab <<EOF
@@ -3525,6 +4351,7 @@ EOF
 write_grub_cfg() {
   kernel=""
   initrd=""
+  root_spec="${root_boot_spec:-LABEL=AUZIXROOT}"
   for candidate in /Work/InstallTarget/boot/vmlinuz /Work/InstallTarget/boot/vmlinuz-* /Work/InstallTarget/boot/linux; do
     [ -f "${candidate}" ] || continue
     kernel="/boot/$("${BB}" basename "${candidate}")"
@@ -3542,7 +4369,7 @@ set timeout=3
 set default=0
 
 menuentry "AuziX installed root" {
-    linux ${kernel} root=LABEL=AUZIXROOT auzix.root=LABEL=AUZIXROOT init=/init rw
+    linux ${kernel} root=${root_spec} auzix.root=${partition} init=/init rw
 EOF
   if [ -n "${initrd}" ]; then
     echo "    initrd ${initrd}" >> /Work/InstallTarget/boot/grub/grub.cfg
@@ -3651,6 +4478,13 @@ else
 fi
 
 install_stage 4 "${INSTALL_TOTAL_STAGES}" "mounting target filesystems"
+root_uuid="$("${BB}" blkid "${partition}" 2>/dev/null | "${BB}" sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | "${BB}" head -n 1 || true)"
+if [ -n "${root_uuid}" ]; then
+  root_boot_spec="UUID=${root_uuid}"
+else
+  root_boot_spec="LABEL=AUZIXROOT"
+  echo "WARNING: could not resolve UUID for ${partition}; falling back to label-based boot spec." >&2
+fi
 "${BB}" mkdir -p /Work/InstallTarget
 "${BB}" mount "${partition}" /Work/InstallTarget
 is_mounted /Work/InstallTarget || {
@@ -3692,7 +4526,22 @@ echo "Copying live Auzix root to ${partition}"
 "${BB}" mkdir -p /Work/InstallTarget/System/Settings /Work/InstallTarget/System/Settings/install
 if [ -x /Work/InstallTarget/System/Tools/finalize-installed-root ]; then
   install_stage 6 "${INSTALL_TOTAL_STAGES}" "finalizing installed root"
-  /Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget
+  AUZIX_LINK_MODE="${AUZIX_LINK_MODE:-strict}" \
+    /Work/InstallTarget/System/Tools/finalize-installed-root /Work/InstallTarget
+fi
+install_stage 6 "${INSTALL_TOTAL_STAGES}" "activating installed desktop surfaces"
+activate_installed_desktop_surfaces /Work/InstallTarget
+if [ -x /Work/InstallTarget/Programs/AuzixPackageTools/current/Commands/auzix-pkg ]; then
+  install_stage 6 "${INSTALL_TOTAL_STAGES}" "bootstrapping installed package receipts"
+  "${BB}" chroot /Work/InstallTarget /Programs/BusyBox/current/Commands/busybox env \
+    /Programs/AuzixPackageTools/current/Commands/auzix-pkg bootstrap-receipts /System/PackageDB
+  "${BB}" chroot /Work/InstallTarget /Programs/BusyBox/current/Commands/busybox env \
+    /Programs/AuzixPackageTools/current/Commands/auzix-pkg refresh-ldcache 2>/dev/null || true
+fi
+if [ -x /System/Tools/probe-auzix-desktop-launchers ]; then
+  "${BB}" mkdir -p /Work/InstallTarget/System/Logs/packages
+  /System/Tools/probe-auzix-desktop-launchers /Work/InstallTarget \
+    >/Work/InstallTarget/System/Logs/packages/desktop-launcher-probe-install.txt 2>&1 || true
 fi
 install_stage 7 "${INSTALL_TOTAL_STAGES}" "writing installed configuration"
 write_installed_fstab "${root_fstype}"
@@ -3784,7 +4633,7 @@ install_stage 9 "${INSTALL_TOTAL_STAGES}" "syncing and unmounting"
 "${BB}" umount /Work/InstallTarget
 echo "Installed Auzix root to ${partition}"
 echo "Next boot argument: auzix.root=${partition}"
-echo "INSTALL_DONE root=${partition} layout=${storage_layout} bootloader=${bootloader}"
+echo "INSTALL_DONE root=${partition} boot_spec=${root_boot_spec} layout=${storage_layout} bootloader=${bootloader}"
 SCRIPT
 
 chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-disk"

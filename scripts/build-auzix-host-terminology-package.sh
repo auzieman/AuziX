@@ -137,7 +137,7 @@ done
 
 mkdir -p "${AUZIX_ROOT}/System/Tools"
 cat > "${AUZIX_ROOT}/System/Tools/launch-auzix-terminal" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 if [ -r /System/Settings/auzix-paths.sh ]; then

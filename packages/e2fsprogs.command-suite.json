@@ -13,5 +13,5 @@
     {"name": "tune2fs", "host_command": "tune2fs"},
     {"name": "resize2fs", "host_command": "resize2fs"}
   ],
-  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/mke2fs -V 2>&1 | grep -F mke2fs", "img=/tmp/auzix-ext4-smoke-$$.img; trap 'rm -f \"$img\"' EXIT; truncate -s 16M \"$img\" && $AUZIX_COMMAND_ROOT/mkfs.ext4 -q -F -L AUZIXTEST \"$img\" && $AUZIX_COMMAND_ROOT/e2fsck -fn \"$img\"", "test -x $AUZIX_COMMAND_ROOT/resize2fs"]}
+  "validation": {"smoke_commands": ["$AUZIX_COMMAND_ROOT/mke2fs -V 2>&1 | grep -F mke2fs", "img=/Work/Temp/auzix-ext4-smoke-$$.img; trap 'rm -f \"$img\"' EXIT; /Programs/BusyBox/current/Commands/busybox truncate -s 16M \"$img\" && $AUZIX_COMMAND_ROOT/mkfs.ext4 -q -F -L AUZIXTEST \"$img\" && $AUZIX_COMMAND_ROOT/e2fsck -fn \"$img\"", "test -x $AUZIX_COMMAND_ROOT/resize2fs"]}
 }

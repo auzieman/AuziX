@@ -253,12 +253,14 @@ prefix=/Programs/AuzixDesktopIntegration/current
 
 "\${BB}" mkdir -p \\
   /etc/xdg/menus \\
+  /System/Settings/xdg/menus \\
   /System/Compatibility/usr/share/desktop-directories \\
   /System/Compatibility/usr/share/applications \\
   /Users/auzix/.config \\
   /Users/auzix/.local/share/applications
 
 "\${BB}" cp "\${prefix}/Resources/xdg/menus/e-applications.menu" /etc/xdg/menus/e-applications.menu
+"\${BB}" cp "\${prefix}/Resources/xdg/menus/e-applications.menu" /System/Settings/xdg/menus/e-applications.menu
 for item in "\${prefix}"/Resources/desktop-directories/*.directory; do
   [ -f "\${item}" ] || continue
   "\${BB}" cp "\${item}" "/System/Compatibility/usr/share/desktop-directories/\${item##*/}"

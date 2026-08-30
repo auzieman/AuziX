@@ -8,10 +8,11 @@ INSTALLER_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/AuzixInstaller
 PKGTOOLS_CURRENT="$(basename "$(readlink "${AUZIX_ROOT}/Programs/AuzixPackageTools/current")")"
 LUA_REAL="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Commands/lua.real"
 LUA_LIBS="${AUZIX_ROOT}/Programs/Lua/${LUA_CURRENT}/Libraries"
-LUA_LOADER="${LUA_LIBS}/ld-linux-x86-64.so.2"
+CORE_GLIBC="${AUZIX_ROOT}/System/Libraries/Runtime/glibc"
+LUA_LOADER="${CORE_GLIBC}/ld-linux-x86-64.so.2"
 JQ_REAL="${AUZIX_ROOT}/Programs/AuzixPackageTools/${PKGTOOLS_CURRENT}/Commands/jq.real"
 JQ_LIBS="${AUZIX_ROOT}/Programs/AuzixPackageTools/${PKGTOOLS_CURRENT}/Libraries"
-JQ_LOADER="${JQ_LIBS}/ld-linux-x86-64.so.2"
+JQ_LOADER="${CORE_GLIBC}/ld-linux-x86-64.so.2"
 INSTALLER_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-installer.lua"
 PACKAGE_SETUP_LUA="${AUZIX_ROOT}/Programs/AuzixInstaller/${INSTALLER_CURRENT}/Resources/auzix-package-setup.lua"
 DEFAULT_PLAN="${AUZIX_ROOT}/System/Settings/installer/plans/default.json"
@@ -27,10 +28,10 @@ for path in "${LUA_REAL}" "${LUA_LOADER}" "${JQ_REAL}" "${JQ_LOADER}" "${INSTALL
 done
 
 run_installer() {
-  AUZIX_ROOT="${AUZIX_ROOT}" \
+    AUZIX_ROOT="${AUZIX_ROOT}" \
     AUZIX_JQ="${WORK_DIR}/jq" \
     AUZIX_INSTALL_EXECUTOR="${WORK_DIR}/fake-install-disk" \
-    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${AUZIX_ROOT}/System/Libraries:${CORE_GLIBC}:${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
 }
 
 run_package_setup() {
@@ -40,7 +41,7 @@ run_package_setup() {
     AUZIX_PKG="${WORK_DIR}/fake-auzix-pkg" \
     AUZIX_PKG_PREFIX="" \
     AUZIX_TEST_PACKAGE_LOG="${WORK_DIR}/package.log" \
-    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${AUZIX_ROOT}/System/Libraries:${CORE_GLIBC}:${LUA_LIBS}" "${LUA_REAL}" "${PACKAGE_SETUP_LUA}" "$@"
 }
 
 run_tui_installer() {
@@ -51,7 +52,7 @@ run_tui_installer() {
     AUZIX_DIALOG="${WORK_DIR}/fake-dialog" \
     AUZIX_INSTALLER_DISKS="/dev/vdz,/dev/vdy" \
     AUZIX_INSTALL_EXECUTOR="${WORK_DIR}/fake-install-disk" \
-    "${LUA_LOADER}" --library-path "${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
+    "${LUA_LOADER}" --library-path "${AUZIX_ROOT}/System/Libraries:${CORE_GLIBC}:${LUA_LIBS}" "${LUA_REAL}" "${INSTALLER_LUA}" "$@"
 }
 
 cat >"${WORK_DIR}/fake-install-disk" <<'SCRIPT'
@@ -65,7 +66,7 @@ chmod 0755 "${WORK_DIR}/fake-install-disk"
 cat >"${WORK_DIR}/jq" <<SCRIPT
 #!/usr/bin/env bash
 set -euo pipefail
-exec "${JQ_LOADER}" --library-path "${JQ_LIBS}" "${JQ_REAL}" "\$@"
+exec "${JQ_LOADER}" --library-path "${AUZIX_ROOT}/System/Libraries:${CORE_GLIBC}:${JQ_LIBS}" "${JQ_REAL}" "\$@"
 SCRIPT
 chmod 0755 "${WORK_DIR}/jq"
 

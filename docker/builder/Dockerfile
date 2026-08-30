@@ -40,6 +40,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       libarchive-tools \
       libefl-all-dev \
       libnss3-tools \
+      live-boot \
+      live-build \
+      live-config \
       linux-image-amd64 \
       make \
       mtools \
@@ -48,6 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       openssh-client \
       openssh-server \
       openssl \
+      patchelf \
       parted \
       pulseaudio \
       pkg-config \

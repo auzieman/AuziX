@@ -125,7 +125,7 @@ install -D -m 0755 "${WORK_DIR}/extract/usr/bin/netsurf-gtk" \
 copy_runtime_deps "${WORK_DIR}/extract/usr/bin/netsurf-gtk"
 
 cat > "${NETSURF_PROGRAM}/Commands/netsurf" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 export NETSURFRES="${NETSURFRES:-/System/Compatibility/usr/share/netsurf}"

@@ -3,14 +3,35 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
+LINK_MODE="${AUZIX_LINK_MODE:-strict}"
 
 log() {
   printf '[auzix-strict] %s\n' "$*" >&2
 }
 
+compat_links_enabled() {
+  case "${LINK_MODE}" in
+    full|compat|legacy|on|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# STRICT ROOT CONTRACT:
+# This scaffold is the first line of defense against accidental regression to
+# legacy Linux top-level paths.  The r4 live ISO proved the AUZiX boot contract
+# can reach StartSequence without /usr, /etc, /var, /lib, /lib64, etc. in the
+# root payload.  Keep link_compat() gated by AUZIX_LINK_MODE; do not restore
+# unconditional links here.  If a package needs old paths, fix its AUZiX
+# environment/package surface first, then use AUZIX_LINK_MODE=compat only as a
+# deliberate break-glass diagnostic.
 link_compat() {
   local link_path="$1"
   local target="$2"
+
+  if ! compat_links_enabled; then
+    printf '[auzix-strict] strict alias mode: not creating %s -> %s\n' "${link_path}" "${target}" >&2
+    return 0
+  fi
 
   if [[ -e "${AUZIX_ROOT}${link_path}" && ! -L "${AUZIX_ROOT}${link_path}" ]]; then
     printf 'Refusing to replace non-symlink: %s\n' "${AUZIX_ROOT}${link_path}" >&2
@@ -21,7 +42,7 @@ link_compat() {
   ln -s "${target}" "${AUZIX_ROOT}${link_path}"
 }
 
-log "Creating strict root skeleton at ${AUZIX_ROOT}"
+log "Creating strict root skeleton at ${AUZIX_ROOT} link_mode=${LINK_MODE}"
 
 mkdir -p \
   "${AUZIX_ROOT}/System/Boot" \
@@ -87,7 +108,7 @@ link_compat /tmp /Work/Temp
 link_compat /opt /Programs
 link_compat /home /Users
 
-if [[ -d "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
+if compat_links_enabled && [[ -d "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
   rmdir "${AUZIX_ROOT}/root" 2>/dev/null || {
     printf 'Refusing to replace non-empty root home: %s\n' "${AUZIX_ROOT}/root" >&2
     exit 1
@@ -108,7 +129,7 @@ EOF
 
 cat > "${AUZIX_ROOT}/System/Settings/group" <<'EOF'
 root:x:0:
-tty:x:5:
+tty:x:5:root,auzix,lightdm
 auzix:x:1000:
 sshd:x:74:
 messagebus:x:101:
@@ -116,9 +137,9 @@ lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
 input:x:104:root,auzix
-video:x:44:root,auzix
+video:x:39:root,auzix
 render:x:105:root,auzix
-audio:x:29:root,auzix
+audio:x:63:root,auzix
 EOF
 
 cat > "${AUZIX_ROOT}/System/Settings/shadow" <<'EOF'

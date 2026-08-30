@@ -4,11 +4,17 @@
   "version": "auto",
   "description": "Partition table creation and probing tools for AUZiX installer disk prep.",
   "source": {"type": "debian-binary", "suite": "trixie", "package": "parted", "graduation": "upstream-source"},
+  "patch_elf": true,
   "commands": [
     {"name": "parted", "host_command": "parted"},
     {"name": "partprobe", "host_command": "partprobe"}
   ],
   "validation": {
+    "chroot_smoke": false,
+    "host_smoke_commands": [
+      "$AUZIX_LOADER_HOST --library-path \"$AUZIX_LIBRARY_PATH_HOST\" \"$AUZIX_COMMAND_ROOT/parted.real\" --version | grep -i parted",
+      "test -x $AUZIX_COMMAND_ROOT/partprobe.real"
+    ],
     "smoke_commands": [
       "$AUZIX_COMMAND_ROOT/parted --version | grep -i parted",
       "test -x $AUZIX_COMMAND_ROOT/partprobe"

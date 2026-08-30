@@ -39,7 +39,7 @@ run-directory=/run/lightdm
 cache-directory=/System/State/lightdm/cache
 log-directory=/System/Logs/lightdm
 sessions-directory=/Programs/Enlightenment/host/Resources/share/xsessions:/System/Compatibility/usr/share/xsessions
-greeters-directory=/System/Compatibility/usr/share/xgreeters:/usr/share/xgreeters
+greeters-directory=/System/Compatibility/usr/share/xgreeters
 
 [Seat:*]
 user-session=enlightenment-auzix
@@ -48,12 +48,12 @@ autologin-user-timeout=0
 autologin-session=enlightenment-auzix
 session-wrapper=/System/Tools/lightdm-auzix-session
 greeter-session=lightdm-gtk-greeter
-xserver-command=/System/Compatibility/bin/Xorg -config /System/Settings/X11/xorg.conf -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
+xserver-command=/System/Tools/auzix-xorg-realworld -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
 EOF
 log "wrote lightdm.conf.template"
 
 cat > "${AUZIX_ROOT}/System/Tools/generate-lightdm-config" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
@@ -73,7 +73,7 @@ run-directory=/run/lightdm
 cache-directory=/System/State/lightdm/cache
 log-directory=/System/Logs/lightdm
 sessions-directory=/Programs/Enlightenment/host/Resources/share/xsessions:/System/Compatibility/usr/share/xsessions
-greeters-directory=/System/Compatibility/usr/share/xgreeters:/usr/share/xgreeters
+greeters-directory=/System/Compatibility/usr/share/xgreeters
 
 [Seat:*]
 user-session=enlightenment-auzix
@@ -82,7 +82,7 @@ autologin-user-timeout=0
 autologin-session=enlightenment-auzix
 session-wrapper=/System/Tools/lightdm-auzix-session
 greeter-session=lightdm-gtk-greeter
-xserver-command=/System/Compatibility/bin/Xorg -config /System/Settings/X11/xorg.conf -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
+xserver-command=/System/Tools/auzix-xorg-realworld -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
 EOF
 fi
 SCRIPT
@@ -90,7 +90,7 @@ chmod 0755 "${AUZIX_ROOT}/System/Tools/generate-lightdm-config"
 log "wrote System/Tools/generate-lightdm-config"
 
 cat > "${AUZIX_ROOT}/System/Tools/lightdm-session-wrapper" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -105,7 +105,7 @@ chmod 0755 "${AUZIX_ROOT}/System/Tools/lightdm-session-wrapper"
 log "wrote System/Tools/lightdm-session-wrapper"
 
 cat > "${AUZIX_ROOT}/System/Tools/lightdm-auzix-session" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -129,11 +129,11 @@ export PATH="/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Command
 BB=/Programs/BusyBox/current/Commands/busybox
 [ -x "${BB}" ] || BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
-"${BB}" mkdir -p "${XDG_RUNTIME_DIR}" "${HOME}/.cache" "${HOME}/.cache/fontconfig" "${HOME}/.config" "${HOME}/.e" /var/cache/fontconfig 2>/dev/null || true
+"${BB}" mkdir -p "${XDG_RUNTIME_DIR}" "${HOME}/.cache" "${HOME}/.cache/fontconfig" "${HOME}/.config" "${HOME}/.e" /System/Cache/fontconfig 2>/dev/null || true
 "${BB}" chown -R 1000:1000 "${XDG_RUNTIME_DIR}" "${HOME}/.cache" "${HOME}/.config" "${HOME}/.e" 2>/dev/null || true
 "${BB}" chmod 0700 "${XDG_RUNTIME_DIR}" 2>/dev/null || true
 "${BB}" chmod 0700 "${HOME}/.cache" "${HOME}/.cache/fontconfig" 2>/dev/null || true
-"${BB}" chmod 0755 /var/cache/fontconfig 2>/dev/null || true
+"${BB}" chmod 0755 /System/Cache/fontconfig 2>/dev/null || true
 
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
   if [ ! -S "${XDG_RUNTIME_DIR}/bus" ] && command -v dbus-daemon >/dev/null 2>&1; then
@@ -154,7 +154,7 @@ chmod 0755 "${AUZIX_ROOT}/System/Tools/lightdm-auzix-session"
 log "wrote System/Tools/lightdm-auzix-session"
 
 cat > "${AUZIX_ROOT}/Services/display-manager/run.lightdm.disabled" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 /System/Tools/generate-lightdm-config

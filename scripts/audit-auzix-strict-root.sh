@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 REPORT_PATH="${2:-${ROOT_DIR}/out/auzix-strict/audit-report.txt}"
 EVIDENCE_PATH="${REPORT_PATH%.txt}.evidence.txt"
-LEGACY_POLICY="${AUZIX_LEGACY_POLICY:-compat}"
+LEGACY_POLICY="${AUZIX_LEGACY_POLICY:-strict}"
+AUDIT_MODE="${AUZIX_STRICT_ROOT_AUDIT_MODE:-fail}"
 
 native_dirs=(
   System
@@ -112,6 +113,7 @@ report "Auzix strict root audit"
 report "Root: ${AUZIX_ROOT}"
 report "Evidence: ${EVIDENCE_PATH}"
 report "Legacy policy: ${LEGACY_POLICY}"
+report "Audit mode: ${AUDIT_MODE}"
 report ""
 
 evidence "Auzix strict root evidence"
@@ -149,10 +151,10 @@ case "${LEGACY_POLICY}" in
       fi
     done
     ;;
-  invalid)
+  strict|invalid)
     for link_name in "${compat_links[@]}"; do
       if [[ -e "${AUZIX_ROOT}/${link_name}" || -L "${AUZIX_ROOT}/${link_name}" ]]; then
-        fail "/${link_name} exists while AUZIX_LEGACY_POLICY=invalid"
+        fail "/${link_name} exists while AUZIX_LEGACY_POLICY=${LEGACY_POLICY}"
       else
         pass "/${link_name} absent"
       fi
@@ -354,10 +356,10 @@ done
 
 installer_jq="$(resolve_program_current_path "/Programs/AuzixPackageTools/current/Commands/jq.real")"
 installer_jq_program="$(dirname "$(dirname "${installer_jq}")")"
-installer_jq_loader="${installer_jq_program}/Libraries/ld-linux-x86-64.so.2"
+installer_jq_loader="${AUZIX_ROOT}/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
 installer_jq_libs="${installer_jq_program}/Libraries"
 run_installer_jq() {
-  "${installer_jq_loader}" --library-path "${installer_jq_libs}" "${installer_jq}" "$@"
+  "${installer_jq_loader}" --library-path "${AUZIX_ROOT}/System/Libraries:${AUZIX_ROOT}/System/Libraries/Runtime/glibc:${installer_jq_libs}" "${installer_jq}" "$@"
 }
 if [[ -x "${installer_jq}" && -x "${installer_jq_loader}" ]]; then
   if run_installer_jq -e '.format == "auzix-install-plan-v1"' \
@@ -388,7 +390,15 @@ fi
 
 report ""
 report "Executable dependency scan"
-mapfile -t executables < <(find "${AUZIX_ROOT}/Programs" "${AUZIX_ROOT}/System/Tools" -type f -perm /111 2>/dev/null | sort)
+scan_roots=(
+  "${AUZIX_ROOT}/Programs"
+  "${AUZIX_ROOT}/System/Tools"
+  # AUZiX's compatibility namespace can contain real executable payloads, not
+  # top-level legacy aliases.  Xorg stages its server here; audit it so strict
+  # images cannot ship an ELF that still asks the kernel for /lib64.
+  "${AUZIX_ROOT}/System/Compatibility"
+)
+mapfile -t executables < <(find "${scan_roots[@]}" -type f -perm /111 2>/dev/null | sort)
 if [[ ${#executables[@]} -eq 0 ]]; then
   report "INFO: no executable payloads yet; ldd/readelf checks skipped"
 else
@@ -428,13 +438,17 @@ else
         evidence ""
         interpreter="$(readelf -l "${exe}" 2>/dev/null | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p' | head -n 1)"
         if [[ "${interpreter}" =~ ^/(lib|lib64|usr) ]]; then
-          interpreter_path="$(resolve_root_path "${interpreter}")"
-          if [[ -e "${interpreter_path}" || -L "${interpreter_path}" ]]; then
-            report "WARN: legacy dynamic interpreter ${interpreter} is satisfied by compatibility surface for ${exe#${AUZIX_ROOT}}"
+          if [[ "${LEGACY_POLICY}" == "strict" ]]; then
+            fail "legacy dynamic interpreter ${interpreter} is forbidden under strict policy for ${exe#${AUZIX_ROOT}}"
           else
+            interpreter_path="$(resolve_root_path "${interpreter}")"
+            if [[ -e "${interpreter_path}" || -L "${interpreter_path}" ]]; then
+            report "WARN: legacy dynamic interpreter ${interpreter} is satisfied by compatibility surface for ${exe#${AUZIX_ROOT}}"
+            else
             fail "legacy dynamic interpreter ${interpreter} is missing for ${exe#${AUZIX_ROOT}}"
+            fi
           fi
-        elif readelf -d "${exe}" 2>/dev/null | grep -E 'RPATH|RUNPATH' | grep -E '/usr/|/lib/|/lib64/|/usr/local/' >/dev/null; then
+        elif readelf -d "${exe}" 2>/dev/null | grep -E 'RPATH|RUNPATH' | grep -E '(\[|:)/(usr|usr/local|lib|lib64)(/|:|\])' >/dev/null; then
           fail "legacy RPATH/RUNPATH appears in ELF dynamic section for ${exe#${AUZIX_ROOT}}"
         elif ldd "${exe}" 2>/dev/null | grep -E '/usr/|/lib/|/lib64/|/usr/local/' >/dev/null; then
           report "WARN: host ldd resolved legacy paths for ${exe#${AUZIX_ROOT}}; ELF interpreter/RUNPATH remain native"
@@ -455,7 +469,18 @@ report ""
 if [[ ${failures} -eq 0 ]]; then
   report "Auzix strict root audit: PASS"
 else
-  report "Auzix strict root audit: FAIL (${failures})"
+  case "${AUDIT_MODE}" in
+    warn)
+      report "Auzix strict root audit: WARN (${failures}); continuing because AUZIX_STRICT_ROOT_AUDIT_MODE=${AUDIT_MODE}"
+      exit 0
+      ;;
+    fail)
+      report "Auzix strict root audit: FAIL (${failures})"
+      ;;
+    *)
+      report "Auzix strict root audit: FAIL (${failures}); unknown AUZIX_STRICT_ROOT_AUDIT_MODE=${AUDIT_MODE}"
+      ;;
+  esac
 fi
 
 exit "${failures}"

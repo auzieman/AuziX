@@ -9,9 +9,15 @@ BASH_PROGRAM="${AUZIX_ROOT}/Programs/Bash/${BASH_VERSION}"
 OPENSSH_PROGRAM="${AUZIX_ROOT}/Programs/OpenSSH/${OPENSSH_VERSION}"
 RUNTIME_LIB="${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu"
 RUNTIME_LIB64="${AUZIX_ROOT}/System/Compatibility/lib64"
+CORE_GLIBC="${AUZIX_ROOT}/System/Libraries/Runtime/glibc"
 AUTHORIZED_KEYS_SOURCE="${AUZIX_AUTHORIZED_KEYS_SOURCE:-${HOME}/.ssh/id_rsa.pub}"
 ACCESS_PROFILE="${AUZIX_ACCESS_PROFILE:-key-only}"
 ROOT_PASSWORD_HASH_FILE="${AUZIX_ROOT_PASSWORD_HASH_FILE:-}"
+LINK_MODE="${AUZIX_LINK_MODE:-strict}"
+# AUZiX live/HDD media are BusyBox-first.  OpenSSH is not part of the default
+# boot/access spine; if we add it later it belongs in an explicit service
+# package lane (eventually /Services/OpenSSH), not as accidental live root soup.
+INCLUDE_OPENSSH="${AUZIX_INCLUDE_OPENSSH:-0}"
 
 case "${ACCESS_PROFILE}" in
   key-only)
@@ -38,8 +44,24 @@ case "${ACCESS_PROFILE}" in
     ;;
 esac
 
+case "${INCLUDE_OPENSSH}" in
+  1|yes|true|on) INCLUDE_OPENSSH=1 ;;
+  0|no|false|off) INCLUDE_OPENSSH=0 ;;
+  *)
+    printf 'Unsupported AUZIX_INCLUDE_OPENSSH: %s\n' "${INCLUDE_OPENSSH}" >&2
+    exit 1
+    ;;
+esac
+
 log() {
   printf '[auzix-access] %s\n' "$*" >&2
+}
+
+compat_links_enabled() {
+  case "${LINK_MODE}" in
+    full|compat|legacy|on|yes|1) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 require_cmd() {
@@ -54,6 +76,10 @@ copy_binary() {
   local target="$2"
   install -D -m 0755 "${source}" "${target}"
   copy_runtime_deps "${source}"
+  patchelf \
+    --set-interpreter "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \
+    --set-rpath '/System/Libraries:/System/Libraries/Runtime/glibc:$ORIGIN/../Libraries:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64' \
+    "${target}"
 }
 
 copy_runtime_deps() {
@@ -81,78 +107,130 @@ if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
   exit 1
 fi
 
-for cmd in bash ssh scp sftp ssh-keygen ldd install; do
+for cmd in bash ldd install patchelf; do
   require_cmd "${cmd}"
 done
 
-SSHD_PATH="$(command -v sshd || true)"
-if [[ -z "${SSHD_PATH}" && -x /usr/sbin/sshd ]]; then
-  SSHD_PATH=/usr/sbin/sshd
-fi
-if [[ -z "${SSHD_PATH}" || ! -x "${SSHD_PATH}" ]]; then
-  printf 'Missing required command: sshd\n' >&2
-  exit 1
-fi
-SSH_KEYGEN_PATH="$(command -v ssh-keygen)"
-SSH_PATH="$(command -v ssh)"
-SCP_PATH="$(command -v scp)"
-SFTP_PATH="$(command -v sftp)"
-SFTP_SERVER_PATH="${AUZIX_SFTP_SERVER:-/usr/lib/openssh/sftp-server}"
-if [[ ! -x "${SFTP_SERVER_PATH}" ]]; then
-  printf 'Missing sftp-server. Expected %s or set AUZIX_SFTP_SERVER.\n' "${SFTP_SERVER_PATH}" >&2
-  exit 1
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  for cmd in ssh scp sftp ssh-keygen; do
+    require_cmd "${cmd}"
+  done
+  SSHD_PATH="$(command -v sshd || true)"
+  if [[ -z "${SSHD_PATH}" && -x /usr/sbin/sshd ]]; then
+    SSHD_PATH=/usr/sbin/sshd
+  fi
+  if [[ -z "${SSHD_PATH}" || ! -x "${SSHD_PATH}" ]]; then
+    printf 'Missing required command: sshd\n' >&2
+    exit 1
+  fi
+  SSH_KEYGEN_PATH="$(command -v ssh-keygen)"
+  SSH_PATH="$(command -v ssh)"
+  SCP_PATH="$(command -v scp)"
+  SFTP_PATH="$(command -v sftp)"
+  SFTP_SERVER_PATH="${AUZIX_SFTP_SERVER:-/usr/lib/openssh/sftp-server}"
+  if [[ ! -x "${SFTP_SERVER_PATH}" ]]; then
+    printf 'Missing sftp-server. Expected %s or set AUZIX_SFTP_SERVER.\n' "${SFTP_SERVER_PATH}" >&2
+    exit 1
+  fi
+  SSHD_SESSION_PATH="${AUZIX_SSHD_SESSION:-}"
+  if [[ -z "${SSHD_SESSION_PATH}" ]]; then
+    for candidate in \
+      /usr/lib/openssh/sshd-session \
+      /usr/libexec/openssh/sshd-session \
+      /usr/lib/ssh/sshd-session; do
+      if [[ -x "${candidate}" ]]; then
+        SSHD_SESSION_PATH="${candidate}"
+        break
+      fi
+    done
+  fi
+  if [[ -z "${SSHD_SESSION_PATH}" || ! -x "${SSHD_SESSION_PATH}" ]]; then
+    printf 'Missing sshd-session helper. Set AUZIX_SSHD_SESSION or install OpenSSH server helpers.\n' >&2
+    exit 1
+  fi
+  SSHD_AUTH_PATH="${AUZIX_SSHD_AUTH:-}"
+  if [[ -z "${SSHD_AUTH_PATH}" ]]; then
+    for candidate in \
+      /usr/lib/openssh/sshd-auth \
+      /usr/libexec/openssh/sshd-auth \
+      /usr/lib/ssh/sshd-auth; do
+      if [[ -x "${candidate}" ]]; then
+        SSHD_AUTH_PATH="${candidate}"
+        break
+      fi
+    done
+  fi
+  if [[ -z "${SSHD_AUTH_PATH}" || ! -x "${SSHD_AUTH_PATH}" ]]; then
+    printf 'Missing sshd-auth helper. Set AUZIX_SSHD_AUTH or install OpenSSH server helpers.\n' >&2
+    exit 1
+  fi
 fi
 
 mkdir -p \
   "${BASH_PROGRAM}/Commands" \
-  "${OPENSSH_PROGRAM}/Commands" \
-  "${OPENSSH_PROGRAM}/Libexec" \
+  "${CORE_GLIBC}" \
   "${RUNTIME_LIB}" \
   "${RUNTIME_LIB64}" \
   "${AUZIX_ROOT}/System/Compatibility/bin" \
   "${AUZIX_ROOT}/System/Compatibility/sbin" \
-  "${AUZIX_ROOT}/System/Settings/ssh" \
-  "${AUZIX_ROOT}/System/State/ssh" \
-  "${AUZIX_ROOT}/System/Logs/ssh" \
-  "${AUZIX_ROOT}/Services/ssh" \
+  "${AUZIX_ROOT}/System/Settings" \
   "${AUZIX_ROOT}/Users/root/.ssh" \
   "${AUZIX_ROOT}/Users/auzix/.cache/efreet" \
   "${AUZIX_ROOT}/Users/auzix/.config" \
   "${AUZIX_ROOT}/Users/auzix/.e/e/config" \
   "${AUZIX_ROOT}/Users/auzix/.elementary/config/standard" \
   "${AUZIX_ROOT}/Users/auzix/.local/share" \
-  "${AUZIX_ROOT}/Users/auzix/.midori" \
-  "${AUZIX_ROOT}/run/sshd"
+  "${AUZIX_ROOT}/Users/auzix/.midori"
+
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  mkdir -p \
+    "${OPENSSH_PROGRAM}/Commands" \
+    "${OPENSSH_PROGRAM}/Libexec" \
+    "${AUZIX_ROOT}/System/Settings/ssh" \
+    "${AUZIX_ROOT}/System/State/ssh" \
+    "${AUZIX_ROOT}/System/Logs/ssh" \
+    "${AUZIX_ROOT}/Services/ssh" \
+    "${AUZIX_ROOT}/run/sshd"
+fi
 
 if [[ -e /lib64/ld-linux-x86-64.so.2 ]]; then
   install -D -m 0755 /lib64/ld-linux-x86-64.so.2 "${RUNTIME_LIB64}/ld-linux-x86-64.so.2"
+  install -D -m 0755 /lib64/ld-linux-x86-64.so.2 "${CORE_GLIBC}/ld-linux-x86-64.so.2"
 elif [[ -e /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 ]]; then
   install -D -m 0755 /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "${RUNTIME_LIB64}/ld-linux-x86-64.so.2"
+  install -D -m 0755 /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 "${CORE_GLIBC}/ld-linux-x86-64.so.2"
 fi
+for core_lib in /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/libgcc_s.so.1; do
+  [[ -e "${core_lib}" ]] && install -D -m 0755 "${core_lib}" "${CORE_GLIBC}/$(basename "${core_lib}")"
+done
 
-ln -sfn /System/Compatibility/lib64 "${AUZIX_ROOT}/lib64"
-if [[ ! -L "${AUZIX_ROOT}/lib" ]]; then
-  mkdir -p "${AUZIX_ROOT}/lib"
-  ln -sfn /System/Compatibility/lib/x86_64-linux-gnu "${AUZIX_ROOT}/lib/x86_64-linux-gnu"
+if compat_links_enabled; then
+  ln -sfn /System/Compatibility/lib64 "${AUZIX_ROOT}/lib64"
+  if [[ ! -L "${AUZIX_ROOT}/lib" ]]; then
+    mkdir -p "${AUZIX_ROOT}/lib"
+    ln -sfn /System/Compatibility/lib/x86_64-linux-gnu "${AUZIX_ROOT}/lib/x86_64-linux-gnu"
+  fi
+  ln -sfn /System/Compatibility/bin "${AUZIX_ROOT}/bin"
+  ln -sfn /System/Compatibility/sbin "${AUZIX_ROOT}/sbin"
+  ln -sfn /System/Compatibility/usr "${AUZIX_ROOT}/usr"
+  ln -sfn /System/Settings "${AUZIX_ROOT}/etc"
+  ln -sfn /System/State "${AUZIX_ROOT}/var"
+  ln -sfn /Work/Temp "${AUZIX_ROOT}/tmp"
+  ln -sfn /Users "${AUZIX_ROOT}/home"
+  ln -sfn /Programs "${AUZIX_ROOT}/opt"
+  if [[ -d "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
+    rmdir "${AUZIX_ROOT}/root" 2>/dev/null || true
+  fi
+  if [[ ! -e "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
+    ln -s /Users/root "${AUZIX_ROOT}/root"
+  fi
+else
+  log "strict alias mode: not creating root compatibility links"
 fi
-ln -sfn /System/Compatibility/bin "${AUZIX_ROOT}/bin"
-ln -sfn /System/Compatibility/sbin "${AUZIX_ROOT}/sbin"
-ln -sfn /System/Compatibility/usr "${AUZIX_ROOT}/usr"
-ln -sfn /System/Settings "${AUZIX_ROOT}/etc"
-ln -sfn /System/State "${AUZIX_ROOT}/var"
-ln -sfn /Work/Temp "${AUZIX_ROOT}/tmp"
-ln -sfn /Users "${AUZIX_ROOT}/home"
-ln -sfn /Programs "${AUZIX_ROOT}/opt"
 mkdir -p "${AUZIX_ROOT}/System/State/cache" "${AUZIX_ROOT}/System/State/lib" "${AUZIX_ROOT}/System/State/log"
 ln -sfn /Work/Temp "${AUZIX_ROOT}/System/State/tmp"
 ln -sfn /run "${AUZIX_ROOT}/System/State/run"
 ln -sfn /run/lock "${AUZIX_ROOT}/System/State/lock"
-if [[ -d "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
-  rmdir "${AUZIX_ROOT}/root" 2>/dev/null || true
-fi
-if [[ ! -e "${AUZIX_ROOT}/root" && ! -L "${AUZIX_ROOT}/root" ]]; then
-  ln -s /Users/root "${AUZIX_ROOT}/root"
-fi
 chown 0:0 "${AUZIX_ROOT}/System/Compatibility/usr/local" 2>/dev/null || true
 
 log "Installing Bash runtime"
@@ -160,31 +238,43 @@ copy_binary /usr/bin/bash "${BASH_PROGRAM}/Commands/bash"
 ln -sfn "/Programs/Bash/${BASH_VERSION}/Commands/bash" "${AUZIX_ROOT}/System/Compatibility/bin/bash"
 ln -sfn /Programs/BusyBox/1.36.1/Commands/busybox "${AUZIX_ROOT}/System/Compatibility/bin/false"
 
-log "Installing OpenSSH runtime"
-copy_binary "${SSHD_PATH}" "${OPENSSH_PROGRAM}/Commands/sshd"
-copy_binary "${SSH_PATH}" "${OPENSSH_PROGRAM}/Commands/ssh"
-copy_binary "${SCP_PATH}" "${OPENSSH_PROGRAM}/Commands/scp"
-copy_binary "${SFTP_PATH}" "${OPENSSH_PROGRAM}/Commands/sftp"
-copy_binary "${SSH_KEYGEN_PATH}" "${OPENSSH_PROGRAM}/Commands/ssh-keygen"
-copy_binary "${SFTP_SERVER_PATH}" "${OPENSSH_PROGRAM}/Libexec/sftp-server"
-ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/ssh" "${AUZIX_ROOT}/System/Compatibility/bin/ssh"
-ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/scp" "${AUZIX_ROOT}/System/Compatibility/bin/scp"
-ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sftp" "${AUZIX_ROOT}/System/Compatibility/bin/sftp"
-ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/ssh-keygen" "${AUZIX_ROOT}/System/Compatibility/bin/ssh-keygen"
-ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sshd" "${AUZIX_ROOT}/System/Compatibility/sbin/sshd"
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  log "Installing OpenSSH runtime"
+  copy_binary "${SSHD_PATH}" "${OPENSSH_PROGRAM}/Commands/sshd"
+  copy_binary "${SSH_PATH}" "${OPENSSH_PROGRAM}/Commands/ssh"
+  copy_binary "${SCP_PATH}" "${OPENSSH_PROGRAM}/Commands/scp"
+  copy_binary "${SFTP_PATH}" "${OPENSSH_PROGRAM}/Commands/sftp"
+  copy_binary "${SSH_KEYGEN_PATH}" "${OPENSSH_PROGRAM}/Commands/ssh-keygen"
+  copy_binary "${SFTP_SERVER_PATH}" "${OPENSSH_PROGRAM}/Libexec/sftp-server"
+  copy_binary "${SSHD_SESSION_PATH}" "${OPENSSH_PROGRAM}/Libexec/sshd-session"
+  copy_binary "${SSHD_AUTH_PATH}" "${OPENSSH_PROGRAM}/Libexec/sshd-auth"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/ssh" "${AUZIX_ROOT}/System/Compatibility/bin/ssh"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/scp" "${AUZIX_ROOT}/System/Compatibility/bin/scp"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sftp" "${AUZIX_ROOT}/System/Compatibility/bin/sftp"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/ssh-keygen" "${AUZIX_ROOT}/System/Compatibility/bin/ssh-keygen"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sshd" "${AUZIX_ROOT}/System/Compatibility/sbin/sshd"
+  mkdir -p "${AUZIX_ROOT}/System/Compatibility/usr/lib/openssh"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Libexec/sshd-session" "${AUZIX_ROOT}/System/Compatibility/usr/lib/openssh/sshd-session"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Libexec/sshd-auth" "${AUZIX_ROOT}/System/Compatibility/usr/lib/openssh/sshd-auth"
+  ln -sfn "/Programs/OpenSSH/${OPENSSH_VERSION}/Libexec/sftp-server" "${AUZIX_ROOT}/System/Compatibility/usr/lib/openssh/sftp-server"
+else
+  log "Skipping OpenSSH runtime; AUZIX_INCLUDE_OPENSSH=0"
+fi
 
 for nss_lib in /lib/x86_64-linux-gnu/libnss_files.so.2 /lib/x86_64-linux-gnu/libnss_dns.so.2; do
   [[ -e "${nss_lib}" ]] && install -D -m 0755 "${nss_lib}" "${RUNTIME_LIB}/$(basename "${nss_lib}")"
 done
 
-if [[ ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_ed25519_key" ]]; then
+if [[ "${INCLUDE_OPENSSH}" == "1" && ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_ed25519_key" ]]; then
   log "Generating SSH host keys"
   "${SSH_KEYGEN_PATH}" -q -t ed25519 -N '' -f "${AUZIX_ROOT}/System/State/ssh/ssh_host_ed25519_key"
 fi
-if [[ ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_rsa_key" ]]; then
+if [[ "${INCLUDE_OPENSSH}" == "1" && ! -s "${AUZIX_ROOT}/System/State/ssh/ssh_host_rsa_key" ]]; then
   "${SSH_KEYGEN_PATH}" -q -t rsa -b 3072 -N '' -f "${AUZIX_ROOT}/System/State/ssh/ssh_host_rsa_key"
 fi
-chmod 0600 "${AUZIX_ROOT}/System/State/ssh/ssh_host_"*"_key"
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  chmod 0600 "${AUZIX_ROOT}/System/State/ssh/ssh_host_"*"_key"
+fi
 
 if [[ -s "${AUTHORIZED_KEYS_SOURCE}" ]]; then
   install -m 0600 "${AUTHORIZED_KEYS_SOURCE}" "${AUZIX_ROOT}/Users/root/.ssh/authorized_keys"
@@ -219,8 +309,8 @@ done
 export PATH="${AUZIX_COMMAND_PATH}${PATH:+:${PATH}}"
 
 export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:${AUZIX_ARCH_LIB}:${AUZIX_COMPAT}/lib/x86_64-linux-gnu:${AUZIX_COMPAT}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-export XDG_DATA_DIRS="${AUZIX_COMPAT_USR}/local/share:${AUZIX_COMPAT_USR}/share:/Programs/Enlightenment/current/Resources/share:/Programs/EFL/current/Resources/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}:/usr/local/share:/usr/share"
-export XDG_CONFIG_DIRS="/System/Settings/xdg:${AUZIX_COMPAT}/etc/xdg${XDG_CONFIG_DIRS:+:${XDG_CONFIG_DIRS}}:/etc/xdg"
+export XDG_DATA_DIRS="${AUZIX_COMPAT_USR}/local/share:${AUZIX_COMPAT_USR}/share:/Programs/Enlightenment/current/Resources/share:/Programs/EFL/current/Resources/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}"
+export XDG_CONFIG_DIRS="/System/Settings/xdg:${AUZIX_COMPAT}/etc/xdg${XDG_CONFIG_DIRS:+:${XDG_CONFIG_DIRS}}"
 export TERM="${TERM:-xterm-256color}"
 case "${TERM}" in
   ""|dumb|linux) export TERM=xterm-256color ;;
@@ -242,7 +332,7 @@ export SSL_CERT_DIR="${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="${CURL_CA_BUNDLE:-${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-${SSL_CERT_FILE}}"
-export GCONV_PATH="${GCONV_PATH:-${AUZIX_ARCH_LIB}/gconv:${AUZIX_COMPAT}/lib/x86_64-linux-gnu/gconv:/usr/lib/x86_64-linux-gnu/gconv}"
+export GCONV_PATH="${GCONV_PATH:-${AUZIX_ARCH_LIB}/gconv:${AUZIX_COMPAT}/lib/x86_64-linux-gnu/gconv}"
 
 unset AUZIX_COMMAND_PATH AUZIX_BASE_PATH AUZIX_COMPAT AUZIX_COMPAT_USR AUZIX_ARCH_LIB auzix_commands
 EOF
@@ -298,12 +388,12 @@ root:x:0:0:root:/Users/root:/System/Compatibility/bin/bash
 auzix:x:1000:1000:Auzix User:/Users/auzix:/System/Compatibility/bin/bash
 sshd:x:74:74:sshd privilege separation:/run/sshd:/System/Compatibility/bin/false
 messagebus:x:101:101:DBus message bus:/run/dbus:/System/Compatibility/bin/false
-lightdm:x:102:102:LightDM display manager:/var/lib/lightdm:/System/Compatibility/bin/false
+lightdm:x:102:102:LightDM display manager:/System/State/lightdm:/System/Compatibility/bin/false
 EOF
 
 cat > "${AUZIX_ROOT}/System/Settings/group" <<'EOF'
 root:x:0:
-tty:x:5:
+tty:x:5:root,auzix,lightdm
 auzix:x:1000:
 sshd:x:74:
 messagebus:x:101:
@@ -311,9 +401,9 @@ lightdm:x:102:
 sudo:x:27:auzix
 wheel:x:10:root,auzix
 input:x:104:root,auzix,lightdm
-video:x:44:root,auzix,lightdm
+video:x:39:root,auzix,lightdm
 render:x:105:root,auzix,lightdm
-audio:x:29:root,auzix
+audio:x:63:root,auzix
 EOF
 
 cat > "${AUZIX_ROOT}/System/Settings/subuid" <<'EOF'
@@ -354,7 +444,8 @@ cat > "${AUZIX_ROOT}/System/Settings/hosts" <<'EOF'
 ::1 localhost ip6-localhost ip6-loopback
 EOF
 
-cat > "${AUZIX_ROOT}/System/Settings/ssh/sshd_config" <<EOF
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  cat > "${AUZIX_ROOT}/System/Settings/ssh/sshd_config" <<EOF
 Port 22
 Protocol 2
 ListenAddress 0.0.0.0
@@ -373,8 +464,11 @@ StrictModes no
 Subsystem sftp /Programs/OpenSSH/${OPENSSH_VERSION}/Libexec/sftp-server
 EOF
 
-cat > "${AUZIX_ROOT}/Services/ssh/run" <<EOF
-#!/System/Compatibility/bin/sh
+  # Boot-critical service runners must not depend on /System/Compatibility/bin/sh.
+  # In strict-link live media the compatibility surface is optional/late, while
+  # this service is the rescue rope we need before the desktop is trustworthy.
+  cat > "${AUZIX_ROOT}/Services/ssh/run" <<EOF
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
@@ -386,7 +480,8 @@ BB=/Programs/BusyBox/1.36.1/Commands/busybox
 "\${BB}" chmod 0644 /System/State/ssh/ssh_host_*_key.pub 2>/dev/null || true
 exec /Programs/OpenSSH/${OPENSSH_VERSION}/Commands/sshd -D -e -f /System/Settings/ssh/sshd_config
 EOF
-chmod 0755 "${AUZIX_ROOT}/Services/ssh/run"
+  chmod 0755 "${AUZIX_ROOT}/Services/ssh/run"
+fi
 
 cat > "${AUZIX_ROOT}/System/PackageDB/Bash-${BASH_VERSION}.auzix.json" <<EOF
 {
@@ -414,7 +509,8 @@ cat > "${AUZIX_ROOT}/System/PackageDB/Bash-${BASH_VERSION}.auzix.json" <<EOF
 }
 EOF
 
-cat > "${AUZIX_ROOT}/System/PackageDB/OpenSSH-${OPENSSH_VERSION}.auzix.json" <<EOF
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  cat > "${AUZIX_ROOT}/System/PackageDB/OpenSSH-${OPENSSH_VERSION}.auzix.json" <<EOF
 {
   "name": "OpenSSH",
   "version": "${OPENSSH_VERSION}",
@@ -434,6 +530,11 @@ cat > "${AUZIX_ROOT}/System/PackageDB/OpenSSH-${OPENSSH_VERSION}.auzix.json" <<E
   "logs": "/System/Logs/ssh"
 }
 EOF
+fi
 
 log "Bash installed at ${BASH_PROGRAM}/Commands/bash"
-log "OpenSSH service installed at /Services/ssh/run"
+if [[ "${INCLUDE_OPENSSH}" == "1" ]]; then
+  log "OpenSSH service installed at /Services/ssh/run"
+else
+  log "OpenSSH not included; install/enable the service package later"
+fi

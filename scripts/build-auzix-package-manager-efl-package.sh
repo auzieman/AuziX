@@ -22,7 +22,7 @@ fi
 
 install -m 0755 "${BIN}" "${PROGRAM}/Commands/efl.real"
 cat >"${PROGRAM}/Commands/efl" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 export LD_LIBRARY_PATH="/Programs/AuzixPackageManagerEfl/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 exec /Programs/AuzixPackageManagerEfl/current/Commands/efl.real "$@"
 SCRIPT

@@ -154,7 +154,10 @@ record_target_runtime_substrate() {
     GCC14Base) record_name=ActiveBaseRuntimeGCC ;;
     *) return 0 ;;
   esac
-  target_base_runtime_provides "${base_name}" && append_unique "${record_name}" "${installed_state}"
+  if target_base_runtime_provides "${base_name}"; then
+    append_unique "${record_name}" "${installed_state}"
+  fi
+  return 0
 }
 target_core_runtime_dependency_satisfied() {
   name="$1"
@@ -434,12 +437,15 @@ install_one() {
     "${BB}" wget -O "${out}" "${repo_url%/}/${package}"
   fi
   if [ -n "${sha256}" ] && [ "${sha256}" != null ]; then
-    "${PKG_INSTALL}" --root "${target_root}" --sha256 "${sha256}" "${out}" >>"${log}" 2>&1
+    "${PKG_INSTALL}" --root "${target_root}" --sha256 "${sha256}" "${out}" >>"${log}" 2>&1 ||
+      fail "package install failed package=${name} archive=${package}"
   else
-    "${PKG_INSTALL}" --root "${target_root}" "${out}" >>"${log}" 2>&1
+    "${PKG_INSTALL}" --root "${target_root}" "${out}" >>"${log}" 2>&1 ||
+      fail "package install failed package=${name} archive=${package}"
   fi
   sync_installed_state_from_target
   append_unique "${name}" "${installed_state}"
+  log_msg "INSTALLED package=${name} archive=${package}"
 }
 install_profile() {
   profile_file="$1"
@@ -586,7 +592,7 @@ install_stage 4 "${INSTALL_TOTAL_STAGES}" "mounting target filesystems"
 "${BB}" mount "${work_part}" "${target_root}/Work"
 
 install_stage 5 "${INSTALL_TOTAL_STAGES}" "scaffolding strict AUZiX root contract"
-scaffold_minimal_root >>"${log}" 2>&1
+scaffold_minimal_root >>"${log}" 2>&1 || fail "minimal root scaffold failed"
 case "${AUZIX_INSTALL_COPY_SEED_RUNTIME:-0}" in
   1|yes|true|on)
     log_msg "COMPAT seed runtime copy enabled"
@@ -596,8 +602,8 @@ case "${AUZIX_INSTALL_COPY_SEED_RUNTIME:-0}" in
     log_msg "PACKAGE_ONLY seed runtime copy disabled; installed packages own runtime and service surfaces"
     ;;
 esac
-ensure_target_package_state >>"${log}" 2>&1
-seed_target_provided_state >>"${log}" 2>&1
+ensure_target_package_state >>"${log}" 2>&1 || fail "target package state initialization failed"
+seed_target_provided_state >>"${log}" 2>&1 || fail "bootstrap substrate inventory failed"
 
 install_stage 6 "${INSTALL_TOTAL_STAGES}" "installing base remote profile"
 seed_profile=/System/Settings/install/auzix-tiny-netinstall-remote.packages
@@ -639,7 +645,9 @@ if [ -z "${live_tools}" ]; then
 fi
 log_msg "ROOT_PREP source=${live_tools} target=${target_root}"
 "${live_tools}" "${target_root}" >>"${log}" 2>&1 || fail "root prep failed via ${live_tools}"
-sync_live_runtime_contract >>"${log}" 2>&1
+log_msg "COMPAT_REPAIR_START name=runtime-and-service-contract source=bootstrap-seed"
+sync_live_runtime_contract >>"${log}" 2>&1 || fail "runtime and service compatibility repair failed"
+log_msg "COMPAT_REPAIR_DONE name=runtime-and-service-contract source=bootstrap-seed"
 [ -x "${target_root}/System/Boot/StartSequence" ] || fail "root prep did not create StartSequence"
 [ -x "${target_root}/System/Boot/InstalledInit" ] || fail "root prep did not create InstalledInit"
 cp "${target_root}/System/Boot/InstalledInit" "${target_root}/init"

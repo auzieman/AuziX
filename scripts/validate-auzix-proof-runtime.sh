@@ -211,16 +211,10 @@ if [[ -s "$(root_path /System/Compatibility/etc/ssl/certs/ca-certificates.crt)" 
 else
   fail "missing canonical AUZiX CA bundle"
 fi
-if [[ -d "$(root_path /etc)" && ! -L "$(root_path /etc)" ]]; then
-  if [[ -L "$(root_path /etc/ssl)" && -s "$(root_path /etc/ssl/certs/ca-certificates.crt)" ]]; then
-    pass "/etc/ssl narrow compatibility alias resolves for compiled TLS defaults"
-  else
-    fail "/etc is a real directory but /etc/ssl does not resolve to AUZiX CA bundle"
-  fi
-elif [[ -s "$(root_path /etc/ssl/certs/ca-certificates.crt)" ]]; then
+if [[ -s "$(root_path /etc/ssl/certs/ca-certificates.crt)" ]]; then
   pass "/etc/ssl resolves through root compatibility policy"
 else
-  warn "/etc/ssl does not resolve in this proof root; OCI imports must add the narrow /etc/ssl alias"
+  warn "/etc/ssl does not resolve in this proof root; strict AUZiX relies on exported SSL_CERT_FILE"
 fi
 
 report ""

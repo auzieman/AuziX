@@ -1,0 +1,45 @@
+# AUZiX known-good graphical live spine.
+#
+# Source of truth:
+# - artifacts/auzix/auzix-live-theme-app-candidate.iso
+# - notes/known-good-live-builder-inputs-2026-08-23.md
+#
+# This is the small package-composed root/squashfs set that reached
+# StartSequence, DBus, Xorg, and Enlightenment. Use this as the beta live/HDD
+# graphical baseline before adding userland packages such as AbiWord.
+
+BusyBox
+root-layout
+Bash
+Curl
+DBus
+Udev
+Xorg
+LightDM
+Terminology
+Enlightenment
+XTerm
+Midori
+NetSurf
+PulseAudio
+ALSA
+Sudo
+Strace
+AuzixPackageTools
+AuzixInstaller
+DesktopAssets
+AuzixThemes
+AuzixWallpapers
+GRUB
+KernelModules
+Lua
+Dialog
+IPUtils
+Acpid
+AuzixProbe
+AuzixDynProbe
+
+# OpenSSH was present in the old known-good receipt set, but the current live
+# lane is BusyBox-first. Keep OpenSSH out unless explicitly testing the later
+# /Services/OpenSSH package.
+# OpenSSH

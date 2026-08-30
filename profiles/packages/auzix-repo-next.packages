@@ -35,3 +35,5 @@ slirp4netns
 
 # AuziX container-root intake
 debootstrap
+x11-xkb-utils
+xkb-data

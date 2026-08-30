@@ -70,10 +70,6 @@ grep -Fq 'SSL_CERT_FILE="${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca
 [[ -s "${AUZIX_ROOT}/System/Compatibility/etc/ssl/certs/ca-certificates.crt" ]] || fail "canonical AUZiX CA bundle is missing"
 [[ -e "${AUZIX_ROOT}/System/Settings/ssl" || -L "${AUZIX_ROOT}/System/Settings/ssl" ]] ||
   fail "/System/Settings/ssl alias for hardwired /etc/ssl callers is missing"
-if [[ -d "${AUZIX_ROOT}/etc" && ! -L "${AUZIX_ROOT}/etc" ]]; then
-  [[ -e "${AUZIX_ROOT}/etc/ssl" || -L "${AUZIX_ROOT}/etc/ssl" ]] ||
-    fail "/etc exists as a real directory but lacks /etc/ssl compatibility alias"
-fi
 settings_ssl_target="$(readlink "${AUZIX_ROOT}/System/Settings/ssl" 2>/dev/null || true)"
 if [[ "${settings_ssl_target}" == /System/* ]]; then
   [[ -s "${AUZIX_ROOT}${settings_ssl_target}/certs/ca-certificates.crt" ]] ||

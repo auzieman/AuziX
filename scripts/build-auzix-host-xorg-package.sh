@@ -152,13 +152,46 @@ mkdir -p \
   "${AUZIX_ROOT}/System/PackageDB"
 
 copy_binary /usr/bin/xinit "${XORG_PROGRAM}/Commands/xinit"
-copy_binary /usr/bin/Xorg "${XORG_PROGRAM}/Commands/Xorg"
 copy_binary /usr/bin/xkbcomp "${XORG_PROGRAM}/Commands/xkbcomp"
 copy_binary /usr/bin/setxkbmap "${XORG_PROGRAM}/Commands/setxkbmap"
 copy_binary /usr/lib/xorg/Xorg "${RUNTIME_USR}/lib/xorg/Xorg"
 copy_binary /usr/lib/xorg/Xorg.wrap "${RUNTIME_USR}/lib/xorg/Xorg.wrap"
 chown root:root "${RUNTIME_USR}/lib/xorg/Xorg.wrap" 2>/dev/null || true
 chmod 4755 "${RUNTIME_USR}/lib/xorg/Xorg.wrap" 2>/dev/null || true
+cat > "${XORG_PROGRAM}/Commands/Xorg" <<'WRAPPER'
+#!/Programs/BusyBox/current/Commands/busybox sh
+# AUZiX wrapper, not Debian /usr/bin/Xorg.
+# Debian's wrapper hardcodes /usr/lib*/Xorg paths.  Strict AUZiX live images do
+# not expose /usr, so this command must hand off to the server staged under the
+# AUZiX compatibility tree.  Do not replace this with a raw /usr/bin/Xorg copy.
+set -u
+
+BB=/Programs/BusyBox/current/Commands/busybox
+server=/System/Compatibility/usr/lib/xorg/Xorg
+libs=/System/Libraries
+for d in \
+  /System/Compatibility/lib/x86_64-linux-gnu \
+  /System/Compatibility/usr/lib/x86_64-linux-gnu \
+  /System/Compatibility/usr/lib/xorg \
+  /System/Compatibility/usr/lib/xorg/modules \
+  /Programs/Xorg/current/Libraries
+do
+  [ -d "$d" ] && libs="${libs}:$d"
+done
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${libs}"
+export XORG_MODULE_PATH="${XORG_MODULE_PATH:-/System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules}"
+export XKB_CONFIG_ROOT="${XKB_CONFIG_ROOT:-/System/Compatibility/usr/share/X11/xkb}"
+# Do not prefer Xorg.wrap in strict AUZiX live mode.  Debian's wrapper is a
+# privileged ELF with a donor /lib64 interpreter unless separately normalized;
+# attempting it makes the display fail as "not found" even when the file exists.
+# The actual server is staged and normalized below the AUZiX compatibility tree.
+if [ -x "${server}" ]; then
+  exec "${server}" "$@"
+fi
+echo "AUZiX Xorg wrapper: missing ${server}" >&2
+exec "${BB}" false
+WRAPPER
+chmod 0755 "${XORG_PROGRAM}/Commands/Xorg"
 
 copy_dir_if_present /usr/lib/xorg/modules "${RUNTIME_USR}/lib/xorg/modules"
 copy_dir_if_present /usr/lib/xorg/modules "${NATIVE_XORG}/modules"
@@ -201,6 +234,21 @@ Section "ServerFlags"
     Option "AutoAddDevices" "true"
     Option "AutoEnableDevices" "true"
     Option "AllowMouseOpenFail" "true"
+EndSection
+
+Section "InputClass"
+    Identifier "AuzixKeyboard"
+    MatchIsKeyboard "on"
+    Driver "evdev"
+    Option "XkbRules" "evdev"
+    Option "XkbModel" "pc105"
+    Option "XkbLayout" "us"
+EndSection
+
+Section "InputClass"
+    Identifier "AuzixPointer"
+    MatchIsPointer "on"
+    Driver "evdev"
 EndSection
 
 Section "Device"

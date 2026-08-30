@@ -186,7 +186,7 @@ autologin-user-timeout=0
 autologin-session=enlightenment-auzix
 session-wrapper=/System/Tools/lightdm-auzix-session
 greeter-session=lightdm-gtk-greeter
-xserver-command=/System/Compatibility/bin/Xorg -config /System/Settings/X11/xorg.conf -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
+xserver-command=/System/Tools/auzix-xorg-realworld -modulepath /System/Drivers/Xorg/modules,/System/Compatibility/usr/lib/xorg/modules -logfile /System/Logs/display/Xorg-lightdm.log
 EOF
   "${BB}" cp -f /System/Settings/lightdm/lightdm.conf.template /System/Settings/lightdm/lightdm-autologin.conf.template 2>/dev/null || true
   "${BB}" cp -f /System/Settings/lightdm/lightdm.conf.template /System/Settings/lightdm/lightdm.conf 2>/dev/null || true

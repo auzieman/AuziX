@@ -114,7 +114,7 @@ mkdir -p \
 install -m 0755 "${LUA_SOURCE}" "${LUA_PROGRAM}/Commands/lua.real"
 copy_runtime_deps "${LUA_SOURCE}" "${LUA_PROGRAM}"
 cat >"${LUA_PROGRAM}/Commands/lua" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 exec /Programs/Lua/current/Libraries/ld-linux-x86-64.so.2 \
   --library-path /Programs/Lua/current/Libraries \
   /Programs/Lua/current/Commands/lua.real "$@"
@@ -124,7 +124,7 @@ chmod 0755 "${LUA_PROGRAM}/Commands/lua"
 install -m 0755 "${DIALOG_SOURCE}" "${DIALOG_PROGRAM}/Commands/dialog.real"
 copy_runtime_deps "${DIALOG_SOURCE}" "${DIALOG_PROGRAM}"
 cat >"${DIALOG_PROGRAM}/Commands/dialog" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
 export TERM="${TERM:-xterm}"
 export LD_LIBRARY_PATH="/Programs/Dialog/current/Libraries:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
@@ -161,7 +161,7 @@ if [[ -d "${ROOT_DIR}/installer/theme" ]]; then
 fi
 
 cat >"${INSTALLER_PROGRAM}/Commands/auzix-installer" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 PATH=/Programs/AuzixPackageTools/current/Commands:/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
@@ -170,7 +170,7 @@ SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-installer"
 
 cat >"${INSTALLER_PROGRAM}/Commands/auzix-package-setup" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 PATH=/Programs/AuzixPackageTools/current/Commands:/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 export PATH
@@ -179,7 +179,7 @@ SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-package-setup"
 
 cat >"${INSTALLER_PROGRAM}/Commands/auzix-installer-gui" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh
@@ -227,7 +227,7 @@ SCRIPT
 chmod 0755 "${INSTALLER_PROGRAM}/Commands/auzix-installer-gui"
 
 cat >"${INSTALLER_PROGRAM}/Commands/launch-auzix-installer" <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 [ -r /System/Settings/auzix-paths.sh ] && . /System/Settings/auzix-paths.sh

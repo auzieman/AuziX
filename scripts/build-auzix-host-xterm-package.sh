@@ -19,6 +19,7 @@ XTERM_PROGRAM="${AUZIX_ROOT}/Programs/XTerm/${XTERM_VERSION}"
 RUNTIME_LIB="${AUZIX_ROOT}/System/Compatibility/lib/x86_64-linux-gnu"
 RUNTIME_LIB64="${AUZIX_ROOT}/System/Compatibility/lib64"
 RUNTIME_USR="${AUZIX_ROOT}/System/Compatibility/usr"
+RUNTIME_ETC="${AUZIX_ROOT}/System/Settings"
 
 log() {
   printf '[auzix-xterm] %s\n' "$*" >&2
@@ -65,8 +66,25 @@ copy_runtime_deps() {
 copy_binary() {
   local source="$1"
   local target="$2"
-  install -D -m 0755 "${source}" "${target}"
+  install -D -m "$(stat -c '%a' "${source}")" "${source}" "${target}"
   copy_runtime_deps "${source}"
+}
+
+write_xterm_wrapper() {
+  local target="$1"
+  local real_binary="$2"
+  local terminal_name="$3"
+install -D -m 0755 /dev/stdin "${target}" <<EOF_WRAPPER
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
+export PATH="/Programs/XTerm/current/Commands:/Programs/Bash/current/Commands:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:\${PATH:-}"
+export TERM="\${TERM:-xterm-256color}"
+case "\${TERM}" in
+  ""|dumb|linux) export TERM=xterm-256color ;;
+esac
+export TERMINFO_DIRS="\${TERMINFO_DIRS:-/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo:/usr/share/terminfo:/lib/terminfo}"
+export XAPPLRESDIR="\${XAPPLRESDIR:-/System/Settings/X11/app-defaults:/System/Compatibility/usr/share/X11/app-defaults:/usr/share/X11/app-defaults:/etc/X11/app-defaults}"
+exec "${real_binary}" -tn "${terminal_name}" "\$@"
+EOF_WRAPPER
 }
 
 if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
@@ -86,23 +104,41 @@ mkdir -p \
   "${RUNTIME_USR}/share/applications" \
   "${RUNTIME_USR}/share/pixmaps" \
   "${RUNTIME_USR}/share/X11/app-defaults" \
+  "${RUNTIME_ETC}/X11/app-defaults" \
   "${RUNTIME_LIB}" \
   "${RUNTIME_LIB64}" \
   "${AUZIX_ROOT}/System/PackageDB"
 
-copy_binary "$(command -v xterm)" "${XTERM_PROGRAM}/Commands/xterm"
+copy_binary "$(command -v xterm)" "${XTERM_PROGRAM}/Commands/xterm.real"
+write_xterm_wrapper "${XTERM_PROGRAM}/Commands/xterm" "/Programs/XTerm/current/Commands/xterm.real" "xterm-256color"
 ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/xterm" "${AUZIX_ROOT}/System/Compatibility/bin/xterm"
 ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/xterm" "${RUNTIME_USR}/bin/xterm"
 
 if command -v uxterm >/dev/null 2>&1; then
-  copy_binary "$(command -v uxterm)" "${XTERM_PROGRAM}/Commands/uxterm"
+  copy_binary "$(command -v uxterm)" "${XTERM_PROGRAM}/Commands/uxterm.real"
+  write_xterm_wrapper "${XTERM_PROGRAM}/Commands/uxterm" "/Programs/XTerm/current/Commands/uxterm.real" "xterm-256color"
   ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/uxterm" "${AUZIX_ROOT}/System/Compatibility/bin/uxterm"
   ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/uxterm" "${RUNTIME_USR}/bin/uxterm"
 fi
 
-for app_defaults in /etc/X11/app-defaults/XTerm /etc/X11/app-defaults/XTerm-color /usr/share/X11/app-defaults/XTerm /usr/share/X11/app-defaults/XTerm-color; do
+if command -v resize >/dev/null 2>&1; then
+  copy_binary "$(command -v resize)" "${XTERM_PROGRAM}/Commands/resize"
+  ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/resize" "${AUZIX_ROOT}/System/Compatibility/bin/resize"
+  ln -sfn "/Programs/XTerm/${XTERM_VERSION}/Commands/resize" "${RUNTIME_USR}/bin/resize"
+fi
+
+for app_defaults in \
+  /etc/X11/app-defaults/XTerm \
+  /etc/X11/app-defaults/XTerm-color \
+  /etc/X11/app-defaults/UXTerm \
+  /etc/X11/app-defaults/UXTerm-color \
+  /usr/share/X11/app-defaults/XTerm \
+  /usr/share/X11/app-defaults/XTerm-color \
+  /usr/share/X11/app-defaults/UXTerm \
+  /usr/share/X11/app-defaults/UXTerm-color; do
   [[ -f "${app_defaults}" ]] || continue
   install -D -m 0644 "${app_defaults}" "${RUNTIME_USR}/share/X11/app-defaults/$(basename "${app_defaults}")"
+  install -D -m 0644 "${app_defaults}" "${RUNTIME_ETC}/X11/app-defaults/$(basename "${app_defaults}")"
 done
 
 if [[ -f /usr/share/pixmaps/xterm-color_48x48.xpm ]]; then
@@ -129,14 +165,23 @@ cat > "${AUZIX_ROOT}/System/PackageDB/XTerm-${XTERM_VERSION}.auzix.json" <<EOF
   "migration_stage": "stage-1-compat-install",
   "prefix": "/Programs/XTerm/${XTERM_VERSION}",
   "commands": [
-    "/Programs/XTerm/${XTERM_VERSION}/Commands/xterm"
+    "/Programs/XTerm/${XTERM_VERSION}/Commands/xterm",
+    "/Programs/XTerm/${XTERM_VERSION}/Commands/uxterm",
+    "/Programs/XTerm/${XTERM_VERSION}/Commands/resize"
   ],
   "compatibility_exports": [
     "/System/Compatibility/bin/xterm",
+    "/System/Compatibility/bin/uxterm",
+    "/System/Compatibility/bin/resize",
     "/System/Compatibility/usr/bin/xterm",
+    "/System/Compatibility/usr/bin/uxterm",
+    "/System/Compatibility/usr/bin/resize",
+    "/System/Settings/X11/app-defaults/XTerm",
+    "/System/Settings/X11/app-defaults/XTerm-color",
+    "/System/Settings/X11/app-defaults/UXTerm",
     "/System/Compatibility/usr/share/applications/auzix-xterm.desktop"
   ],
-  "notes": "Host-packaged XTerm fallback terminal for X11 graphical bring-up when EFL terminals are unstable."
+  "notes": "Host-packaged XTerm fallback terminal for X11 graphical bring-up. The public command is an AUZiX wrapper that seeds TERM, TERMINFO_DIRS, and XAPPLRESDIR before executing xterm.real."
 }
 EOF
 

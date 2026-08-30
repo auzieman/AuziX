@@ -14,6 +14,24 @@
     "forbidden_action": "install-package-scoped-or-alternate-glibc-into-a-normal-root",
     "rebuild_rule": "If any package requires a newer glibc symbol floor than the active AUZiX core glibc, update the core runtime as a release-layer and rebuild dependent packages against that new core. Do not pull a second glibc as a dependency."
   },
+  "runtime_linker_rule": {
+    "trigger": "after runtime/substrate extraction and after package post-install hooks",
+    "tool": "ldconfig",
+    "global_cache_scope": [
+      "/System/Libraries",
+      "/System/Libraries/Runtime/glibc",
+      "/System/Compatibility/lib",
+      "/System/Compatibility/lib64",
+      "/System/Compatibility/lib/x86_64-linux-gnu",
+      "/System/Compatibility/usr/lib",
+      "/System/Compatibility/usr/lib/x86_64-linux-gnu"
+    ],
+    "forbidden_global_cache_scope": [
+      "/Programs/*/current/RootFS",
+      "/Programs/*/current/Libraries"
+    ],
+    "notes": "Leaf package local libraries are exposed through wrappers/runtime ladders. The global loader cache belongs to the active AUZiX runtime substrate only."
+  },
   "groups": [
     {
       "id": "base-c-abi",

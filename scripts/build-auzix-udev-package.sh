@@ -132,7 +132,7 @@ for helper in /usr/lib/udev/*; do
 done
 
 cat > "${AUZIX_ROOT}/Services/udev/run" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -u
 
 PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands

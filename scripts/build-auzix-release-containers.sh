@@ -9,7 +9,7 @@ if [[ "$(hostname -s)" != "lab-ai-worker" && "$(hostname -s)" != "r730-ai-01" ]]
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RELEASE_ID="${AUZIX_RELEASE_ID:-trixie-consolidated-20260826-r3}"
+RELEASE_ID="${AUZIX_RELEASE_ID:-trixie-consolidated-20260826-r4}"
 RELEASE_ROOT="${AUZIX_RELEASE_ROOT:-/var/lib/auzix-build/releases/${RELEASE_ID}}"
 PACKAGE_REPO_URL="${AUZIX_PACKAGE_REPO_URL:-http://192.168.1.10/auzix/repo}"
 PREPARED_ROOT="${AUZIX_PREPARED_ROOT:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
@@ -27,6 +27,22 @@ copy_tree() {
   local source="$1" target="$2"
   mkdir -p "${target}"
   tar --numeric-owner -C "${source}" -cf - . | tar --numeric-owner -C "${target}" -xf -
+}
+stage_container_runtime() {
+  local root="$1" role="$2"
+  mkdir -p "${root}/Services/Container" "${root}/System/State/Container"
+  cat >"${root}/Services/Container/run" <<'EOF'
+#!/Programs/Busybox/current/Commands/busybox sh
+set -eu
+trap 'exit 0' TERM INT
+while :; do
+  sleep 3600 &
+  wait "$!" || true
+done
+EOF
+  chmod 0755 "${root}/Services/Container/run"
+  printf 'format=auzix-container-runtime-v1\nrole=%s\n' "${role}" \
+    >"${root}/System/State/Container/runtime.conf"
 }
 
 need docker; need jq; need python3; need tar; need sha256sum
@@ -46,6 +62,7 @@ for path in System Programs/BusyBox Programs/Busybox; do
   copy_tree "${PREPARED_ROOT}/${path}" "${WORK}/zero-busybox/root/${path}"
 done
 mkdir -p "${WORK}/zero-busybox/root"/{Services,Work,Users/root}
+stage_container_runtime "${WORK}/zero-busybox/root" zero-busybox
 # The prepared workstation root contains compatibility links for every package.
 # Image zero must advertise only commands its BusyBox payload actually owns.
 for compat_dir in bin sbin usr/bin usr/sbin; do
@@ -137,8 +154,7 @@ docker build --pull=false -t "${BUSYBOX_IMAGE}" "${WORK}/zero-busybox"
 docker run --rm "${BUSYBOX_IMAGE}" /Programs/Busybox/current/Commands/busybox sh -ec \
   'test -x /System/Libraries/Runtime/glibc/libc.so.6; test ! -e /usr; echo auzix-zero-ok'
 docker rm -f auzix-zero-busybox >/dev/null 2>&1 || true
-docker run -d --name auzix-zero-busybox "${BUSYBOX_IMAGE}" \
-  /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
+docker run -d --name auzix-zero-busybox "${BUSYBOX_IMAGE}" >/dev/null
 
 docker build --pull=false --build-arg "BASE_IMAGE=${BUSYBOX_IMAGE}" -t "${NGINX_IMAGE}" "${WORK}/one-nginx"
 docker run --rm "${NGINX_IMAGE}" /Programs/Nginx/current/Commands/nginx -t \
@@ -174,9 +190,23 @@ while IFS= read -r archive; do
 done <"${WORK}/pre-hdd-order.txt"
 mkdir -p "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
 mkdir -p "${WORK}/pre-hdd/root/System/Settings/packages"
+stage_container_runtime "${WORK}/pre-hdd/root" pre-hdd
 printf '%s\n' "${PACKAGE_REPO_URL}" >"${WORK}/pre-hdd/root/System/Settings/packages/repositories.conf"
+cat >"${WORK}/pre-hdd/root/System/State/Container/payload.conf" <<EOF
+format=auzix-pre-hdd-payload-v1
+release_id=${RELEASE_ID}
+prepared_root=${PREPARED_ROOT}
+repository_index=${INDEX}
+package_roots=$(paste -sd, "${WORK}/pre-hdd/packages.list")
+EOF
 chown 1000:1000 "${WORK}/pre-hdd/root/Users/auzix" "${WORK}/pre-hdd/root/Work/Temp" "${WORK}/pre-hdd/root/Work/Validation"
 docker build --pull=false -t "${MONSTER_IMAGE}" "${WORK}/pre-hdd"
+assembly_container="auzix-pre-hdd-assembly-${RUN_ID//[^a-zA-Z0-9_.-]/-}"
+docker rm -f "${assembly_container}" >/dev/null 2>&1 || true
+docker run --name "${assembly_container}" "${MONSTER_IMAGE}" \
+  /Programs/AuzixPackageTools/current/Commands/auzix-pkg refresh
+docker commit "${assembly_container}" "${MONSTER_IMAGE}" >/dev/null
+docker rm -f "${assembly_container}" >/dev/null
 monster_run() {
   docker run --rm \
     --user 1000:1000 \
@@ -196,7 +226,6 @@ monster_run /Programs/Python313Minimal/current/Commands/python3.13 -c \
   'import curses, ssl, sqlite3; print(ssl.OPENSSL_VERSION)'
 monster_run /Programs/Glances/current/Commands/glances --version
 monster_run /Programs/Htop/current/Commands/htop --version
-monster_run /Programs/AuzixPackageTools/current/Commands/auzix-pkg refresh
 monster_run /Programs/Busybox/current/Commands/busybox sh -ec '
   printf "AUZiX LibreOffice conversion proof\n" > /Work/Validation/input.txt
   lowriter --headless --convert-to pdf --outdir /Work/Validation /Work/Validation/input.txt
@@ -230,8 +259,7 @@ if failures:
 PY
 log "pre-HDD runtime intent passed for root and uid=1000"
 docker rm -f auzix-pre-hdd >/dev/null 2>&1 || true
-docker run -d --name auzix-pre-hdd "${MONSTER_IMAGE}" \
-  /Programs/Busybox/current/Commands/busybox sh -c 'while :; do sleep 3600; done' >/dev/null
+docker run -d --name auzix-pre-hdd "${MONSTER_IMAGE}" >/dev/null
 
 for tuple in "busybox:${BUSYBOX_IMAGE}" "nginx:${NGINX_IMAGE}" "pre-hdd:${MONSTER_IMAGE}"; do
   name="${tuple%%:*}"; image="${tuple#*:}"

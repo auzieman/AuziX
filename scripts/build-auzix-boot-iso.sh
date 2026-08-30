@@ -13,11 +13,14 @@ ISO_PATH="${ARTIFACT_DIR}/${ISO_NAME}"
 KERNEL_IMAGE="${AUZIX_KERNEL_IMAGE:-}"
 KERNEL_RELEASE="${AUZIX_KERNEL_RELEASE:-}"
 GRUB_DEFAULT="${AUZIX_GRUB_DEFAULT:-0}"
+LINK_MODE="${AUZIX_LINK_MODE:-strict}"
+EXTRA_KERNEL_ARGS="${AUZIX_EXTRA_KERNEL_ARGS:-}"
 INCLUDE_LIVE_ASSETS="${AUZIX_INCLUDE_LIVE_ASSETS:-0}"
 LIVE_ROOT_MODE="${AUZIX_LIVE_ROOT_MODE:-iso-root}"
 INCLUDE_LIVE_NATIVE_MIRRORS="${AUZIX_INCLUDE_LIVE_NATIVE_MIRRORS:-0}"
 INCLUDE_ISO_ASSETS="${AUZIX_INCLUDE_ISO_ASSETS:-1}"
 ISO_VOLID="${AUZIX_ISO_VOLID:-AUZIXLIVE}"
+ASSEMBLE_ONLY="${AUZIX_BOOT_ASSEMBLE_ONLY:-0}"
 # A beta image must boot on current physical hardware and normal Proxmox OVMF
 # guests.  Do not quietly publish another BIOS-only artifact unless an explicit
 # diagnostic build asks for one.
@@ -158,6 +161,41 @@ ensure_core_runtime_surface() {
   log "core runtime surface gate passed"
 }
 
+ensure_busybox_compat_surface() {
+  local root="$1"
+  local busybox_target="/Programs/BusyBox/1.36.1/Commands/busybox"
+  local applet link_path link_target
+  local required_applets=(
+    sh ash awk basename cat chmod chown cp cut date dd dirname dmesg
+    echo env fdisk find grep head hostname id ifconfig ip ln ls mdev
+    mkdir mkfs.ext2 mknod mount mv nc nslookup ping pivot_root ps pwd
+    readlink reboot route rm sed sleep sort stat strings stty switch_root
+    sync tail tar tee test touch tr true udhcpc umount uname vi watch wc
+    wget which xargs
+  )
+
+  if [[ ! -x "${root}${busybox_target}" ]]; then
+    printf 'BusyBox binary is missing from root: %s\n' "${root}${busybox_target}" >&2
+    exit 1
+  fi
+
+  mkdir -p "${root}/System/Compatibility/bin"
+  ln -sfn "${busybox_target}" "${root}/System/Compatibility/bin/busybox"
+  for applet in "${required_applets[@]}"; do
+    link_path="${root}/System/Compatibility/bin/${applet}"
+    if [[ -e "${link_path}" && ! -L "${link_path}" ]]; then
+      printf 'BusyBox applet path is occupied by a non-symlink: /System/Compatibility/bin/%s\n' "${applet}" >&2
+      exit 1
+    fi
+    ln -sfn "${busybox_target}" "${link_path}"
+    link_target="$(readlink "${link_path}")"
+    if [[ "${link_target}" != "${busybox_target}" ]]; then
+      printf 'BusyBox applet link is inconsistent: /System/Compatibility/bin/%s -> %s\n' "${applet}" "${link_target}" >&2
+      exit 1
+    fi
+  done
+}
+
 select_kernel() {
   if [[ -n "${KERNEL_IMAGE}" ]]; then
     return
@@ -221,8 +259,14 @@ root_has_kernel_module() {
 
 write_init() {
   local initramfs_root="$1"
+  # PID1 runs before the AUZiX compatibility surface is guaranteed sane.
+  # Keep this pinned to the static BusyBox binary; do not "simplify" it to
+  # /System/Compatibility/bin/sh or libc/linker regressions return at boot.
+  # The /lib/modules alias below belongs only to this initramfs rescue space so
+  # Linux module tools can find kernel drivers before AUZiX root is mounted. It
+  # is not permission to add /lib, /lib64, /usr, /etc, etc. to the live root.
   cat > "${initramfs_root}/init" <<'INIT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 export PATH=/System/Compatibility/bin:/Programs/BusyBox/1.36.1/Commands
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
@@ -231,24 +275,39 @@ load_module() {
   module="$1"
   base="/System/Drivers/$(uname -r)"
   [ -d "${base}" ] || return 1
-  if "${BB}" modprobe -q "${module}" 2>/dev/null; then
-    echo "loaded-module=${module}"
-    return 0
+  # NOTE TO FUTURE CODEX:
+  # Do not remove BusyBox from early boot. BusyBox is AUZiX's core rescue
+  # toolbox and PID1 shell here. The packaged Debian module tree is compressed
+  # as .ko.xz, while BusyBox modprobe/insmod can hand compressed bytes straight
+  # to the kernel and produce "Invalid ELF header magic" spam. AUZiX therefore
+  # defaults to the xz-aware loader below. Only opt into BusyBox modprobe for a
+  # raw-.ko module tree or after proving its compression handling in this image.
+  if [ "${AUZIX_INIT_USE_MODPROBE:-0}" = "1" ]; then
+    if "${BB}" modprobe -q "${module}" 2>/dev/null; then
+      echo "loaded-module=${module}"
+      return 0
+    fi
   fi
   module_file="${module//_/-}.ko"
   rel=""
   if [ -f "${base}/modules.dep" ]; then
     rel="$(grep -m1 "/${module_file}:" "${base}/modules.dep" 2>/dev/null | "${BB}" cut -d: -f1)"
     if [ -z "${rel}" ]; then
+      rel="$(grep -m1 "/${module_file}.xz:" "${base}/modules.dep" 2>/dev/null | "${BB}" cut -d: -f1)"
+    fi
+    if [ -z "${rel}" ]; then
       module_file="${module//-/_}.ko"
       rel="$(grep -m1 "/${module_file}:" "${base}/modules.dep" 2>/dev/null | "${BB}" cut -d: -f1)"
+      if [ -z "${rel}" ]; then
+        rel="$(grep -m1 "/${module_file}.xz:" "${base}/modules.dep" 2>/dev/null | "${BB}" cut -d: -f1)"
+      fi
     fi
   fi
   if [ -n "${rel}" ]; then
     load_module_path "${base}" "${rel}" "${module}"
     return $?
   fi
-  found="$(find "${base}" -type f \( -name "${module}.ko" -o -name "${module}.ko.xz" -o -name "${module}.ko.zst" -o -name "${module//_/-}.ko" -o -name "${module//-/_}.ko" \) 2>/dev/null | head -n 1)"
+  found="$(find "${base}" -type f \( -name "${module}.ko" -o -name "${module}.ko.xz" -o -name "${module}.ko.zst" -o -name "${module//_/-}.ko" -o -name "${module//_/-}.ko.xz" -o -name "${module//-/_}.ko" -o -name "${module//-/_}.ko.xz" \) 2>/dev/null | head -n 1)"
   [ -n "${found}" ] || return 1
   load_module_file "${found}" "${module}"
 }
@@ -271,20 +330,46 @@ load_module_path() {
 }
 
 load_module_file() {
-  local found label loaded
+  local found label loaded materialized
   found="$1"
   label="$2"
   loaded="/run/auzix-loaded-modules"
   mkdir -p /run
-  if grep -qx "${found}" "${loaded}" 2>/dev/null; then
+  case "${found}" in
+    *.ko)
+      materialized="${found}"
+      ;;
+    *.ko.xz)
+      materialized="/run/auzix-modules/${found#*/System/Drivers/}"
+      materialized="${materialized%.xz}"
+      mkdir -p "$("${BB}" dirname "${materialized}")"
+      if [ ! -s "${materialized}" ]; then
+        if ! "${BB}" xzcat "${found}" > "${materialized}" 2>/dev/null; then
+          echo "module-decompress-failed=${label} path=${found}"
+          return 1
+        fi
+      fi
+      ;;
+    *)
+      echo "module-skip-non-elf=${label} path=${found}"
+      return 1
+      ;;
+  esac
+  # BusyBox insmod cannot consume compressed module payloads or dependency
+  # metadata.  Keep the early boot path boring: only hand it raw ELF .ko files.
+  if [ "$("${BB}" dd if="${materialized}" bs=4 count=1 2>/dev/null)" != "$(printf '\177ELF')" ]; then
+    echo "module-skip-non-elf=${label} path=${materialized}"
+    return 1
+  fi
+  if grep -qx "${materialized}" "${loaded}" 2>/dev/null; then
     return 0
   fi
-  if "${BB}" insmod "${found}" 2>/dev/null; then
-    echo "${found}" >> "${loaded}"
+  if "${BB}" insmod "${materialized}" 2>/dev/null; then
+    echo "${materialized}" >> "${loaded}"
     echo "loaded-module=${label}"
     return 0
   fi
-  echo "module-load-failed=${label} path=${found}"
+  echo "module-load-failed=${label} path=${materialized}"
   return 1
 }
 
@@ -338,7 +423,7 @@ load_storage_and_net() {
 
 start_dhcp() {
   cat > /run/auzix-udhcpc.script <<'SCRIPT'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 
 case "$1" in
@@ -372,7 +457,7 @@ SCRIPT
 }
 
 mount_live_iso_root() {
-  local dev iso_root root_image lower merged upper work attempt
+  local dev iso_root root_image lower merged upper work attempt fstype found
   iso_root="/run/auzix-iso"
   root_image="${iso_root}/live/auzix-root.squashfs"
   lower="/run/auzix-lower"
@@ -382,26 +467,42 @@ mount_live_iso_root() {
 
   mkdir -p "${iso_root}" "${merged}"
 
+  found=0
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     "${BB}" mdev -s 2>/dev/null || true
     "${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
-    for dev in /dev/sr0 /dev/cdrom /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE /dev/hdc /dev/sdb /dev/sda; do
+    # Debian live-boot style rule: mounting a device is only a probe.  Accept it
+    # as AUZiX live media only when the expected live root is present; otherwise
+    # unmount it and keep walking partitions.  This prevents an empty virtual
+    # CD-ROM (/dev/sr0) from stealing HDD/USB boots.
+    for dev in /dev/disk/by-label/AUZIXLIVE /dev/disk/by-label/ISOIMAGE \
+      /dev/vda3 /dev/vda2 /dev/sda3 /dev/sda2 /dev/sdb3 /dev/sdb2 /dev/xvda3 /dev/xvda2 /dev/nvme0n1p3 /dev/nvme0n1p2 \
+      /dev/sdb /dev/sda /dev/vda /dev/xvda \
+      /dev/sr0 /dev/cdrom /dev/hdc; do
       [ -e "${dev}" ] || continue
-      if mount -t iso9660 -o ro "${dev}" "${iso_root}" 2>/dev/null; then
-        echo "live-iso=${dev}"
-        break 2
-      fi
+      for fstype in iso9660 ext4 vfat; do
+        if mount -t "${fstype}" -o ro "${dev}" "${iso_root}" 2>/dev/null; then
+          if [ -f "${root_image}" ]; then
+            echo "live-media=${dev} fstype=${fstype}"
+            found=1
+            break 3
+          fi
+          echo "skip-live-media=${dev} fstype=${fstype} reason=missing-auzix-root"
+          umount "${iso_root}" 2>/dev/null || true
+        fi
+      done
     done
-    echo "waiting-for-live-iso attempt=${attempt} block=$(ls /sys/block 2>/dev/null | tr '\n' ' ')"
+    [ "${found}" = "1" ] && break
+    echo "waiting-for-live-media attempt=${attempt} block=$(ls /sys/block 2>/dev/null | tr '\n' ' ')"
     "${BB}" sleep 1
   done
 
   if ! grep -q " ${iso_root} " /proc/mounts 2>/dev/null; then
-    echo "Failed to mount Auzix live ISO."
+    echo "Failed to mount Auzix live media."
     return 1
   fi
   if [ ! -f "${root_image}" ]; then
-    echo "Auzix SquashFS root is missing from live ISO."
+    echo "Auzix SquashFS root is missing from live media."
     return 1
   fi
 
@@ -482,9 +583,22 @@ if [ -n "${AUZIX_ROOT_DEVICE}" ]; then
   echo "Failed to mount requested Auzix root: ${AUZIX_ROOT_DEVICE}"
 fi
 
-if ! mount_live_iso_root; then
-  echo "Auzix live-root handoff failed; remaining in initramfs rescue shell."
-  exec "${BB}" cttyhack "${BB}" sh
+AUZIX_INIT_LIVE_ROOT_MODE="__AUZIX_INIT_LIVE_ROOT_MODE__"
+case "${AUZIX_INIT_LIVE_ROOT_MODE}" in
+  iso-root)
+    if ! mount_live_iso_root; then
+      echo "Auzix live-root handoff failed; remaining in initramfs rescue shell."
+      exec "${BB}" cttyhack "${BB}" sh
+    fi
+    ;;
+  initramfs)
+    echo "Auzix whole-root initramfs mode; continuing to StartSequence."
+    ;;
+  *)
+    echo "Unknown Auzix init live-root mode: ${AUZIX_INIT_LIVE_ROOT_MODE}"
+    exec "${BB}" cttyhack "${BB}" sh
+    ;;
+esac
 fi
 
 if [ -c /dev/tty2 ]; then
@@ -516,22 +630,31 @@ fi
 
 exec "${BB}" cttyhack "${BB}" sh
 INIT
+  sed -i "s/__AUZIX_INIT_LIVE_ROOT_MODE__/${LIVE_ROOT_MODE}/g" "${initramfs_root}/init"
   chmod 0755 "${initramfs_root}/init"
 }
 
 write_grub_cfg() {
   local iso_root="$1"
+  local link_arg=""
+  local extra_arg=""
+  if [[ "${LINK_MODE}" == "strict" ]]; then
+    link_arg=" auzix.links=strict"
+  fi
+  if [[ -n "${EXTRA_KERNEL_ARGS}" ]]; then
+    extra_arg=" ${EXTRA_KERNEL_ARGS}"
+  fi
   cat > "${iso_root}/boot/grub/grub.cfg" <<GRUB
 set timeout=3
 set default=${GRUB_DEFAULT}
 
 menuentry "Auzix strict-root shell" {
-    linux /boot/vmlinuz console=ttyS0,115200 console=tty0
+    linux /boot/vmlinuz console=ttyS0,115200 console=tty0${link_arg}${extra_arg}
     initrd /boot/initramfs.cpio.gz
 }
 
 menuentry "Auzix installed root (/dev/sda1)" {
-    linux /boot/vmlinuz console=ttyS0,115200 console=tty0 auzix.root=/dev/sda1
+    linux /boot/vmlinuz console=ttyS0,115200 console=tty0${link_arg}${extra_arg} auzix.root=/dev/sda1
     initrd /boot/initramfs.cpio.gz
 }
 GRUB
@@ -603,6 +726,7 @@ case "${LIVE_ROOT_MODE}" in
     log "Using whole-root initramfs live mode"
     copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/initramfs"
     ensure_core_runtime_surface "${WORK_DIR}/initramfs"
+    ensure_busybox_compat_surface "${WORK_DIR}/initramfs"
     if [[ "${INCLUDE_LIVE_NATIVE_MIRRORS}" != "1" ]]; then
       rm -rf \
         "${WORK_DIR}/initramfs/System/Drivers/Xorg" \
@@ -642,6 +766,7 @@ EOF
     done
     copy_root_payload "${ROOT_SOURCE}" "${WORK_DIR}/rootfs-stage"
     ensure_core_runtime_surface "${WORK_DIR}/rootfs-stage"
+    ensure_busybox_compat_surface "${WORK_DIR}/rootfs-stage"
     if [[ "${INCLUDE_LIVE_ASSETS}" != "1" ]]; then
       rm -rf "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
       mkdir -p "${WORK_DIR}/rootfs-stage/System/Settings/display/assets"
@@ -679,6 +804,11 @@ elif [[ "${INCLUDE_ISO_ASSETS}" == "1" && -d "${ROOT_SOURCE}/System/Settings/dis
   cp -a "${ROOT_SOURCE}/System/Settings/display/assets/." "${WORK_DIR}/iso/live/assets/"
 fi
 write_grub_cfg "${WORK_DIR}/iso"
+
+if [[ "${ASSEMBLE_ONLY}" == "1" ]]; then
+  log "Boot tree assembled without ISO packaging: ${WORK_DIR}/iso"
+  exit 0
+fi
 
 grub-mkrescue -o "${ISO_PATH}" "${WORK_DIR}/iso" -- -volid "${ISO_VOLID}" >/dev/null
 

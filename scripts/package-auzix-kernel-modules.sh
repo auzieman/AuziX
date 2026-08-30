@@ -21,6 +21,39 @@ log() {
   printf '[auzix-modules] %s\n' "$*" >&2
 }
 
+module_present_in_target() {
+  local module="$1"
+  find "${TARGET_MODULE_DIR}" -type f \( \
+    -name "${module}.ko" -o \
+    -name "${module}.ko.xz" -o \
+    -name "${module}.ko.zst" -o \
+    -name "${module}.ko.gz" \
+  \) -print -quit | grep -q .
+}
+
+module_builtin_on_host() {
+  local module="$1"
+  local mod_dash="${module//_/-}"
+  local mod_under="${module//-/_}"
+  [[ -f "${HOST_MODULE_DIR}/modules.builtin" ]] || return 1
+  grep -Eq "(^|/)(${mod_dash}|${mod_under})\\.ko($|[[:space:]])" "${HOST_MODULE_DIR}/modules.builtin"
+}
+
+required_module_available() {
+  local module="$1"
+  module_present_in_target "${module}" || module_builtin_on_host "${module}"
+}
+
+module_name_from_dep_path() {
+  local dep_path="$1"
+  dep_path="$(basename "${dep_path}")"
+  dep_path="${dep_path%.xz}"
+  dep_path="${dep_path%.zst}"
+  dep_path="${dep_path%.gz}"
+  dep_path="${dep_path%.ko}"
+  printf '%s\n' "${dep_path}"
+}
+
 copy_module_path() {
   local rel="$1"
   local src="${HOST_MODULE_DIR}/${rel}"
@@ -76,7 +109,7 @@ copy_module_name() {
     if [[ -n "${dep_line}" ]]; then
       for dep_path in ${dep_line#*:}; do
         [[ -z "${dep_path}" ]] && continue
-        dep_module="$(basename "${dep_path}" .ko)"
+        dep_module="$(module_name_from_dep_path "${dep_path}")"
         copy_module_name "${dep_module}"
       done
     fi
@@ -174,9 +207,11 @@ graphics_module_names=(
   usbhid
   usb-common
   usbcore
-  uhci-hcd
   ehci-hcd
   ehci-pci
+  uhci-hcd
+  ohci-hcd
+  ohci-pci
   xhci-hcd
   xhci-pci
 )
@@ -228,7 +263,7 @@ done
 # Live media cannot operate without these exact filesystem modules.  Do not
 # publish a superficially successful receipt that silently omitted one.
 for required_live_module in loop isofs squashfs overlay; do
-  if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_live_module}.ko" -print -quit | grep -q .; then
+  if ! required_module_available "${required_live_module}"; then
     printf 'Required live-boot module was not packaged: %s\n' "${required_live_module}" >&2
     exit 1
   fi
@@ -248,7 +283,7 @@ if [[ "${INCLUDE_CONTAINER_HOST}" == "1" ]]; then
     copy_module_name "${module}"
   done
   for required_container_module in bridge veth nf_tables; do
-    if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_container_module}.ko" -print -quit | grep -q .; then
+    if ! required_module_available "${required_container_module}"; then
       printf 'Required container-host module was not packaged: %s\n' "${required_container_module}" >&2
       exit 1
     fi
@@ -258,7 +293,7 @@ if [[ "${INCLUDE_CONTAINER_HOST}" == "1" ]]; then
   # modules.dep but drops kernel/fs/fuse/fuse.ko creates a convincing-looking
   # but broken desktop, so fail here while the build still has the source tree.
   for required_fuse_module in fuse; do
-    if ! find "${TARGET_MODULE_DIR}" -type f -name "${required_fuse_module}.ko" -print -quit | grep -q .; then
+    if ! required_module_available "${required_fuse_module}"; then
       printf 'Required desktop/container FUSE module was not packaged: %s\n' "${required_fuse_module}" >&2
       exit 1
     fi

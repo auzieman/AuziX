@@ -12,6 +12,24 @@ export LD_LIBRARY_PATH
 BB=${BB:-/Programs/BusyBox/1.36.1/Commands/busybox}
 ROOT=${AUZIX_ROOT:-}
 [ -n "${ROOT}" ] || ROOT=
+LINK_MODE="${AUZIX_LINK_MODE:-}"
+
+if [ -z "${LINK_MODE}" ] && [ -r /proc/cmdline ]; then
+  for arg in $(${BB} cat /proc/cmdline 2>/dev/null || true); do
+    case "${arg}" in
+      auzix.links=*) LINK_MODE="${arg#auzix.links=}" ;;
+      auzix.strict-links|auzix.links=off|auzix.links=none) LINK_MODE=strict ;;
+    esac
+  done
+fi
+LINK_MODE="${LINK_MODE:-strict}"
+
+compat_links_enabled() {
+  case "${LINK_MODE}" in
+    full|compat|legacy|on|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 p() { printf '%s%s' "${ROOT}" "$1"; }
 log_dir="$(p /System/Logs/packages)"
@@ -472,15 +490,22 @@ activate_auzix_desktop_profile_assets
 ensure_sudo_pam_bootstrap
 ensure_interactive_command_surface
 
-# Keep standard aliases visible from inside AUZiX.
-[ -e "$(p /etc)" ] || "${BB}" ln -s /System/Settings "$(p /etc)" 2>/dev/null || true
-if [ -d "$(p /etc)" ] && [ ! -L "$(p /etc)" ]; then
-  [ -e "$(p /etc/ssl)" ] || "${BB}" ln -s /System/Compatibility/etc/ssl "$(p /etc/ssl)" 2>/dev/null || true
-  [ -e "$(p /etc/pki)" ] || "${BB}" ln -s /System/Compatibility/etc/pki "$(p /etc/pki)" 2>/dev/null || true
+# Keep standard aliases visible only when the compatibility hatch is explicit.
+# Strict ISO boots should fail honestly on missing AUZiX-native paths instead of
+# being silently rescued by root-level Debian aliases.
+if compat_links_enabled; then
+  [ -e "$(p /etc)" ] || "${BB}" ln -s /System/Settings "$(p /etc)" 2>/dev/null || true
+  if [ -d "$(p /etc)" ] && [ ! -L "$(p /etc)" ]; then
+    [ -e "$(p /etc/ssl)" ] || "${BB}" ln -s /System/Compatibility/etc/ssl "$(p /etc/ssl)" 2>/dev/null || true
+    [ -e "$(p /etc/pki)" ] || "${BB}" ln -s /System/Compatibility/etc/pki "$(p /etc/pki)" 2>/dev/null || true
+  fi
+  [ -e "$(p /usr)" ] || "${BB}" ln -s /System/Compatibility/usr "$(p /usr)" 2>/dev/null || true
+  [ -e "$(p /lib)" ] || "${BB}" ln -s /System/Compatibility/lib "$(p /lib)" 2>/dev/null || true
+  [ -e "$(p /lib64)" ] || "${BB}" ln -s /System/Compatibility/lib64 "$(p /lib64)" 2>/dev/null || true
+else
+  "${BB}" mkdir -p "${log_dir}" 2>/dev/null || true
+  printf 'strict alias mode: skipped root compatibility links\\n' >>"${log_file}" 2>/dev/null || true
 fi
-[ -e "$(p /usr)" ] || "${BB}" ln -s /System/Compatibility/usr "$(p /usr)" 2>/dev/null || true
-[ -e "$(p /lib)" ] || "${BB}" ln -s /System/Compatibility/lib "$(p /lib)" 2>/dev/null || true
-[ -e "$(p /lib64)" ] || "${BB}" ln -s /System/Compatibility/lib64 "$(p /lib64)" 2>/dev/null || true
 
 "${BB}" chmod 0755 "$(p /)" "$(p /System)" "$(p /System/Settings)" "$(p /System/Compatibility)" "$(p /Programs)" 2>/dev/null || true
 "${BB}" chmod 1777 "$(p /tmp)" 2>/dev/null || true

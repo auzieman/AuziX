@@ -127,7 +127,7 @@ install -D -m 0755 "${WORK_DIR}/extract/usr/bin/curl" "${CURL_PROGRAM}/Commands/
 copy_runtime_deps "${WORK_DIR}/extract/usr/bin/curl"
 
 cat > "${CURL_PROGRAM}/Commands/curl" <<'EOF'
-#!/System/Compatibility/bin/sh
+#!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
 export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
