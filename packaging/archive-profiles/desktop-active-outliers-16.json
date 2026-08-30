@@ -1,0 +1,22 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-active-outliers-16",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Libglib200t64", "LibgdkPixbuf200", "Libgtk30t64", "Libblas3", "Liblapack3",
+    "LibreOfficeCalc", "LibreOfficeCommon", "X11Common", "KeyboardConfiguration",
+    "XserverXorg", "FontconfigConfig", "ManDb", "Cpp", "Xinit", "Xterm",
+    "FontsUrwBase35"
+  ]
+}

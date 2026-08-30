@@ -106,6 +106,15 @@ DPKG_SELF_PYTHON_CACHE_BLOCK = re.compile(
     r"(?P=indent)find \$dirs[^\n]*$"
 )
 
+DPKG_STATOVERRIDE_MODE_BLOCK = re.compile(
+    r'(?P<indent>[ \t]*)if dpkg --compare-versions "\$2" [^\n]+; then\n'
+    r'[ \t]+if ! dpkg-statoverride --list (?P<path>\S+) >/dev/null 2>&1 && \\\n'
+    r'[ \t]+\[ -e (?P=path) \]; then\n'
+    r'[ \t]+chmod (?P<mode>[0-7]{3,4}) (?P=path)\n'
+    r'[ \t]+fi\n'
+    r'[ \t]+fi'
+)
+
 UCF_OBSOLETE_REGISTRY_BLOCK = re.compile(
     r'if \[ "\$1" = "upgrade" \] && dpkg --compare-versions "\$2" lt '
     r'(?P<prior>[^;]+); then\n'
@@ -273,6 +282,18 @@ fi"""
         raise ContractError(f"self-package Python cache rule matched {count} blocks")
     if count == 1 and "dpkg -L" not in text:
         rules.append("self-package-python-bytecode-cleanup")
+
+    def replace_statoverride_mode(match: re.Match[str]) -> str:
+        indent = match.group("indent")
+        path = match.group("path")
+        mode = match.group("mode")
+        return f'{indent}[ ! -e {path} ] || chmod {mode} {path}'
+
+    text, count = DPKG_STATOVERRIDE_MODE_BLOCK.subn(replace_statoverride_mode, text)
+    if count > 1:
+        raise ContractError(f"statoverride mode rule matched {count} blocks")
+    if count == 1:
+        rules.append("native-existing-path-mode")
     return text, rules
 
 
@@ -282,6 +303,113 @@ DONOR_ACTIONS = {
     "before_remove": "remove",
     "after_remove": "remove",
 }
+
+PURGE_IF = re.compile(
+    r'^\s*if\s+\[\s*"?\$1"?\s*=\s*"?purge"?\s*\]\s*(?:&&[^;]+)?;?\s*then\s*$'
+)
+
+CONSTANT_STRING_IF = re.compile(
+    r'^\s*if\s+\[\s*"(?P<left>[^"]*)"\s*=\s*"(?P<right>[^"]*)"\s*\]\s*;?\s*then\s*$'
+)
+
+
+def _prune_constant_false_blocks(text: str) -> tuple[str, bool]:
+    lines = text.splitlines(keepends=True)
+    output: list[str] = []
+    changed = False
+    index = 0
+    while index < len(lines):
+        match = CONSTANT_STRING_IF.match(lines[index].rstrip("\n"))
+        if (
+            not match
+            or "$" in match.group("left")
+            or "$" in match.group("right")
+            or match.group("left") == match.group("right")
+        ):
+            output.append(lines[index])
+            index += 1
+            continue
+        depth = 1
+        end = index + 1
+        while end < len(lines) and depth:
+            stripped = lines[end].strip()
+            if re.match(r"^if\b.*\bthen$", stripped):
+                depth += 1
+            if stripped == "fi" or stripped.startswith("fi;"):
+                depth -= 1
+            end += 1
+        if depth:
+            output.append(lines[index])
+            index += 1
+            continue
+        output.append(
+            f': # constant-false donor branch: {match.group("left")} != {match.group("right")}\n'
+        )
+        index = end
+        changed = True
+    result = "".join(output)
+    if changed and not re.search(r"\bdb_[A-Za-z0-9_]+\b", result):
+        result = re.sub(
+            r'(?m)^\s*\.\s+/usr/share/debconf/confmodule\s*$\n?',
+            ": # unused donor debconf import\n",
+            result,
+        )
+    return result, changed
+
+
+def _prune_unreachable_purge_blocks(text: str, lifecycle_name: str) -> tuple[str, bool]:
+    """Remove Debian purge-only branches from APK's normal removal stage."""
+    if lifecycle_name != "after_remove" or "purge" not in text:
+        return text, False
+    lines = text.splitlines(keepends=True)
+    output: list[str] = []
+    changed = False
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if PURGE_IF.match(line.rstrip("\n")):
+            depth = 1
+            end = index + 1
+            while end < len(lines) and depth:
+                stripped = lines[end].strip()
+                if re.match(r"^if\b.*\bthen$", stripped):
+                    depth += 1
+                if stripped == "fi" or stripped.startswith("fi;"):
+                    depth -= 1
+                end += 1
+            if depth:
+                output.append(line)
+                index += 1
+                continue
+            output.append(": # Debian purge-only effects retained as non-executable intent\n")
+            index = end
+            changed = True
+            continue
+        output.append(line)
+        index += 1
+    result = "".join(output)
+    if changed:
+        assignment = re.compile(r"^(?P<indent>\s*)(?P<name>[A-Za-z_][A-Za-z0-9_]*)=.*$")
+        while True:
+            current = result.splitlines(keepends=True)
+            removed = False
+            rewritten: list[str] = []
+            for position, candidate in enumerate(current):
+                match = assignment.match(candidate.rstrip("\n"))
+                if not match:
+                    rewritten.append(candidate)
+                    continue
+                name = match.group("name")
+                elsewhere = "".join(current[:position] + current[position + 1:])
+                if re.search(rf"\$(?:{re.escape(name)}\b|\{{{re.escape(name)}\}})", elsewhere):
+                    rewritten.append(candidate)
+                    continue
+                rewritten.append(f'{match.group("indent")}: # unused donor variable {name}\n')
+                removed = True
+            result = "".join(rewritten)
+            if not removed:
+                break
+    return result, changed
 
 
 def _wrap_lifecycle_arguments(text: str, lifecycle_name: str) -> tuple[str, bool]:
@@ -461,9 +589,26 @@ def normalize_lifecycle(
     evidence_dir = output_dir / "evidence"
     donor_dir = output_dir / "~deb_inst"
     rendered_dir = output_dir / "rendered"
+    inactive_debconf_surfaces = False
+    for surface_path in other_surfaces:
+        if Path(surface_path).name != "config":
+            continue
+        source = stage / surface_path.lstrip("/")
+        if source.is_file():
+            _unused, inactive_debconf_surfaces = _prune_constant_false_blocks(
+                source.read_text(encoding="utf-8", errors="replace")
+            )
     for surface_path in other_surfaces:
         source = stage / surface_path.lstrip("/")
         name = Path(surface_path).name
+        if inactive_debconf_surfaces and name in {"config", "templates"}:
+            rules["constant-false-debconf"] = {
+                "id": "constant-false-debconf",
+                "state": "transformed",
+                "source": surface_path,
+                "disposition": "not-applicable-target-architecture",
+            }
+            continue
         if name == "conffiles" and source.is_file():
             normalized, conffile_findings = _normalize_conffiles(
                 source, stage / prefix.lstrip("/"), surface_path
@@ -562,6 +707,14 @@ def normalize_lifecycle(
         normalized_body, applied_script_rules = _apply_generated_script_rules(
             normalized_body, str(receipt.get("name")), prefix
         )
+        normalized_body, constant_false = _prune_constant_false_blocks(normalized_body)
+        if constant_false:
+            applied_script_rules.append("constant-false-branch")
+        normalized_body, pruned_purge = _prune_unreachable_purge_blocks(
+            normalized_body, lifecycle_name
+        )
+        if pruned_purge:
+            applied_script_rules.append("apk-no-distinct-purge")
         normalized_body, wrapped_arguments = _wrap_lifecycle_arguments(
             normalized_body, lifecycle_name
         )
@@ -579,18 +732,22 @@ def normalize_lifecycle(
         candidate.chmod(0o755)
 
         script_findings = []
+        executable_body = "\n".join(
+            line for line in normalized_body.splitlines()[1:]
+            if not line.lstrip().startswith("#")
+            and not re.match(r"^\s*:\s+#", line)
+        )
         for kind, pattern in UNSUPPORTED_PATTERNS.items():
             if kind == "lifecycle-arguments" and wrapped_arguments:
                 continue
-            matches = sorted(set(pattern.findall(normalized_body)))
+            matches = sorted(set(pattern.findall(executable_body)))
             if matches:
                 script_findings.append({
                     "kind": kind,
                     "semantic_class": FINDING_SEMANTICS.get(kind, "unresolved"),
                     "matches": matches,
                 })
-        scan_body = "\n".join(normalized_body.splitlines()[1:])
-        remaining_paths = sorted(set(ABSOLUTE_PATH.findall(scan_body)))
+        remaining_paths = sorted(set(ABSOLUTE_PATH.findall(executable_body)))
         if remaining_paths:
             script_findings.append({"kind": "unmapped-path", "matches": remaining_paths})
         syntax = subprocess.run(

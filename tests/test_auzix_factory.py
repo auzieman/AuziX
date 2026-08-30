@@ -473,6 +473,128 @@ fi
             self.assertNotIn("dpkg", candidate)
             self.assertNotIn("ucfr", candidate)
 
+    def test_after_remove_prunes_nested_purge_only_effects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Example/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+set -e
+if [ "$1" = "purge" ] && ! [ -e /etc/example.conf ]; then
+    if [ -d /var/cache/example ]; then
+        rm -f /var/cache/example/generated.cache
+    fi
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
+                "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("generated.cache", candidate)
+            self.assertIn("purge-only effects", candidate)
+
+    def test_after_remove_keeps_real_remove_effects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Example/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text('#!/bin/sh\nif [ "$1" = "remove" ]; then\n rm -f /var/cache/example/live\nfi\n')
+            result = normalize_lifecycle(root, {
+                "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
+                "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("${AUZIX_CACHE}/example/live", candidate)
+
+    def test_purge_pruning_removes_transitively_unused_path_variables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Xserver/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+CONFIG_DIR=/etc/X11
+CONFIG_FILE="$CONFIG_DIR/xorg.conf"
+THIS_SERVER=/usr/bin/Xorg
+if [ "$1" = "purge" ]; then
+  rm -f "$CONFIG_FILE"
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "Xserver", "version": "1", "prefix": "/Programs/Xserver/1",
+                "maintainer_surfaces": ["/Programs/Xserver/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("/usr/bin/Xorg", candidate)
+            self.assertNotIn("xorg.conf", candidate)
+
+    def test_statoverride_wrapper_keeps_guarded_chmod(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Xinit/1/Metadata/control/postinst"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+if [ "$1" = configure ]; then
+    if dpkg --compare-versions "$2" lt-nl "1.3.4-2~"; then
+        if ! dpkg-statoverride --list /etc/X11/xinit/xinitrc >/dev/null 2>&1 && \\
+            [ -e /etc/X11/xinit/xinitrc ]; then
+            chmod 0755 /etc/X11/xinit/xinitrc
+        fi
+    fi
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "Xinit", "version": "1", "prefix": "/Programs/Xinit/1",
+                "maintainer_surfaces": ["/Programs/Xinit/1/Metadata/control/postinst"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("chmod 0755 ${AUZIX_SETTINGS}/X11/xinit/xinitrc", candidate)
+            self.assertNotIn("dpkg", candidate)
+
+    def test_comment_paths_are_not_runtime_findings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Example/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text(
+                "#!/bin/sh\n# License: /usr/share/common-licenses/GPL\nexit 0\n"
+            )
+            result = normalize_lifecycle(root, {
+                "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
+                "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+
+    def test_constant_false_debconf_surface_is_architecture_inapplicable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            control = root / "Programs/Calc/1/Metadata/control"
+            control.mkdir(parents=True)
+            body = '''#!/bin/sh
+. /usr/share/debconf/confmodule
+if [ "amd64" = "riscv64" ]; then
+    db_get calc/warning
+fi
+'''
+            (control / "config").write_text(body)
+            (control / "templates").write_text("Template: calc/warning\nType: note\n")
+            (control / "postinst").write_text(body)
+            result = normalize_lifecycle(root, {
+                "name": "Calc", "version": "1", "prefix": "/Programs/Calc/1",
+                "maintainer_surfaces": [
+                    "/Programs/Calc/1/Metadata/control/config",
+                    "/Programs/Calc/1/Metadata/control/templates",
+                    "/Programs/Calc/1/Metadata/control/postinst",
+                ],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("confmodule", candidate)
+            self.assertNotIn("db_get", candidate)
+
     def test_dependency_package_python_cache_query_stays_in_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
