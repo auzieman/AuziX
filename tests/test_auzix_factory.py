@@ -595,6 +595,56 @@ fi
             self.assertNotIn("confmodule", candidate)
             self.assertNotIn("db_get", candidate)
 
+    def test_alternative_library_becomes_payload_owned_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            package = root / "Programs/Blas/1"
+            provider = package / "RootFS/usr/lib/x86_64-linux-gnu/blas/libblas.so.3"
+            provider.parent.mkdir(parents=True)
+            provider.write_bytes(b"provider")
+            script = package / "Metadata/control/postinst"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+update-alternatives --install /usr/lib/x86_64-linux-gnu/libblas.so.3 \\
+ libblas.so.3-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/blas/libblas.so.3 10
+''')
+            receipt_data = {
+                "name": "Blas", "version": "1", "prefix": "/Programs/Blas/1",
+                "maintainer_surfaces": ["/Programs/Blas/1/Metadata/control/postinst"],
+            }
+            result = normalize_lifecycle(root, receipt_data, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["library_publications"][0]["public"], "/Libraries/libblas.so.3")
+            receipt = root / "System/PackageDB/Blas-1.json"
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(json.dumps(receipt_data))
+            promote_auzix_package(root, receipt, result, None)
+            public = root / "Libraries/libblas.so.3"
+            self.assertEqual(public.readlink(), Path("/Programs/Blas/1/RootFS/usr/lib/x86_64-linux-gnu/blas/libblas.so.3"))
+            self.assertTrue(provider.is_file())
+
+    def test_alternative_command_uses_highest_package_priority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            package = root / "Programs/Xterm/1"
+            for command in ("xterm", "lxterm"):
+                target = package / f"RootFS/usr/bin/{command}"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(command.encode())
+            script = package / "Metadata/control/postinst"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/xterm 20
+update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/lxterm 30
+''')
+            result = normalize_lifecycle(root, {
+                "name": "Xterm", "version": "1", "prefix": "/Programs/Xterm/1",
+                "maintainer_surfaces": ["/Programs/Xterm/1/Metadata/control/postinst"],
+            }, Path(directory) / "review")
+            publication = result["library_publications"][0]
+            self.assertEqual(publication["public"], "/System/Compatibility/usr/bin/x-terminal-emulator")
+            self.assertTrue(publication["source"].endswith("/usr/bin/lxterm"))
+
     def test_dependency_package_python_cache_query_stays_in_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"

@@ -1,0 +1,26 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-workstation-final-32",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "DconfService", "DconfGsettingsBackend", "GsettingsDesktopSchemas",
+    "GlibNetworking", "EvolutionDataServerCommon", "EmacsenCommon",
+    "DictionariesCommon", "HunspellEnUs", "SharedMimeInfo", "GTKUpdateIconCache",
+    "HicolorIconTheme", "AdwaitaIconTheme", "Fontconfig", "AbiWord",
+    "FontsOpensymbol", "UnoLibsPrivate", "Ure", "Gpgconf", "Dirmngr",
+    "GnupgL10n", "Gpg", "PinentryCurses", "GpgAgent", "Gpgsm", "Gnupg",
+    "IsoCodes", "CoinorLibcoinutils3v5", "CoinorLibosi1v5", "CoinorLibclp1",
+    "CoinorLibcgl1", "CoinorLibcbc31", "CoinorLibcoinmp0"
+  ]
+}

@@ -156,6 +156,18 @@ DIR_TO_SYMLINK_LINE = re.compile(
 DPKG_DIVERT_COMMAND = re.compile(
     r"(?m)^(?P<indent>[ \t]*)dpkg-divert\b(?:[^\n]*\\\n)*[^\n]*"
 )
+UPDATE_ALTERNATIVE_INSTALL = re.compile(
+    r"update-alternatives\s+(?:--quiet\s+)?--install\s+"
+    r"(?P<destination>\S+)\s+(?P<name>\S+)\s+(?P<source>\S+)\s+(?P<priority>\d+)"
+)
+UPDATE_ALTERNATIVES_COMMAND = re.compile(
+    r"(?m)^(?P<indent>[ \t]*)update-alternatives\b(?:[^\n]*\\\n)*[^\n]*"
+)
+EMPTY_DPKG_VERSION_IF = re.compile(
+    r'(?ms)^(?P<indent>[ \t]*)if \[ "\$1" = "?upgrade"? \] && '
+    r'dpkg --compare-versions[^\n]+\nthen\n(?P=indent)[ \t]+:\s*'
+    r'# AUZiX provider publication is package-owned\n(?P=indent)fi\n?'
+)
 
 
 def _extract_maintscript_migrations(
@@ -512,6 +524,43 @@ def _public_library_plan(package_root: Path, name: str, version: str) -> list[di
     return plan
 
 
+def _alternative_provider_plan(
+    stage: Path, package_root: Path, scripts: list[Path]
+) -> list[dict[str, str]]:
+    selected: dict[str, tuple[int, str]] = {}
+    for script in scripts:
+        if not script.is_file():
+            continue
+        body = script.read_text(encoding="utf-8", errors="replace")
+        logical_body = body.replace("\\\n", " ")
+        for match in UPDATE_ALTERNATIVE_INSTALL.finditer(logical_body):
+            source = match.group("source")
+            payload = package_root / "RootFS" / source.lstrip("/")
+            if not (payload.is_file() or payload.is_symlink()):
+                continue
+            destination = match.group("destination")
+            if destination.endswith(".so") or ".so." in destination:
+                public = f"/Libraries/{Path(destination).name}"
+            elif destination.startswith(("/usr/", "/lib/", "/bin/", "/sbin/")):
+                public = "/System/Compatibility" + destination
+            else:
+                continue
+            candidate = (int(match.group("priority")), source)
+            if public not in selected or candidate[0] > selected[public][0]:
+                selected[public] = candidate
+    prefix = "/" + str(package_root.relative_to(stage))
+    return [
+        {
+            "source": f"{prefix}/RootFS{source}",
+            "owned": f"{prefix}/RootFS{source}",
+            "public": public,
+            "mode": "provider-link",
+            "priority": str(priority),
+        }
+        for public, (priority, source) in sorted(selected.items())
+    ]
+
+
 def _replace_paths(text: str, package_root: Path) -> str:
     lines = text.splitlines(keepends=True)
     shebang = lines[0] if lines and lines[0].startswith("#!") else ""
@@ -589,6 +638,25 @@ def normalize_lifecycle(
     evidence_dir = output_dir / "evidence"
     donor_dir = output_dir / "~deb_inst"
     rendered_dir = output_dir / "rendered"
+    package_root_path = stage / prefix.lstrip("/")
+    library_publications = _alternative_provider_plan(
+        stage,
+        package_root_path,
+        [stage / path.lstrip("/") for path in retained],
+    )
+    if library_publications:
+        operations.extend({
+            "type": "publish-provider",
+            "source": item["source"],
+            "public": item["public"],
+            "priority": int(item["priority"]),
+        } for item in library_publications)
+        rules["native-provider-publication"] = {
+            "id": "native-provider-publication",
+            "state": "transformed",
+            "stages": [],
+            "outputs": [item["public"] for item in library_publications],
+        }
     inactive_debconf_surfaces = False
     for surface_path in other_surfaces:
         if Path(surface_path).name != "config":
@@ -635,11 +703,12 @@ def normalize_lifecycle(
             rule_id = EXACT_TRIGGER_RULES.get(trigger_body)
             if rule_id:
                 if rule_id == "ldconfig-trigger":
-                    library_publications = _public_library_plan(
+                    direct_publications = _public_library_plan(
                         stage / prefix.lstrip("/"),
                         str(receipt.get("name")),
                         str(receipt.get("version")),
                     )
+                    library_publications.extend(direct_publications)
                     if library_publications:
                         operations.extend(
                             {
@@ -648,7 +717,7 @@ def normalize_lifecycle(
                                 "owned": item["owned"],
                                 "public": item["public"],
                             }
-                            for item in library_publications
+                            for item in direct_publications
                         )
                         rules[rule_id] = {
                             "id": rule_id,
@@ -707,6 +776,18 @@ def normalize_lifecycle(
         normalized_body, applied_script_rules = _apply_generated_script_rules(
             normalized_body, str(receipt.get("name")), prefix
         )
+        if library_publications and "update-alternatives" in normalized_body:
+            normalized_body = UPDATE_ALTERNATIVES_COMMAND.sub(
+                lambda match: match.group("indent")
+                + ": # AUZiX provider publication is package-owned",
+                normalized_body,
+            )
+            normalized_body = EMPTY_DPKG_VERSION_IF.sub(
+                lambda match: match.group("indent")
+                + ": # obsolete donor provider migration",
+                normalized_body,
+            )
+            applied_script_rules.append("native-provider-publication")
         normalized_body, constant_false = _prune_constant_false_blocks(normalized_body)
         if constant_false:
             applied_script_rules.append("constant-false-branch")
@@ -928,20 +1009,27 @@ def promote_auzix_package(
     scripts_dir.mkdir(parents=True, exist_ok=True)
     for publication in intake.get("library_publications", []):
         source = stage / publication["source"].lstrip("/")
-        owned = stage / publication["owned"].lstrip("/")
         public = stage / publication["public"].lstrip("/")
         if not (source.is_file() or source.is_symlink()):
             raise ContractError(
                 f"{receipt.get('name')}: public library disappeared before promotion: {source}"
             )
-        owned.parent.mkdir(parents=True, exist_ok=True)
         public.parent.mkdir(parents=True, exist_ok=True)
-        if owned.exists() or owned.is_symlink() or public.exists() or public.is_symlink():
+        if public.exists() or public.is_symlink():
             raise ContractError(
                 f"{receipt.get('name')}: public library destination already exists: {publication}"
             )
-        shutil.move(str(source), str(owned))
-        public.symlink_to(publication["owned"])
+        if publication.get("mode") == "provider-link":
+            public.symlink_to(publication["source"])
+        else:
+            owned = stage / publication["owned"].lstrip("/")
+            owned.parent.mkdir(parents=True, exist_ok=True)
+            if owned.exists() or owned.is_symlink():
+                raise ContractError(
+                    f"{receipt.get('name')}: owned library destination already exists: {publication}"
+                )
+            shutil.move(str(source), str(owned))
+            public.symlink_to(publication["owned"])
     for protected_path in intake.get("configuration", []):
         settings_prefix = "${AUZIX_SETTINGS}/"
         if not protected_path.startswith(settings_prefix):
