@@ -12,6 +12,7 @@ from auzix.targets import compose_target
 from auzix.names import apk_name, apk_version
 from auzix.package_graph import load_packages
 from auzix.layout import activate_layout
+from auzix.apk import compose_apk_layers
 from auzix.staging import stage_package
 from auzix.fpm import receipt_fpm_metadata
 from auzix.archive_fpm import (
@@ -994,6 +995,22 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             stage_package(package, root)
             self.assertTrue((root / "System/Settings").is_dir())
             self.assertFalse((root / "etc").exists())
+
+    def test_apk_layer_composition_is_last_layer_wins_and_locked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old = root / "old"
+            current = root / "current"
+            output = root / "output"
+            old.mkdir()
+            current.mkdir()
+            (old / "shared-1-r0.apk").write_bytes(b"old")
+            (old / "old-only-1-r0.apk").write_bytes(b"old-only")
+            (current / "shared-1-r0.apk").write_bytes(b"current")
+            result = compose_apk_layers([old, current], output)
+            self.assertEqual(result["count"], 2)
+            self.assertEqual((output / "shared-1-r0.apk").read_bytes(), b"current")
+            self.assertTrue((output / "layer-lock.json").is_file())
 
     def test_bootstrap_profile_contains_the_package_script_runtime(self):
         lock = compose_profile("bootstrap-base")

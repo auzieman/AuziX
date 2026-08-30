@@ -1,12 +1,60 @@
 from __future__ import annotations
 
 import shutil
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
 from .contracts import ContractError
 from .process import run
 from .layout import activate_layout
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def compose_apk_layers(layers: list[Path], output_dir: Path) -> dict[str, Any]:
+    """Flatten APK directories in priority order; the last layer wins by filename."""
+    if not layers:
+        raise ContractError("APK layer composition received no layers")
+    selected: dict[str, tuple[int, Path]] = {}
+    for priority, layer in enumerate(layers):
+        if not layer.is_dir():
+            raise ContractError(f"APK layer does not exist: {layer}")
+        packages = sorted(layer.glob("*.apk"))
+        if not packages:
+            raise ContractError(f"APK layer contains no packages: {layer}")
+        for package in packages:
+            selected[package.name] = (priority, package)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
+    records = []
+    for filename, (priority, source) in sorted(selected.items()):
+        destination = output_dir / filename
+        shutil.copy2(source, destination)
+        digest = _file_sha256(destination)
+        records.append({
+            "filename": filename,
+            "layer": str(layers[priority]),
+            "sha256": digest,
+        })
+    result = {
+        "format": "auzix-apk-layer-lock-v1",
+        "layers": [str(layer) for layer in layers],
+        "count": len(records),
+        "packages": records,
+    }
+    (output_dir / "layer-lock.json").write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return result
 
 
 def _resolve_lock_packages(lock: dict[str, Any], package_dir: Path) -> list[Path]:

@@ -7,7 +7,10 @@ from typing import Any
 
 from .activation.base import activate_base
 from .bootstrap import bootstrap_apk_tools
-from .apk import bootstrap_root, install_apks_chroot, install_lock, install_lock_chroot
+from .apk import (
+    bootstrap_root, compose_apk_layers, install_apks_chroot, install_lock,
+    install_lock_chroot,
+)
 from .contracts import ContractError
 from .package_graph import compose_profile, load_packages
 from .paths import PACKAGING_ROOT
@@ -167,6 +170,12 @@ def command_install_apk_directory_chroot(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_compose_apk_layers(args: argparse.Namespace) -> int:
+    result = compose_apk_layers([Path(layer) for layer in args.layers], Path(args.output_dir))
+    print(json.dumps({"status": "passed", **result}, sort_keys=True))
+    return 0
+
+
 def command_assemble_root(args: argparse.Namespace) -> int:
     result = assemble_root(
         args.profile,
@@ -287,6 +296,10 @@ def main() -> int:
     directory_install.add_argument("package_dir")
     directory_install.add_argument("--allow-untrusted", action="store_true")
     directory_install.set_defaults(func=command_install_apk_directory_chroot)
+    layer_compose = commands.add_parser("compose-apk-layers")
+    layer_compose.add_argument("output_dir")
+    layer_compose.add_argument("layers", nargs="+")
+    layer_compose.set_defaults(func=command_compose_apk_layers)
     assembly = commands.add_parser("assemble-root")
     assembly.add_argument("profile")
     assembly.add_argument("root")
