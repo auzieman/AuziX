@@ -102,7 +102,10 @@ def grok_donor_script(source_path: str, text: str) -> list[dict[str, Any]]:
                     if value is not None:
                         effect[field] = value.strip()
                 effects.append(effect)
-        invocation = re.match(
+        declaration = re.match(
+            r"^[A-Za-z_][A-Za-z0-9_]*\s*\(\s*\)\s*(?:\{|$)", flattened
+        )
+        invocation = None if declaration else re.match(
             r"^(?P<function>[A-Za-z_][A-Za-z0-9_]*)\s+(?P<arguments>[^;&|]+?)\s*(?:;;)?$",
             flattened,
         )

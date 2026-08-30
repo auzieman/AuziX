@@ -1,0 +1,38 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-next-100",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Libxau6", "Libxdmcp6", "Libxcb1", "Libx11Data", "Libx116", "Libxext6",
+    "Libice6", "Libsm6", "Libxt6t64",
+    "Libxmu6", "Libxpm4", "Libxaw7", "Libxkbfile1", "Libxrender1", "Libxrandr2",
+    "LiblocaleGettextPerl",
+    "Libglvnd0", "LibdrmCommon", "Libdrm2", "LibwaylandServer0", "LibdrmAmdgpu1",
+    "Libpciaccess0", "LibdrmIntel1", "Libstdc6", "Libxml2", "Libz34", "Libllvm19",
+    "LibsensorsConfig", "Libsensors5", "Libx11Xcb1", "LibxcbDri30", "LibxcbPresent0",
+    "LibxcbRandr0", "LibxcbSync1", "LibxcbXfixes0", "Libxshmfence1",
+    "Libgbm1", "LibwaylandClient0", "LibxcbShm0", "LibeglMesa0", "Libegl1", "Libdbus13",
+    "Libepoxy0", "LibxcbGlx0", "Libxxf86vm1", "Libvulkan1", "Libgl1MesaDri",
+    "LibglxMesa0", "Libglx0", "Libgl1", "Libnettle8t64", "Libpixman10", "Libunwind8",
+    "Libxcvt0", "Libfontenc1", "Libbrotli1", "Libpng1616t64", "Libfreetype6",
+    "Libxfont2", "LibdrmRadeon1", "LibdrmNouveau2", "Libxatracker2", "Libevdev2",
+    "Libmtdev1t64", "Libatomic1", "Libmount1", "Libglib200t64", "Libgudev100",
+    "LibwacomCommon", "Libwacom9", "LibinputBin", "Libinput10", "Libopengl0",
+    "Libglu1Mesa", "LibxcbDamage0", "Libxfixes3", "Libxcursor1", "Libfontconfig1",
+    "Libxft2", "Libxi6", "Libxmuu1", "Libsmartcols1", "Libuchardet0", "Libgdbm6t64",
+    "Libpipeline1", "Libseccomp2", "LibxcbShape0", "Libxcomposite1", "Libxinerama1",
+    "Libxtst6", "Libxv1", "Libxxf86dga1", "Libgmp10", "Libisl23", "Libmpfr6",
+    "Libmpc3", "Libutempter0", "Libeina1t64", "Libecore1", "LibecoreBin"
+  ]
+}

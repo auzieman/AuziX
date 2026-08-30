@@ -74,6 +74,10 @@ mkdir -p /usr/local/lib/python3.13
         self.assertEqual(dispatch["function"], "remove_bytecode")
         self.assertEqual(dispatch["arguments"], "libpython3.13-stdlib:amd64")
         self.assertEqual(dispatch["disposition"], "unresolved-relationship")
+        self.assertEqual(
+            len([effect for effect in effects if effect["type"] == "function-dispatch"]),
+            1,
+        )
 
     def test_lifecycle_manifest_keeps_grok_candidates_out_of_approved_operations(self):
         with tempfile.TemporaryDirectory() as directory:
