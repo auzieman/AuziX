@@ -865,6 +865,7 @@ def normalize_lifecycle(
     adapter = package_definition.get("intake_adapter") if package_definition else None
     adapter_record = None
     donor_findings: list[dict[str, Any]] = []
+    trigger_scripts: list[dict[str, Any]] = []
     if adapter is not None:
         if adapter.get("format") != "auzix-lifecycle-adapter-v1":
             raise ContractError("unsupported lifecycle intake adapter format")
@@ -949,6 +950,40 @@ def normalize_lifecycle(
                 "source": str(template),
                 "candidate": str(candidate),
             })
+        for trigger in adapter.get("triggers", []):
+            if not isinstance(trigger, dict):
+                raise ContractError("lifecycle adapter trigger must be an object")
+            template_name = trigger.get("template")
+            paths = trigger.get("paths")
+            if (
+                not isinstance(template_name, str)
+                or not template_name.endswith(".trigger")
+                or not isinstance(paths, list)
+                or not paths
+                or not all(isinstance(path, str) and path.startswith("/") for path in paths)
+            ):
+                raise ContractError(
+                    "lifecycle adapter trigger must declare a .trigger template and absolute paths"
+                )
+            template = template_dir / template_name
+            if not template.is_file():
+                raise ContractError(f"lifecycle adapter trigger template is missing: {template}")
+            candidate = rendered_dir / template_name
+            candidate.write_text(
+                template.read_text(encoding="utf-8")
+                .replace("@PACKAGE_ROOT@", prefix)
+                .replace("@VERSION@", str(receipt.get("version"))),
+                encoding="utf-8",
+            )
+            candidate.chmod(0o755)
+            syntax = subprocess.run(
+                ["/bin/sh", "-n", str(candidate)], capture_output=True, text=True
+            )
+            if syntax.returncode:
+                raise ContractError(
+                    f"adapter trigger has invalid shell syntax: {template}: {syntax.stderr.strip()}"
+                )
+            trigger_scripts.append({"candidate": str(candidate), "paths": paths})
         adapter_record = {
             "format": adapter["format"],
             "template_dir": str(template_dir),
@@ -964,6 +999,7 @@ def normalize_lifecycle(
         "version": receipt.get("version"),
         "status": status,
         "scripts": scripts,
+        "triggers": trigger_scripts,
         "donor_objects": donor_objects,
         "effect_candidates": effect_candidates,
         "operations": operations,
@@ -990,6 +1026,7 @@ def normalize_lifecycle(
         "configuration": sorted(set(configuration)),
         "library_publications": library_publications,
         "rendered_scripts": scripts,
+        "rendered_triggers": trigger_scripts,
         "residual_findings": findings,
         "donor_residual_findings": donor_findings,
     }
@@ -1006,7 +1043,7 @@ def promote_auzix_package(
     receipt_path: Path,
     intake: dict[str, Any],
     package_definition: dict[str, Any] | None,
-) -> tuple[dict[str, Any], list[tuple[str, Path]]]:
+) -> tuple[dict[str, Any], list[tuple[str, Path | str]]]:
     """Replace donor evidence with the native AUZiX package contract in-place."""
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     prefix = receipt["prefix"]
@@ -1062,13 +1099,21 @@ def promote_auzix_package(
         "before_remove": None,
         "after_remove": None,
     }
-    fpm_scripts: list[tuple[str, Path]] = []
+    fpm_scripts: list[tuple[str, Path | str]] = []
     for script in intake["scripts"]:
         destination = scripts_dir / Path(script["candidate"]).name
         shutil.copy2(script["candidate"], destination)
         absolute = "/" + str(destination.relative_to(stage))
         lifecycle[script["stage"]] = absolute
         fpm_scripts.append((script["flag"], destination))
+    triggers = []
+    for trigger in intake.get("triggers", []):
+        destination = scripts_dir / Path(trigger["candidate"]).name
+        shutil.copy2(trigger["candidate"], destination)
+        absolute = "/" + str(destination.relative_to(stage))
+        paths = list(trigger["paths"])
+        triggers.append({"script": absolute, "paths": paths})
+        fpm_scripts.append(("--apk-trigger", f"{destination}={':'.join(paths)}"))
 
     dependencies = []
     if package_definition is not None:
@@ -1085,6 +1130,7 @@ def promote_auzix_package(
         },
         "migrations": intake.get("migrations", []),
         "lifecycle": lifecycle,
+        "triggers": triggers,
     }
     native_dir.mkdir(parents=True, exist_ok=True)
     (native_dir / "package.json").write_text(
@@ -1115,6 +1161,7 @@ def promote_auzix_package(
     }
     receipt["migrations"] = intake.get("migrations", [])
     receipt["lifecycle"] = lifecycle
+    receipt["triggers"] = triggers
     receipt["package_contract"] = prefix + "/Package/package.json"
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return package_json, fpm_scripts

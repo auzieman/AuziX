@@ -798,6 +798,54 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             self.assertEqual(lifecycle, [("--after-install", postinst)])
             self.assertEqual(postinst.read_text(encoding="utf-8"), original)
 
+    def test_adapter_trigger_is_promoted_and_passed_to_fpm(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            receipt_path = root / "System/PackageDB/CacheOwner-1.json"
+            surface = root / "Programs/CacheOwner/1/Metadata/control/triggers"
+            surface.parent.mkdir(parents=True)
+            receipt_path.parent.mkdir(parents=True)
+            surface.write_text("interest /System/Compatibility/usr/share/cache-input\n")
+            receipt_path.write_text(json.dumps({
+                "name": "CacheOwner",
+                "version": "1",
+                "prefix": "/Programs/CacheOwner/1",
+                "maintainer_surfaces": [
+                    "/Programs/CacheOwner/1/Metadata/control/triggers"
+                ],
+            }))
+            package_definition = {
+                "dependencies": {"runtime": []},
+                "intake_adapter": {
+                    "format": "auzix-lifecycle-adapter-v1",
+                    "template_dir": "tests/fixtures/apk-trigger",
+                    "configuration": [],
+                    "scripts": {},
+                    "triggers": [{
+                        "template": "auzix-cache.trigger",
+                        "paths": ["/System/Compatibility/usr/share/cache-input"],
+                    }],
+                },
+            }
+            intake = normalize_lifecycle(
+                root, json.loads(receipt_path.read_text()), Path(directory) / "review",
+                package_definition,
+            )
+            self.assertEqual(intake["status"], "ready")
+            package_json, fpm_metadata = promote_auzix_package(
+                root, receipt_path, intake, package_definition
+            )
+            self.assertEqual(
+                package_json["triggers"][0]["paths"],
+                ["/System/Compatibility/usr/share/cache-input"],
+            )
+            self.assertEqual(fpm_metadata[0][0], "--apk-trigger")
+            self.assertTrue(
+                str(fpm_metadata[0][1]).endswith(
+                    "=/System/Compatibility/usr/share/cache-input"
+                )
+            )
+
     def test_package_json_drives_fpm_dependencies_and_lifecycle(self):
         package = {
             "name": "Example",
