@@ -1,5 +1,49 @@
 --- a/lib/fpm/package/apk.rb
 +++ b/lib/fpm/package/apk.rb
+@@ -37,3 +37,10 @@
++  option "--trigger", "FILE=PATH[:PATH...]",
++    "Add an APK trigger script and the paths it watches" do |trigger|
++    @apk_triggers ||= []
++    @apk_triggers << trigger
++    next @apk_triggers
++  end
++
+   TAR_CHUNK_SIZE = 512
+   TAR_TYPEFLAG_OFFSET = 156
+   TAR_NAME_OFFSET_START = 0
+@@ -143,2 +150,14 @@
++
++    triggers = Array(attributes[:apk_trigger])
++    if triggers.length > 1
++      raise ArgumentError, "apk supports one .trigger control script per package"
++    end
++    triggers.each do |trigger|
++      source, paths = trigger.split("=", 2)
++      if source.nil? || source.empty? || paths.nil? || paths.empty?
++        raise ArgumentError, "apk trigger must be FILE=PATH[:PATH...]"
++      end
++      pkginfo << "triggers = #{paths.tr(':', ' ')}\n"
++    end
+     File.write("#{base_path}/.PKGINFO", pkginfo)
+   end
+@@ -160,3 +179,16 @@
+       File.write("#{base_path}/.#{key}", content)
+     end
++
++    triggers = Array(attributes[:apk_trigger])
++    triggers.each do |trigger|
++      source, paths = trigger.split("=", 2)
++      if source.nil? || source.empty? || paths.nil? || paths.empty?
++        raise ArgumentError, "apk trigger must be FILE=PATH[:PATH...]"
++      end
++      unless File.file?(source)
++        raise ArgumentError, "apk trigger script does not exist: #{source}"
++      end
++      destination = "#{base_path}/.trigger"
++      FileUtils.cp(source, destination)
++      FileUtils.chmod(0755, destination)
++    end
+   end
 @@ -446,6 +446,11 @@
      end
  
