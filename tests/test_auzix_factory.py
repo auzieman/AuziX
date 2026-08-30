@@ -62,6 +62,19 @@ mkdir -p /usr/local/lib/python3.13
         )
         self.assertEqual(effects, [])
 
+    def test_extended_grok_connects_function_call_arguments(self):
+        effects = grok_donor_script(
+            "control/prerm",
+            "remove_bytecode()\n{\n  pkg=$1\n  dpkg -L $pkg\n}\n"
+            "remove_bytecode libpython3.13-stdlib:amd64\n",
+        )
+        query = next(effect for effect in effects if effect["type"] == "package-payload-query")
+        dispatch = next(effect for effect in effects if effect["type"] == "function-dispatch")
+        self.assertEqual(query["target"], "$pkg")
+        self.assertEqual(dispatch["function"], "remove_bytecode")
+        self.assertEqual(dispatch["arguments"], "libpython3.13-stdlib:amd64")
+        self.assertEqual(dispatch["disposition"], "unresolved-relationship")
+
     def test_lifecycle_manifest_keeps_grok_candidates_out_of_approved_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"

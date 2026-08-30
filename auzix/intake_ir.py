@@ -47,7 +47,8 @@ EFFECT_PATTERNS = (
         "filesystem-effect",
         "portable-intent",
         re.compile(
-            r"(?:^|[;&|]\s*)(?P<command>mkdir|chmod|chown|chgrp|mv|ln|rm|rmdir|touch|install|cp)\s"
+            r"(?:^|[;&|]\s*)(?P<command>mkdir|chmod|chown|chgrp|mv|ln|rm|rmdir|touch|install|cp)"
+            r"\s+(?P<arguments>[^\n]*)"
         ),
     ),
 )
@@ -75,6 +76,12 @@ def _logical_shell_lines(text: str) -> list[tuple[int, int, str]]:
 def grok_donor_script(source_path: str, text: str) -> list[dict[str, Any]]:
     """Extract review candidates without treating recognition as authorization."""
     effects: list[dict[str, Any]] = []
+    functions = {
+        match.group("name")
+        for match in re.finditer(
+            r"(?m)^\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*(?:\{|$)", text
+        )
+    }
     for start, end, logical in _logical_shell_lines(text):
         flattened = re.sub(r"\\\n\s*", " ", logical).strip()
         if not flattened or flattened.startswith("#"):
@@ -95,6 +102,23 @@ def grok_donor_script(source_path: str, text: str) -> list[dict[str, Any]]:
                     if value is not None:
                         effect[field] = value.strip()
                 effects.append(effect)
+        invocation = re.match(
+            r"^(?P<function>[A-Za-z_][A-Za-z0-9_]*)\s+(?P<arguments>[^;&|]+?)\s*(?:;;)?$",
+            flattened,
+        )
+        if invocation and invocation.group("function") in functions:
+            effects.append({
+                "type": "function-dispatch",
+                "disposition": "unresolved-relationship",
+                "function": invocation.group("function"),
+                "arguments": invocation.group("arguments").strip(),
+                "evidence": {
+                    "source": source_path,
+                    "lines": [start, end],
+                    "sha256": hashlib.sha256(logical.encode("utf-8")).hexdigest(),
+                    "text": logical,
+                },
+            })
     return effects
 
 

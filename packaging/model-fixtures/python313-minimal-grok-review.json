@@ -30,6 +30,11 @@
     "minimum_payload_rewrites": 0,
     "required_terms": ["payload", "byte", "binfmt", "runtime", "empty", "unresolved", "/usr/local"],
     "required_discard_terms": ["dpkg"],
-    "forbidden_terms": ["/System/State/master", "rm -rf", "systemctl"]
+    "forbidden_terms": ["/System/State/master", "rm -rf", "systemctl"],
+    "exclusive_concepts": [
+      {"terms": ["binfmt"]},
+      {"terms": ["runtime.d", "rtinstall", "rtremove"]}
+    ],
+    "unresolved_must_not_be_scripted_terms": ["/usr/local"]
   }
 }

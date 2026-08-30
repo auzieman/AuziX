@@ -3,9 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from auzix.model_review import query_ollama
 
@@ -29,6 +34,30 @@ def score(proposal: dict, oracle: dict) -> dict:
         checks["normal_remove_retains_state"] = "retain" in serialized and "state" in serialized
     if "forbidden_terms" in oracle:
         checks["forbidden_terms"] = all(term.casefold() not in serialized for term in oracle["forbidden_terms"])
+    if "exclusive_concepts" in oracle:
+        contradictions = []
+        action_text = json.dumps(
+            {"operations": proposal["operations"], "scripts": proposal["scripts"]},
+            sort_keys=True,
+        ).casefold()
+        discarded_text = json.dumps(proposal["discarded"], sort_keys=True).casefold()
+        for concept in oracle["exclusive_concepts"]:
+            terms = [term.casefold() for term in concept["terms"]]
+            contradictions.append(
+                any(term in action_text for term in terms)
+                and any(term in discarded_text for term in terms)
+            )
+        checks["no_action_discard_contradiction"] = not any(contradictions)
+    if "unresolved_must_not_be_scripted_terms" in oracle:
+        action_text = json.dumps(
+            {"operations": proposal["operations"], "scripts": proposal["scripts"]},
+            sort_keys=True,
+        ).casefold()
+        risks_text = json.dumps(proposal["risks"], sort_keys=True).casefold()
+        checks["unresolved_not_scripted"] = all(
+            not (term.casefold() in risks_text and term.casefold() in action_text)
+            for term in oracle["unresolved_must_not_be_scripted_terms"]
+        )
     return {"passed": sum(checks.values()), "total": len(checks), "checks": checks}
 
 
