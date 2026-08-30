@@ -1,0 +1,11 @@
+{
+  "format": "auzix-legacy-entrypoints-v1",
+  "policy": "index-before-move",
+  "entries": [
+    {"path": "scripts/build-auzix-busybox-package.sh", "role": "payload-producer", "replacement": "packaging/packages/busybox"},
+    {"path": "scripts/build-auzix-access-package.sh", "role": "payload-producer", "replacement": "packaging/packages/openssh"},
+    {"path": "scripts/build-auzix-host-xorg-package.sh", "role": "payload-producer", "replacement": "packaging/packages/xorg"},
+    {"path": "scripts/build-auzix-host-enlightenment-package.sh", "role": "payload-producer", "replacement": "packaging/packages/enlightenment"},
+    {"path": "scripts/build-auzix-live-disk-image.sh", "role": "media-compatibility", "replacement": "future: media/hdd"}
+  ]
+}
