@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import copy
 import shutil
 import subprocess
 import tempfile
@@ -75,6 +76,26 @@ def _automatic_library_definition(record: dict[str, Any]) -> dict[str, Any]:
             "retained_state": [],
         },
     }
+
+
+def _with_automatic_library_publication(
+    record: dict[str, Any], package_definition: dict[str, Any] | None
+) -> dict[str, Any]:
+    if package_definition is None:
+        return _automatic_library_definition(record)
+    definition = copy.deepcopy(package_definition)
+    adapter = definition.get("intake_adapter")
+    if adapter is None:
+        adapter = _automatic_library_definition(record)["intake_adapter"]
+        definition["intake_adapter"] = adapter
+    adapter["publish_libraries"] = True
+    operations = adapter.setdefault("operations", [])
+    if not any(item.get("type") == "publish-package-libraries" for item in operations):
+        operations.append({
+            "type": "publish-package-libraries",
+            "destination": "/System/Libraries",
+        })
+    return definition
 
 
 def _review_summary(packages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -195,8 +216,10 @@ def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]
             raise ContractError(f"archive is unreadable for {name}: {result.stderr.strip()}")
         layout_domain = _archive_layout_domain(record)
         package_definition = package_definitions.get(name)
-        if package_definition is None and layout_domain == "library":
-            package_definition = _automatic_library_definition(record)
+        if layout_domain == "library":
+            package_definition = _with_automatic_library_publication(
+                record, package_definition
+            )
         dependencies = list(dependency_additions.get(name, []))
         if package_definition is not None:
             dependencies = [
