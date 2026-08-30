@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+settings=${AUZIX_SETTINGS:-/System/Settings}
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+
+touch "$settings/group"
+grep -q '^_ssh:' "$settings/group" || printf '%s\n' '_ssh:x:75:' >>"$settings/group"
+chmod 0644 "$settings/group"
+
+agent="$package_root/RootFS/usr/bin/ssh-agent"
+[ -f "$agent" ] || { echo "OpenSSH client adapter: missing package-owned ssh-agent: $agent" >&2; exit 1; }
+chgrp 75 "$agent"
+chmod 2755 "$agent"

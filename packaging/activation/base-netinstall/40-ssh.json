@@ -1,0 +1,9 @@
+{
+  "format": "auzix-activation-fragment-v1",
+  "id": "base.ssh",
+  "owner": "OpenSSH",
+  "source_logic": ["scripts/build-auzix-access-package.sh", "scripts/stage-auzix-live-access.sh"],
+  "creates": ["/Services/ssh/run", "/System/Settings/ssh/sshd_config", "/System/State/ssh"],
+  "policy": {"service_order": "after-network-before-installer", "host_keys": "generated-state", "access_profile": "explicit-build-input"},
+  "gates": ["sshd configuration parses", "host private keys are mode 0600", "sshd loads without rc 126/127/139", "tcp/22 listens before optional UI"]
+}

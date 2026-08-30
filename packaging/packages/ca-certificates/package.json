@@ -1,0 +1,30 @@
+{
+  "format": "auzix-package-v1",
+  "name": "CaCertificates",
+  "version": "20250419",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/CaCertificates-*.auzix.json"},
+  "layout": {"domain": "system-runtime", "prefix": "/Programs/CaCertificates/${version}"},
+  "payload": {"surfaces": ["/Programs/CaCertificates", "/System/Compatibility", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["Openssl"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/ca-certificates/lifecycle",
+    "configuration": [],
+    "scripts": {"after_install": "after-install", "after_remove": "after-remove"},
+    "operations": [
+      {"type": "materialize-ca-selection", "destination": "${AUZIX_SETTINGS}/ca-certificates.conf", "default": "all-donor-certificates"},
+      {"type": "ensure-directory", "path": "${AUZIX_SETTINGS}/ca-certificates/local", "mode": "0755", "owner": "0:0"},
+      {"type": "build-ca-bundle", "destination": "${AUZIX_SETTINGS}/ssl/certs/ca-certificates.crt"},
+      {"type": "rehash-ca-directory", "destination": "${AUZIX_SETTINGS}/ssl/certs"},
+      {"type": "preserve-local-ca-policy", "path": "${AUZIX_SETTINGS}/ca-certificates/local"}
+    ],
+    "retained_state": ["${AUZIX_SETTINGS}/ca-certificates.conf", "${AUZIX_SETTINGS}/ca-certificates/local"]
+  },
+  "lifecycle": {
+    "before_install": null,
+    "after_install": "/Programs/CaCertificates/${version}/Package/Scripts/after-install",
+    "before_remove": null,
+    "after_remove": "/Programs/CaCertificates/${version}/Package/Scripts/after-remove"
+  },
+  "validation": {"commands": ["test -s /System/Settings/ssl/certs/ca-certificates.crt"]}
+}

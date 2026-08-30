@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AuzixServiceRuntime",
+  "version": "0.1.0",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-service-runtime-package.sh", "receipt_glob": "System/PackageDB/AuzixServiceRuntime-*.json"},
+  "layout": {"domain": "service", "prefix": "/Programs/AuzixServiceRuntime/${version}"},
+  "payload": {"surfaces": ["/Programs/AuzixServiceRuntime", "/Services/runtime-mounts", "/System/PackageDB/AuzixServiceRuntime-0.1.0.auzix.json"]},
+  "dependencies": {"runtime": ["BusyBox"], "provides": ["runtime-mount-service", "service-runner"]},
+  "fragments": ["service.runtime-mounts", "service.runner"],
+  "validation": {"commands": ["test -x /Services/runtime-mounts/run"]}
+}

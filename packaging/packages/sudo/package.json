@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Sudo",
+  "version": "host",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-sudo-package.sh", "receipt_glob": "System/PackageDB/Sudo-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Sudo/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["privilege-escalation"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "config.sudoers"],
+  "validation": {"commands": ["sudo -V"]}
+}

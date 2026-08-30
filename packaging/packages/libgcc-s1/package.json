@@ -1,0 +1,19 @@
+{
+  "format": "auzix-package-v1",
+  "name": "LibgccS1",
+  "version": "14.2.0-19",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh",
+    "producer_argv": ["scripts/build-auzix-debian-intake-package.sh", "${staging_root}", "libgcc-s1"],
+    "receipt_glob": "System/PackageDB/LibgccS1-*.json",
+    "build_lock": "packages/build-locks/auzix-alpha-base-runtime-repair-20260828-r1/build-tree.lock.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/LibgccS1/${version}"},
+  "dependencies": {"runtime": [], "provides": ["libgcc_s.so.1"]},
+  "fragments": ["debian.extract", "program.versioned-prefix", "runtime.coherent-set"],
+  "validation": {
+    "commands": ["test -e /Programs/LibgccS1/current/RootFS/usr/lib/x86_64-linux-gnu/libgcc_s.so.1"],
+    "forbidden_paths": ["/usr/lib/x86_64-linux-gnu/libgcc_s.so.1"]
+  }
+}

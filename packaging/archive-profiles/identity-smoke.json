@@ -1,0 +1,1 @@
+{"format":"auzix-archive-profile-v1","name":"identity-smoke","receipt_policy":{"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},"package_names":{"RuntimeGlibc":"auzix-runtime-glibc","LibgccS1":"auzix-libgcc-s1"},"packages":["BasePasswd","LoginDefs","Passwd","Adduser"]}

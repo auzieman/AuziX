@@ -1,0 +1,5 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "container-zero",
+  "packages": ["RuntimeGlibc", "BusyBox", "AuzixServiceRuntime"]
+}

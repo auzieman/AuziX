@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+link=/System/Compatibility/usr/share/zoneinfo
+expected=@PACKAGE_ROOT@/RootFS/usr/share/zoneinfo
+if [ -L "$link" ] && [ "$(readlink "$link")" = "$expected" ]; then rm -f "$link"; fi
+# Selected timezone and materialized localtime remain administrator state.

@@ -1,0 +1,10 @@
+{
+  "format":"auzix-package-v1","name":"Libpam0g","version":"1.7.0-5",
+  "source":{"kind":"existing-auzix-payload","receipt_glob":"System/PackageDB/Libpam0g-*.auzix.json"},
+  "layout":{"domain":"system-runtime","prefix":"/Programs/Libpam0g/${version}"},
+  "payload":{"surfaces":["/Programs/Libpam0g","/Libraries","/System/PackageDB"]},
+  "dependencies":{"runtime":["Libaudit1","Libcrypt1","Libdb53t64","Libselinux1"]},
+  "intake_adapter":{"format":"auzix-lifecycle-adapter-v1","template_dir":"packaging/packages/libpam0g/lifecycle","configuration":[],"scripts":{},"operations":[{"type":"donor-upgrade-guard","prior_version":"1.4.0-2","disposition":"not-applicable-fresh-auzix-install","donor_effect":"restart-dependent-services"}]},
+  "lifecycle":{"before_install":null,"after_install":null,"before_remove":null,"after_remove":null},
+  "validation":{"commands":["test -e /Libraries/libpam.so.0"]}
+}

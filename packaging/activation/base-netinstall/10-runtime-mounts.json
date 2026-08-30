@@ -1,0 +1,9 @@
+{
+  "format": "auzix-activation-fragment-v1",
+  "id": "base.runtime-mounts",
+  "owner": "AuzixServiceRuntime",
+  "source_logic": ["scripts/build-auzix-service-runtime-package.sh", "scripts/add-auzix-live-tools.sh"],
+  "creates": ["/proc", "/sys", "/dev", "/dev/pts", "/dev/shm", "/run", "/sys/fs/cgroup"],
+  "policy": {"cgroup": "v2", "implementation": "static-busybox-first"},
+  "gates": ["runtime mount service exists", "boot sequence mounts proc/sys/dev/run before dynamic services"]
+}

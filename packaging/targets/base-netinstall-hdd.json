@@ -1,0 +1,31 @@
+{
+  "format": "auzix-target-v1",
+  "name": "base-netinstall-hdd",
+  "profile": "netinstall-hdd",
+  "activation": [
+    "activation/base-netinstall/10-runtime-mounts.json",
+    "activation/base-netinstall/20-network-dhcp-dns.json",
+    "activation/base-netinstall/30-ca-and-repository.json",
+    "activation/base-netinstall/40-ssh.json",
+    "activation/base-netinstall/50-installed-init.json"
+  ],
+  "media": {
+    "kind": "raw-hdd",
+    "partition_table": "mbr",
+    "partitions": [
+      {"label": "AUZIXROOT", "filesystem": "ext4", "mount": "/", "size_percent": 60},
+      {"label": "AUZIXHOME", "filesystem": "ext4", "mount": "/Home", "size_percent": 20},
+      {"label": "AUZIXWORK", "filesystem": "ext4", "mount": "/Work", "size_percent": 20}
+    ],
+    "boot": {"firmware": "bios", "loader": "grub", "kernel_source": "existing-proven-boot-substrate", "root_argument": "auzix.root=/dev/sda1", "link_mode": "compat"}
+  },
+  "gates": [
+    "profile lock is exact and signed package closure is complete",
+    "apk database matches the lock",
+    "package-owned files are unchanged after activation and media assembly",
+    "BusyBox, apk and sshd execute offline",
+    "kernel, initramfs, init and GRUB configuration exist",
+    "first boot reaches DHCP, DNS, SSH and signed repository refresh"
+  ],
+  "non_goals": ["display manager", "graphical session", "office", "Flatpak", "Podman", "desktop assets"]
+}

@@ -1,0 +1,6 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "python-runtime-smoke",
+  "receipt_policy": {"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},
+  "packages": ["Python3"]
+}

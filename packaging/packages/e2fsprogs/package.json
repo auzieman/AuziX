@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "E2fsprogs",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "packages/e2fsprogs.command-suite.json", "receipt_glob": "System/PackageDB/E2fsprogs-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/E2fsprogs/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["ext-filesystem-tools"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "storage.ext"],
+  "validation": {"commands": ["mke2fs -V", "mkfs.ext4 -V", "e2fsck -V"]}
+}

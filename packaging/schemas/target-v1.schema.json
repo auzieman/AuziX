@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/target-v1.schema.json",
+  "title": "AUZiX build target v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "name", "profile", "activation", "media", "gates", "non_goals"],
+  "properties": {
+    "format": {"const": "auzix-target-v1"},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]+$"},
+    "profile": {"type": "string"},
+    "activation": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+    "media": {"type": "object"},
+    "gates": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "non_goals": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  }
+}

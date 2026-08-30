@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "BusyBox",
+  "version": "1.36.1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-busybox-package.sh", "receipt_glob": "System/PackageDB/BusyBox-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/BusyBox/${version}"},
+  "dependencies": {"runtime": [], "provides": ["bootstrap-shell", "core-commands"]},
+  "fragments": ["program.versioned-prefix", "commands.publish"],
+  "validation": {"commands": ["busybox true", "busybox sh -c 'echo pass'"]}
+}

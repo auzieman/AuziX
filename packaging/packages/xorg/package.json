@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Xorg",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-host-xorg-package.sh", "receipt_glob": "System/PackageDB/XserverXorgCore-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/XserverXorgCore/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["xserver"]},
+  "fragments": ["program.versioned-prefix", "xorg.modules", "compatibility.xorg"],
+  "validation": {"commands": ["Xorg -version"], "forbidden_paths": ["unowned:/usr/lib/xorg"]}
+}

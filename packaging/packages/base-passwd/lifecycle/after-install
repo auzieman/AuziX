@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+mkdir -p "$settings"
+if [ ! -e "$settings/passwd" ]; then
+  cp "$package_root/RootFS/usr/share/base-passwd/passwd.master" "$settings/passwd"
+  sed -i 's#root:/root:/bin/bash#root:/Users/root:/System/Compatibility/bin/sh#' "$settings/passwd"
+fi
+if [ ! -e "$settings/group" ]; then
+  cp "$package_root/RootFS/usr/share/base-passwd/group.master" "$settings/group"
+fi
+for file in subuid subgid; do
+  [ -e "$settings/$file" ] || : >"$settings/$file"
+  chown 0:0 "$settings/$file"
+  chmod 0644 "$settings/$file"
+done
+chmod 0644 "$settings/passwd" "$settings/group"

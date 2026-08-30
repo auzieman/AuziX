@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+zoneinfo="$package_root/RootFS/usr/share/zoneinfo"
+timezone=${AUZIX_TIMEZONE:-}
+if [ -s "$settings/timezone" ]; then
+  IFS= read -r timezone <"$settings/timezone"
+fi
+timezone=${timezone:-Etc/UTC}
+case "$timezone" in /*|*..*|'') echo "Tzdata adapter: invalid timezone name: $timezone" >&2; exit 1 ;; esac
+[ -f "$zoneinfo/$timezone" ] || { echo "Tzdata adapter: unknown timezone: $timezone" >&2; exit 1; }
+mkdir -p "$settings" /System/Compatibility/usr/share
+printf '%s\n' "$timezone" >"$settings/timezone"
+cp "$zoneinfo/$timezone" "$settings/localtime"
+chmod 0644 "$settings/timezone" "$settings/localtime"
+if [ -L /System/Compatibility/usr/share/zoneinfo ]; then
+  rm -f /System/Compatibility/usr/share/zoneinfo
+elif [ -e /System/Compatibility/usr/share/zoneinfo ]; then
+  echo 'Tzdata adapter: zoneinfo publication destination is not a symlink' >&2
+  exit 1
+fi
+ln -s "$zoneinfo" /System/Compatibility/usr/share/zoneinfo

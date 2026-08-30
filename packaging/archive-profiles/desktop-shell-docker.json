@@ -1,0 +1,19 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-shell-docker",
+  "receipt_policy": {"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},
+  "external_providers": {
+    "BusyBox": "auzix-busy-box",
+    "Xorg": "xorg"
+  },
+  "package_names": {
+    "DBus": "dbus",
+    "LightDM": "lightdm"
+  },
+  "packages": [
+    "Enlightenment",
+    "Terminology",
+    "LightDM",
+    "Midori"
+  ]
+}

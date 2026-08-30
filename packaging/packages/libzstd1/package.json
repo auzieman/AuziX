@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Libzstd1",
+  "version": "1.5.7+dfsg-1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh", "receipt_glob": "System/PackageDB/Libzstd1-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Libzstd1/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["libzstd.so.1"]},
+  "payload": {"surfaces": ["/Programs/Libzstd1", "/System/Compatibility/lib/libzstd.so.1", "/System/PackageDB/Libzstd1-1.5.7+dfsg-1.auzix.json"]},
+  "fragments": ["program.versioned-prefix", "library.soname-export"],
+  "validation": {"commands": ["test -e /System/Compatibility/lib/libzstd.so.1"]}
+}

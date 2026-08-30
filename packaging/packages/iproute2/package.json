@@ -1,0 +1,22 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Iproute2",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-command-suite-package.sh", "receipt_glob": "System/PackageDB/Iproute2-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Iproute2/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc", "Zlib1g", "Libbpf1", "Libelf1t64", "Libmnl0", "Libselinux1", "Libcap2", "Libxtables12"], "provides": ["ip-command"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/iproute2/lifecycle",
+    "configuration": [],
+    "scripts": {},
+    "operations": [
+      {"type": "package-capability-policy", "path": "${AUZIX_PACKAGE_ROOT}/Commands/ip", "capabilities": [], "policy": "root-only-default"},
+      {"type": "remove-obsolete-conffiles", "root": "${AUZIX_SETTINGS}/iproute2", "prior_version": "6.5.0-4~", "disposition": "recorded-donor-migration"},
+      {"type": "donor-conffile-adoption", "suffix": ".dpkg-bak", "disposition": "not-applicable-no-dpkg-predecessor"}
+    ]
+  },
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "fragments": ["program.versioned-prefix", "commands.publish", "network.commands"],
+  "validation": {"commands": ["ip -Version"]}
+}

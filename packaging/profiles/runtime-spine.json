@@ -1,0 +1,10 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "runtime-spine",
+  "packages": [
+    "LibgccS1",
+    "RuntimeGlibc",
+    "BusyBox",
+    "ApkTools"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "base-netinstall",
+  "packages": [
+    "RuntimeGlibc",
+    "BusyBox",
+    "ApkTools",
+    "AuzixPackageTools",
+    "AuzixInstaller",
+    "OpenSSH",
+    "Sudo",
+    "CACerts",
+    "Curl",
+    "UtilLinux",
+    "Iproute2",
+    "E2fsprogs",
+    "Dosfstools",
+    "Parted",
+    "Strace",
+    "File",
+    "AuzixServiceRuntime"
+  ]
+}

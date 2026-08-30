@@ -1,0 +1,16 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "flatpak-docker",
+  "receipt_policy": {"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},
+  "dependency_additions": {
+    "Flatpak": ["CaCertificates"]
+  },
+  "external_providers": {
+    "BusyBox": "auzix-busy-box",
+    "CaCertificates": "ca-certificates"
+  },
+  "package_names": {
+    "DBus": "dbus"
+  },
+  "packages": ["Flatpak"]
+}

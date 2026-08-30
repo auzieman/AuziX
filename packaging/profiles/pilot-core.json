@@ -1,0 +1,5 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "pilot-core",
+  "packages": ["RuntimeGlibc", "BusyBox", "OpenSSH", "Xorg", "Enlightenment"]
+}

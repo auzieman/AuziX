@@ -1,0 +1,39 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Ucf",
+  "version": "3.0052",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/Ucf-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Ucf/${version}"},
+  "payload": {"surfaces": ["/Programs/Ucf", "/System/Compatibility", "/System/Settings/ucf.conf", "/System/State/ucf", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["PerlBase", "SensibleUtils"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/ucf/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/ucf.conf"],
+    "scripts": {"before_install": "before-install", "after_install": "after-install"},
+    "payload_rewrites": [
+      {"path": "RootFS/usr/bin/ucf", "old": "/var/lib/ucf", "new": "/System/State/ucf", "expected": 3},
+      {"path": "RootFS/usr/bin/ucf", "old": "/etc/ucf.conf", "new": "/System/Settings/ucf.conf", "expected": 2},
+      {"path": "RootFS/usr/bin/ucf", "old": "/usr/share/ucf", "new": "@PACKAGE_ROOT@/RootFS/usr/share/ucf", "expected": 1},
+      {"path": "RootFS/usr/bin/ucfr", "old": "/var/lib/ucf", "new": "/System/State/ucf", "expected": 3},
+      {"path": "RootFS/usr/bin/ucfr", "old": "/etc/ucf.conf", "new": "/System/Settings/ucf.conf", "expected": 2},
+      {"path": "RootFS/usr/bin/ucfr", "old": "/usr/share/ucf", "new": "@PACKAGE_ROOT@/RootFS/usr/share/ucf", "expected": 1},
+      {"path": "RootFS/usr/bin/ucfq", "old": "/var/lib/ucf", "new": "/System/State/ucf", "expected": 3}
+    ],
+    "operations": [
+      {"type": "ensure-directory", "path": "${AUZIX_STATE}/ucf", "mode": "0755", "owner": "0:0"},
+      {"type": "ensure-state-files", "paths": ["${AUZIX_STATE}/ucf/hashfile", "${AUZIX_STATE}/ucf/registry"], "mode": "0644"},
+      {"type": "rotate-state-history", "path": "${AUZIX_STATE}/ucf/hashfile", "generations": 8, "stage": "before-install"},
+      {"type": "donor-debconf-ui", "disposition": "replaced-by-noninteractive-default-policy"},
+      {"type": "retain-state-on-remove", "path": "${AUZIX_STATE}/ucf", "reason": "apk-has-no-distinct-purge-action"}
+    ],
+    "retained_state": ["${AUZIX_SETTINGS}/ucf.conf", "${AUZIX_STATE}/ucf"]
+  },
+  "lifecycle": {
+    "before_install": "/Programs/Ucf/${version}/Package/Scripts/before-install",
+    "after_install": "/Programs/Ucf/${version}/Package/Scripts/after-install",
+    "before_remove": null,
+    "after_remove": null
+  },
+  "validation": {"commands": ["ucf --help"]}
+}

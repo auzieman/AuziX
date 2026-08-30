@@ -1,0 +1,17 @@
+{
+  "format": "auzix-package-v1",
+  "name": "OpenSSH",
+  "version": "host",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-access-package.sh", "receipt_glob": "System/PackageDB/OpenSSH-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/OpenSSH/${version}"},
+  "payload": {"surfaces": ["/Programs/OpenSSH", "/Services/ssh", "/System/Settings/ssh", "/System/Settings/passwd", "/System/Settings/group", "/System/Settings/shadow", "/System/Settings/nsswitch.conf", "/System/Settings/hosts", "/System/Settings/shells", "/System/Compatibility/usr/lib/openssh", "/Users/root/.ssh/authorized_keys", "/System/PackageDB/OpenSSH-host.auzix.json"]},
+  "dependencies": {"runtime": ["RuntimeGlibc", "Libselinux1", "Libssl3t64", "Libpcre280", "Zlib1g", "Libzstd1"], "provides": ["ssh-client", "ssh-server"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "service.publish", "state.ssh-host-keys"],
+  "validation": {
+    "commands": ["sshd -h", "ssh -V"],
+    "forbidden_paths": ["/etc/ssh/ssh_host_*_key"],
+    "required_shebangs": {
+      "/Services/ssh/run": "#!/Programs/BusyBox/1.36.1/Commands/busybox sh"
+    }
+  }
+}

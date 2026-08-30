@@ -1,0 +1,22 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Libselinux1",
+  "version": "3.8.1-1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh", "receipt_glob": "System/PackageDB/Libselinux1-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Libselinux1/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc", "Libpcre280"], "provides": ["libselinux.so.1"]},
+  "payload": {"surfaces": ["/Programs/Libselinux1", "/System/Compatibility/lib/libselinux.so.1", "/System/PackageDB/Libselinux1-3.8.1-1.auzix.json"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/libselinux1/lifecycle",
+    "configuration": [],
+    "scripts": {"after_install": "after-install"},
+    "operations": [
+      {"type": "ensure-directory", "path": "${AUZIX_RUN}/setrans", "mode": "0755", "owner": "0:0"},
+      {"type": "remove-obsolete-cache", "path": "${AUZIX_SETTINGS}/selinux/default/contexts/files/*.bin", "prior_version": "3.8-2", "policy": "upgrade-only"}
+    ]
+  },
+  "lifecycle": {"before_install": null, "after_install": "/Programs/Libselinux1/${version}/Package/Scripts/after-install", "before_remove": null, "after_remove": null},
+  "fragments": ["program.versioned-prefix", "library.soname-export"],
+  "validation": {"commands": ["test -e /System/Compatibility/lib/libselinux.so.1"]}
+}

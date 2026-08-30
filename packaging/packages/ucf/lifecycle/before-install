@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+state=${AUZIX_STATE:-/System/State}/ucf
+mkdir -p "$state"
+i=7
+while [ "$i" -ge 0 ]; do
+    if [ -e "$state/hashfile.$i" ]; then
+        cp -f "$state/hashfile.$i" "$state/hashfile.$((i + 1))"
+    fi
+    i=$((i - 1))
+done
+if [ -e "$state/hashfile" ]; then
+    cp -f "$state/hashfile" "$state/hashfile.0"
+fi

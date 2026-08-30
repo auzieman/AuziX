@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+state=${AUZIX_STATE:-/System/State}/ucf
+mkdir -p "$state"
+: >"$state/hashfile.tmp"
+: >"$state/registry.tmp"
+if [ ! -e "$state/hashfile" ]; then mv "$state/hashfile.tmp" "$state/hashfile"; else rm -f "$state/hashfile.tmp"; fi
+if [ ! -e "$state/registry" ]; then mv "$state/registry.tmp" "$state/registry"; else rm -f "$state/registry.tmp"; fi
+chmod 0644 "$state/hashfile" "$state/registry"

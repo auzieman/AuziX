@@ -1,0 +1,29 @@
+{
+  "format": "auzix-package-proof-v1",
+  "status": "passed",
+  "profile": "runtime-spine",
+  "profile_lock_sha256": "4fe0548d13b58d7698f455c2e06815edd7b49172f4eca3f8dcdd8e905bb413d4",
+  "worker": "r730-ai-01",
+  "source_image": "auzix/validation:pre-hdd-trixie-consolidated-20260828-r5",
+  "factory_image": "auzix/package-factory:pilot-20260829",
+  "factory_run_image_sha256": "a1ed8a5b66f06ac67af8483ce3002588c4934e9d806fca286d3f30c928287c92",
+  "apk_tools": "2.14.10-r0",
+  "packages": {
+    "auzix-apk-tools_2.14.10-r0_noarch.apk": "539a9da7f7e0152e80596dcc9ef9a62fec5c5578eea51343ebd076ca80a72352",
+    "auzix-busy-box_1.36.1-r0_noarch.apk": "f1b31a4d6266839e86182482f1d3c98980a4cb7ad662089fc5f9a24165032769",
+    "auzix-libgcc-s1_0.14.2.0.19.408991049112-r0_noarch.apk": "167c078ea02a98eda099fae1c77133a3614e1c45d6f3c26245d6c31e023fe206",
+    "auzix-runtime-glibc_0.5.652992648152-r0_noarch.apk": "0c45092969c06d0cab855b7bff2e1b4ae0f7281223a04894decbe566e4470d2e"
+  },
+  "apk_index_sha256": "d219f4a564071dcfbedf70d71632893dff11c7c3f75168677708b4fa81047069",
+  "gates": {
+    "definitions": "passed",
+    "apk_emission": "passed",
+    "apk_index": "passed-unsigned-pilot",
+    "empty_root_install": "passed",
+    "installed_state_exact": "passed",
+    "payload_hash_match": "passed",
+    "installed_busybox_execution": "passed"
+  },
+  "lab_volume": "auzix-apk-pilot-20260829",
+  "next_blocker": "Correct or produce the remaining base-netinstall package surfaces before expanding the package loop."
+}

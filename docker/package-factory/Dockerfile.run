@@ -1,0 +1,11 @@
+FROM auzix/package-factory:pilot-20260829
+
+COPY auzix /workspace/auzix
+COPY packaging /workspace/packaging
+COPY packages /workspace/packages
+COPY scripts /workspace/scripts
+
+ENV PYTHONPATH=/workspace
+WORKDIR /workspace
+
+ENTRYPOINT ["python3", "-m", "auzix"]

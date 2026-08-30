@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+touch "$settings/group" "$settings/passwd"
+grep -q '^shadow:[^:]*:42:' "$settings/group" || printf '%s\n' 'shadow:x:42:' >>"$settings/group"
+[ -e "$settings/shadow" ] || awk -F: '{print $1 ":!:0:0:99999:7:::"}' "$settings/passwd" >"$settings/shadow"
+[ -e "$settings/gshadow" ] || awk -F: '{print $1 ":!::"}' "$settings/group" >"$settings/gshadow"
+chown 0:42 "$settings/shadow" "$settings/gshadow"
+chmod 0640 "$settings/shadow" "$settings/gshadow"
+chmod 0644 "$settings/passwd" "$settings/group"

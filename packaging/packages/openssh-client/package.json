@@ -1,0 +1,32 @@
+{
+  "format": "auzix-package-v1",
+  "name": "OpensshClient",
+  "version": "1-10.0p1-7+deb13u4",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "receipt_glob": "System/PackageDB/OpensshClient-*.auzix.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/OpensshClient/${version}"},
+  "payload": {"surfaces": ["/Programs/OpensshClient", "/System/Compatibility", "/System/PackageDB"]},
+  "dependencies": {"runtime": []},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/openssh-client/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/ssh/ssh_config"],
+    "scripts": {"after_install": "after-install"},
+    "operations": [
+      {"type": "ensure-system-group", "name": "_ssh", "gid": 75},
+      {"type": "set-package-file-mode", "path": "${AUZIX_PACKAGE_ROOT}/RootFS/usr/bin/ssh-agent", "mode": "2755", "group": "_ssh"},
+      {"type": "remove-obsolete-conffile", "path": "${AUZIX_SETTINGS}/ssh/moduli", "prior_version": "1:7.9p1-8~", "ownership_transferred_to": "OpensshServer"},
+      {"type": "retain-user-invoked-agent", "command": "ssh-agent", "donor_service_manager": "not-applicable"}
+    ],
+    "retained_state": ["${AUZIX_SETTINGS}/ssh/ssh_config"]
+  },
+  "lifecycle": {
+    "before_install": "/Programs/OpensshClient/${version}/Package/Scripts/before-install",
+    "after_install": "/Programs/OpensshClient/${version}/Package/Scripts/after-install",
+    "before_remove": "/Programs/OpensshClient/${version}/Package/Scripts/before-remove",
+    "after_remove": "/Programs/OpensshClient/${version}/Package/Scripts/after-remove"
+  },
+  "validation": {"commands": ["ssh -V"]}
+}

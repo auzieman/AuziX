@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "UtilLinux",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-command-suite-package.sh", "receipt_glob": "System/PackageDB/UtilLinux-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/UtilLinux/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["block-tools", "mount-tools"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "storage.commands"],
+  "validation": {"commands": ["lsblk --version", "blkid -V", "mount --version"]}
+}

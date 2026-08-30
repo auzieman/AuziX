@@ -1,0 +1,9 @@
+{
+  "format": "auzix-activation-fragment-v1",
+  "id": "base.network-dhcp-dns",
+  "owner": "BusyBox",
+  "source_logic": ["scripts/add-auzix-live-tools.sh:network"],
+  "creates": ["/Network/DNS/resolv.conf", "/System/Settings/resolv.conf", "/run/resolv.conf"],
+  "policy": {"client": "busybox-udhcpc", "interfaces": "non-loopback", "resolver": "/run/resolv.conf"},
+  "gates": ["non-loopback interface obtains IPv4", "resolver contains at least one nameserver", "network starts before ssh"]
+}

@@ -1,0 +1,18 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "intake-low-fruit-conffiles",
+  "packages": [
+    "AtSpi2Core",
+    "BashCompletion",
+    "CalligrastageData",
+    "CalligrawordsData"
+  ],
+  "dependency_additions": {},
+  "external_providers": {},
+  "package_names": {},
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  }
+}

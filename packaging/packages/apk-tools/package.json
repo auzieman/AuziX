@@ -1,0 +1,17 @@
+{
+  "format": "auzix-package-v1",
+  "name": "ApkTools",
+  "version": "2.14.10-r0",
+  "source": {
+    "kind": "verified-bootstrap-artifact",
+    "legacy_entrypoint": "auzix/bootstrap.py",
+    "producer_argv": ["python3", "-m", "auzix", "bootstrap-apk-tools", "${staging_root}"],
+    "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/apk-tools-static-2.14.10-r0.apk",
+    "sha256": "c86e3822764e5fe19f41ce2e13553e48cac1ea4e74f858338e8d44bf0b616b61",
+    "receipt_glob": "System/PackageDB/ApkTools-*.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/ApkTools/${version}"},
+  "dependencies": {"runtime": [], "provides": ["package-transaction-engine"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "apk.database-state"],
+  "validation": {"commands": ["apk --version", "apk info"]}
+}

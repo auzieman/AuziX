@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "RuntimeGlibc",
+  "version": "trixie-r5",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "packages/runtime-substrate.policy.json", "receipt_glob": "System/PackageDB/Libc6-*.json"},
+  "layout": {"domain": "system-runtime", "prefix": "/System/Libraries/Runtime/glibc"},
+  "dependencies": {"runtime": ["LibgccS1"], "provides": ["libc", "elf-loader"]},
+  "fragments": ["runtime.coherent-set", "compatibility.loader-aliases"],
+  "validation": {"commands": ["ld-linux-x86-64.so.2 --verify"], "forbidden_paths": ["mutable-historical-runtime-source"]}
+}

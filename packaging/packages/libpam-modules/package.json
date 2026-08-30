@@ -1,0 +1,10 @@
+{
+  "format":"auzix-package-v1","name":"LibpamModules","version":"1.7.0-5",
+  "source":{"kind":"existing-auzix-payload","receipt_glob":"System/PackageDB/LibpamModules-*.auzix.json"},
+  "layout":{"domain":"system-runtime","prefix":"/Programs/LibpamModules/${version}"},
+  "payload":{"surfaces":["/Programs/LibpamModules","/System/Settings/security","/System/PackageDB"]},
+  "dependencies":{"runtime":["Libpam0g","LibpamModulesBin"]},
+  "intake_adapter":{"format":"auzix-lifecycle-adapter-v1","template_dir":"packaging/packages/libpam-modules/lifecycle","configuration":["${AUZIX_SETTINGS}/security/access.conf","${AUZIX_SETTINGS}/security/faillock.conf","${AUZIX_SETTINGS}/security/group.conf","${AUZIX_SETTINGS}/security/limits.conf","${AUZIX_SETTINGS}/security/namespace.conf","${AUZIX_SETTINGS}/security/namespace.init","${AUZIX_SETTINGS}/security/pam_env.conf","${AUZIX_SETTINGS}/security/pwhistory.conf","${AUZIX_SETTINGS}/security/sepermit.conf","${AUZIX_SETTINGS}/security/time.conf"],"scripts":{"after_install":"after-install"},"operations":[{"type":"ensure-sensitive-file","path":"${AUZIX_SETTINGS}/security/opasswd","mode":"0600"},{"type":"ensure-configuration-file","path":"${AUZIX_SETTINGS}/environment","mode":"0644"}],"retained_state":["${AUZIX_SETTINGS}/security/opasswd","${AUZIX_SETTINGS}/environment"]},
+  "lifecycle":{"before_install":null,"after_install":"/Programs/LibpamModules/${version}/Package/Scripts/after-install","before_remove":null,"after_remove":null},
+  "validation":{"commands":["test -f /System/Settings/security/opasswd"]}
+}

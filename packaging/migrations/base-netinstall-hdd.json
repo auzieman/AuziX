@@ -1,0 +1,34 @@
+{
+  "format": "auzix-migration-ledger-v1",
+  "target": "base-netinstall-hdd",
+  "legacy_authorities": [
+    "attic/netinstall-v1/tiny-netinstall-remote.profile.json",
+    "attic/netinstall-v1/auzix-tiny-netinstall-remote.packages",
+    "attic/netinstall-v1/netinstall-chroot-package-transaction.contract.md",
+    "attic/netinstall-v1/tiny-netinstall-media.md",
+    "scripts/add-auzix-live-tools.sh",
+    "scripts/auzix-install-root-from-repo-profile.sh",
+    "scripts/build-auzix-live-disk-image.sh"
+  ],
+  "ported": [
+    {"concern": "installer package seed", "new_authority": "packaging/profiles/base-netinstall.json"},
+    {"concern": "dependency-ordered immutable plan", "new_authority": "auzix.package_graph:compose_profile"},
+    {"concern": "runtime mounts", "new_authority": "packaging/activation/base-netinstall/10-runtime-mounts.json"},
+    {"concern": "DHCP and resolver", "new_authority": "packaging/activation/base-netinstall/20-network-dhcp-dns.json"},
+    {"concern": "CA and repository", "new_authority": "packaging/activation/base-netinstall/30-ca-and-repository.json"},
+    {"concern": "SSH-first access", "new_authority": "packaging/activation/base-netinstall/40-ssh.json"},
+    {"concern": "installed init", "new_authority": "packaging/activation/base-netinstall/50-installed-init.json"},
+    {"concern": "partition and boot intent", "new_authority": "packaging/targets/base-netinstall-hdd.json"}
+  ],
+  "implementation_gaps": [
+    {"id": "apk-tools-artifact", "status": "mapped", "detail": "Bootstrap from the pinned, verified Alpine v3.22 apk-tools-static 2.14.10-r0 artifact; package and empty-root validation remain required."},
+    {"id": "fpm-apk-adapter", "status": "pilot-proven", "detail": "FPM 1.17.0 emitted an APK on r730-ai-01 and apk-tools 2.14.10 installed and registered it in an empty root on 2026-08-29; real payload adapters remain."},
+    {"id": "signed-apk-index", "status": "required", "detail": "Generate and verify the AUZiX APKINDEX and signing-key contract."},
+    {"id": "apk-root-install", "status": "mechanism-proven", "detail": "Pinned apk.static successfully installed an FPM package into an empty root and reported it through apk info; exact base lock comparison remains."},
+    {"id": "activation-executor", "status": "implemented-local", "detail": "auzix.activation.base wires package-owned base surfaces and emits an activation receipt; lab boot validation remains required."},
+    {"id": "boot-substrate-adapter", "status": "reuse-proven", "detail": "Reuse the known kernel, initramfs and BIOS GRUB writer without granting it package mutation authority."},
+    {"id": "external-libgcc-provider", "status": "mapped", "detail": "LibgccS1 is now a first-class package definition bound to the locked 2026-08-28 targeted repair producer; APK emission and installation remain gated."},
+    {"id": "offline-and-boot-gates", "status": "required", "detail": "Implement the target gates as executable validators and structured receipts."}
+  ],
+  "promotion_boundary": "Do not power or deploy to a VM until package emission, index verification, empty-root installation, activation and offline HDD validation all pass."
+}

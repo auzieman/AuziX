@@ -1,0 +1,22 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Procps",
+  "version": "2-4.0.4-9",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/Procps-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Procps/${version}"},
+  "payload": {"surfaces": ["/Programs/Procps", "/System/Compatibility", "/System/Settings/sysctl.d", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["Libproc20", "Libncursesw6", "Libtinfo6"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/procps/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/sysctl.d/README.sysctl"],
+    "scripts": {},
+    "operations": [
+      {"type": "remove-obsolete-conffile", "path": "${AUZIX_SETTINGS}/sysctl.conf", "prior_version": "2:4.0.4-7~"},
+      {"type": "deferred-command-trigger", "interest": "${AUZIX_SETTINGS}/sysctl.d", "command": "sysctl --system", "execution_stage": "boot-activation", "install_chroot": "never"},
+      {"type": "donor-service-scaffold", "service": "procps", "disposition": "replaced-by-boot-activation"}
+    ]
+  },
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["ps auxw", "ps -ef", "sysctl --version"]}
+}

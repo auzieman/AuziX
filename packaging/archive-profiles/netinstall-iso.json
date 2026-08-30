@@ -1,0 +1,21 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "netinstall-iso",
+  "receipt_policy": {"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},
+  "dependency_additions": {
+    "Htop": ["NcursesBase"],
+    "Glances": ["NcursesBase"]
+  },
+  "packages": [
+    "Busybox",
+    "Iproute2",
+    "CaCertificates",
+    "OpensshClient",
+    "OpensshServer",
+    "OpensshSftpServer",
+    "Parted",
+    "File",
+    "Htop",
+    "Glances"
+  ]
+}

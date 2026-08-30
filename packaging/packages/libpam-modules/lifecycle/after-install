@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+mkdir -p "$settings/security"
+if [ ! -e "$settings/security/opasswd" ]; then
+  : >"$settings/security/opasswd"
+  chmod 0600 "$settings/security/opasswd"
+fi
+if [ ! -e "$settings/environment" ]; then
+  : >"$settings/environment"
+  chmod 0644 "$settings/environment"
+fi

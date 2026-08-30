@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Libpcre280",
+  "version": "10.46-1~deb13u1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh", "receipt_glob": "System/PackageDB/Libpcre280-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Libpcre280/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["libpcre2-8.so.0"]},
+  "payload": {"surfaces": ["/Programs/Libpcre280", "/System/Compatibility/lib/libpcre2-8.so.0", "/System/PackageDB/Libpcre280-10.46-1~deb13u1.auzix.json"]},
+  "fragments": ["program.versioned-prefix", "library.soname-export"],
+  "validation": {"commands": ["test -e /System/Compatibility/lib/libpcre2-8.so.0"]}
+}

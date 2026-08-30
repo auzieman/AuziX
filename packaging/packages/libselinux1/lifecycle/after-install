@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+run=${AUZIX_RUN:-/System/Run}
+mkdir -p "$run/setrans"
+chown 0:0 "$run/setrans"
+chmod 0755 "$run/setrans"

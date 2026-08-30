@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+settings=${AUZIX_SETTINGS:-/System/Settings}
+cert_dir="$settings/ssl/certs"
+rm -f "$cert_dir"/*.pem "$cert_dir"/*.crt "$cert_dir"/[0-9a-f]*.[0-9]* 2>/dev/null || true
+# Certificate selection and locally supplied trust anchors remain administrator state.

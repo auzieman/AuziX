@@ -1,0 +1,25 @@
+{
+  "fixture": "ucf-known-good-blind",
+  "package": "Ucf",
+  "paths": {"settings": "/System/Settings", "state": "/System/State"},
+  "apk_semantics": {"distinct_purge": false},
+  "donor": {
+    "before_install": ["rotate /var/lib/ucf/hashfile.0 through .7", "copy hashfile to hashfile.0"],
+    "after_install": ["touch /var/lib/ucf/hashfile", "touch /var/lib/ucf/registry"],
+    "after_remove": ["remove does nothing", "purge deletes state", "purge calls debconf db_purge"],
+    "configuration": ["/etc/ucf.conf"],
+    "payload_embedded_paths": {
+      "RootFS/usr/bin/ucf": ["/var/lib/ucf", "/etc/ucf.conf"],
+      "RootFS/usr/bin/ucfq": ["/var/lib/ucf"],
+      "RootFS/usr/bin/ucfr": ["/var/lib/ucf", "/etc/ucf.conf"]
+    }
+  },
+  "question": "Propose native lifecycle intent and explain state behavior on normal APK removal."
+  ,"_oracle": {
+    "minimum_operations": 3,
+    "minimum_payload_rewrites": 5,
+    "required_new_values": ["/System/State/ucf", "/System/Settings/ucf.conf"],
+    "required_discard_terms": ["debconf", "purge"],
+    "normal_remove_must_retain_state": true
+  }
+}

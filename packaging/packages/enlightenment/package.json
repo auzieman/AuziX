@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Enlightenment",
+  "version": "0.27.1-1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-host-enlightenment-package.sh", "receipt_glob": "System/PackageDB/Enlightenment-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Enlightenment/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc", "Xorg"], "provides": ["desktop-session"]},
+  "fragments": ["program.versioned-prefix", "desktop.session", "desktop.menu", "libraries.private-first"],
+  "validation": {"commands": ["enlightenment -version"], "forbidden_paths": ["wayland-default-session"]}
+}

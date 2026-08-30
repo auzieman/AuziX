@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/package-v1.schema.json",
+  "title": "AUZiX package intent v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "name", "version", "source", "layout", "dependencies", "validation"],
+  "properties": {
+    "format": {"const": "auzix-package-v1"},
+    "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]+$"},
+    "version": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["generated-layout", "verified-bootstrap-artifact", "existing-auzix-payload", "debian-binary", "debian-source", "upstream-source"]},
+        "legacy_entrypoint": {"type": "string", "minLength": 1},
+        "producer_argv": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "receipt_glob": {"type": "string"},
+        "url": {"type": "string"},
+        "sha256": {"type": "string"},
+        "directories": {"type": "array", "items": {"type": "string", "pattern": "^/"}, "uniqueItems": true},
+        "links": {"type": "object", "propertyNames": {"pattern": "^/"}, "additionalProperties": {"type": "string", "pattern": "^/"}}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain"],
+      "properties": {
+        "domain": {"enum": ["program", "system-runtime", "driver", "service"]},
+        "prefix": {"type": "string"}
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime"],
+      "properties": {
+        "runtime": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "provides": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before_install", "after_install", "before_remove", "after_remove"],
+      "properties": {
+        "before_install": {"type": ["string", "null"], "pattern": "^/"},
+        "after_install": {"type": ["string", "null"], "pattern": "^/"},
+        "before_remove": {"type": ["string", "null"], "pattern": "^/"},
+        "after_remove": {"type": ["string", "null"], "pattern": "^/"}
+      }
+    },
+    "intake_adapter": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["format", "template_dir", "scripts", "operations"],
+      "properties": {
+        "format": {"const": "auzix-lifecycle-adapter-v1"},
+        "template_dir": {"type": "string", "minLength": 1},
+        "scripts": {"type": "object"},
+        "operations": {"type": "array"}
+      }
+    },
+    "fragments": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands"],
+      "properties": {
+        "commands": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "forbidden_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "required_shebangs": {
+          "type": "object",
+          "propertyNames": {"pattern": "^/"},
+          "additionalProperties": {"type": "string", "pattern": "^#!"}
+        }
+      }
+    }
+  }
+}

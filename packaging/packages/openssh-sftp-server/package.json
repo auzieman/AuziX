@@ -1,0 +1,19 @@
+{
+  "format": "auzix-package-v1",
+  "name": "OpensshSftpServer",
+  "version": "1-10.0p1-7+deb13u4",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "receipt_glob": "System/PackageDB/OpensshSftpServer-*.auzix.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/OpensshSftpServer/${version}"},
+  "payload": {"surfaces": ["/Programs/OpensshSftpServer", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["OpensshClient"]},
+  "lifecycle": {
+    "before_install": null,
+    "after_install": null,
+    "before_remove": null,
+    "after_remove": null
+  },
+  "validation": {"commands": ["test -x /Programs/OpensshSftpServer/${version}/RootFS/usr/lib/openssh/sftp-server"]}
+}

@@ -1,0 +1,1 @@
+{"format":"auzix-archive-profile-v1","name":"tzdata-smoke","receipt_policy":{"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},"packages":["Tzdata"]}

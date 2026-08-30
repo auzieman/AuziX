@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AuzixInstaller",
+  "version": "0.2",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-installer-package.sh", "receipt_glob": "System/PackageDB/AuzixInstaller-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/AuzixInstaller/${version}"},
+  "dependencies": {"runtime": ["BusyBox", "AuzixPackageTools", "E2fsprogs", "Parted", "UtilLinux"], "provides": ["disk-installer"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "installer.plan-intake"],
+  "validation": {"commands": ["auzix-installer validate"]}
+}

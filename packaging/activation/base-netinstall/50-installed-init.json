@@ -1,0 +1,9 @@
+{
+  "format": "auzix-activation-fragment-v1",
+  "id": "base.installed-init",
+  "owner": "ApkTools",
+  "source_logic": ["scripts/add-auzix-live-tools.sh:InstalledInit", "scripts/add-auzix-live-tools.sh:StartSequence"],
+  "creates": ["/System/Boot/StartSequence", "/System/Boot/InstalledInit", "/init", "/System/Settings/fstab"],
+  "policy": {"pid1": "/init", "start_sequence": "static-busybox-first", "gui": "absent"},
+  "gates": ["init is executable", "InstalledInit is executable", "StartSequence is executable", "root filesystem is ext4", "desktop activation is absent"]
+}

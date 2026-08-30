@@ -1,0 +1,19 @@
+{
+  "fixture": "procps-known-good-blind",
+  "package": "Procps",
+  "apk_semantics": {"install_chroot_must_not_mutate_host_kernel": true},
+  "donor": {
+    "configuration": ["/etc/sysctl.d/README.sysctl"],
+    "before_install": ["remove obsolete /etc/sysctl.conf for upgrades before 2:4.0.4-7"],
+    "after_install": ["systemd helper scaffolding for procps.service", "invoke sysctl --system"],
+    "trigger": ["run sysctl --system when sysctl configuration changes"]
+  },
+  "question": "Translate the maintainer intent without applying host sysctls during package installation.",
+  "_oracle": {
+    "minimum_operations": 3,
+    "minimum_payload_rewrites": 0,
+    "required_terms": ["sysctl", "boot", "obsolete", "service"],
+    "required_discard_terms": ["systemd"],
+    "forbidden_terms": ["dpkg-maintscript-helper", "systemctl --system"]
+  }
+}

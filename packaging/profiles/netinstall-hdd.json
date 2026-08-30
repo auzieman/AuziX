@@ -1,0 +1,11 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "netinstall-hdd",
+  "packages": [
+    "BusyBox",
+    "ApkTools",
+    "OpenSSH",
+    "CACerts",
+    "AuzixServiceRuntime"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "format":"auzix-package-v1","name":"LibpamRuntime","version":"1.7.0-5",
+  "source":{"kind":"existing-auzix-payload","receipt_glob":"System/PackageDB/LibpamRuntime-*.auzix.json"},
+  "layout":{"domain":"system-runtime","prefix":"/Programs/LibpamRuntime/${version}"},
+  "payload":{"surfaces":["/Programs/LibpamRuntime","/System/Settings/pam.conf","/System/Settings/pam.d","/System/State/pam","/System/PackageDB"]},
+  "dependencies":{"runtime":["Libpam0g","LibpamModules"]},
+  "intake_adapter":{"format":"auzix-lifecycle-adapter-v1","template_dir":"packaging/packages/libpam-runtime/lifecycle","configuration":["${AUZIX_SETTINGS}/pam.conf","${AUZIX_SETTINGS}/pam.d/other"],"scripts":{"after_install":"after-install"},"operations":[{"type":"compile-pam-profile","profile":"unix","destinations":["${AUZIX_SETTINGS}/pam.d/common-auth","${AUZIX_SETTINGS}/pam.d/common-account","${AUZIX_SETTINGS}/pam.d/common-password","${AUZIX_SETTINGS}/pam.d/common-session","${AUZIX_SETTINGS}/pam.d/common-session-noninteractive"],"policy":"preserve-existing"}],"retained_state":["${AUZIX_SETTINGS}/pam.d/common-*","${AUZIX_STATE}/pam"]},
+  "lifecycle":{"before_install":null,"after_install":"/Programs/LibpamRuntime/${version}/Package/Scripts/after-install","before_remove":null,"after_remove":null},
+  "validation":{"commands":["test -s /System/Settings/pam.d/common-auth"]}
+}

@@ -1,0 +1,16 @@
+{
+  "fixture": "base-passwd-known-good-blind",
+  "package": "BasePasswd",
+  "donor": {
+    "payload": ["master.passwd", "master.group"],
+    "after_install": ["create /etc/passwd and /etc/group only when absent", "create /etc/subuid and /etc/subgid", "do not overwrite locally managed account databases"],
+    "paths": ["/etc/passwd", "/etc/group", "/etc/subuid", "/etc/subgid"]
+  },
+  "question": "Translate valid account database initialization into an idempotent AUZiX APK lifecycle.",
+  "_oracle": {
+    "minimum_operations": 2,
+    "minimum_payload_rewrites": 0,
+    "required_terms": ["/System/Settings/passwd", "/System/Settings/group", "subuid", "subgid", "create", "preserve"],
+    "forbidden_terms": ["dpkg", "debconf"]
+  }
+}

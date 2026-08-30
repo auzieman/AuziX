@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Parted",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "packages/parted.command-suite.json", "receipt_glob": "System/PackageDB/Parted-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Parted/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["partition-tools"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "storage.partition"],
+  "validation": {"commands": ["parted --version", "partprobe --version"]}
+}

@@ -1,0 +1,37 @@
+{
+  "format": "auzix-operator-contract-v1",
+  "objective": "Build package-owned AUZiX roots through deterministic APK transactions and keep media writers package-agnostic.",
+  "authority_order": [
+    "schemas",
+    "package-fragments",
+    "expanded-plan",
+    "profile-lock",
+    "signed-package-repository",
+    "apk-installed-database",
+    "activation-receipt",
+    "media-receipt",
+    "notes",
+    "historical-scripts"
+  ],
+  "failure_domains": ["source", "transform", "package", "transaction", "activation", "media", "deployment"],
+  "working_loop": ["recenter", "classify", "compare", "plan", "modify", "validate-locally", "promote", "record", "pause-at-major-gate"],
+  "rules": [
+    "Change the smallest owning layer.",
+    "Do not compensate in one layer for a defect owned by another.",
+    "Packages own immutable payload files.",
+    "Activation owns generated compatibility, service, desktop and state surfaces.",
+    "Media writers may partition, mount, install boot assets and seal artifacts; they may not alter package-owned files.",
+    "A profile changes list size, not transaction logic.",
+    "Existence checks never substitute for representative execution gates.",
+    "Notes explain decisions but do not override machine-readable authority."
+  ],
+  "prohibited": [
+    "unreceipted historical runtime sources",
+    "package payload injection by media writers",
+    "independent container, HDD and ISO package loops",
+    "silent deep-merge overrides",
+    "updating expected hashes merely to pass a gate",
+    "live target patching when an offline root can prove the result"
+  ],
+  "session_requirements": ["objective", "allowed_paths", "forbidden_paths", "required_gates", "promotion_boundary"]
+}

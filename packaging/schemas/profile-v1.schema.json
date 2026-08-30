@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auzix.local/schemas/profile-v1.schema.json",
+  "title": "AUZiX package profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "name", "packages"],
+  "properties": {
+    "format": {"const": "auzix-profile-v1"},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]+$"},
+    "packages": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true}
+  }
+}

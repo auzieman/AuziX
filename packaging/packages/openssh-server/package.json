@@ -1,0 +1,40 @@
+{
+  "format": "auzix-package-v1",
+  "name": "OpensshServer",
+  "version": "1-10.0p1-7+deb13u4",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "receipt_glob": "System/PackageDB/OpensshServer-*.auzix.json"
+  },
+  "layout": {"domain": "service", "prefix": "/Programs/OpensshServer/${version}"},
+  "payload": {"surfaces": ["/Programs/OpensshServer", "/System/Compatibility", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["OpensshClient", "OpensshSftpServer"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/openssh-server/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/ssh/moduli"],
+    "scripts": {
+      "after_install": "after-install",
+      "after_remove": "after-remove"
+    },
+    "operations": [
+      {"type": "materialize-default-configuration", "destination": "${AUZIX_SETTINGS}/ssh/sshd_config", "policy": "preserve-existing"},
+      {"type": "ensure-system-account", "name": "sshd", "uid": 74, "gid": 74, "home": "${AUZIX_RUN}/sshd", "shell": "/sbin/nologin"},
+      {"type": "ensure-directory", "path": "${AUZIX_RUN}/sshd", "mode": "0755", "owner": "0:0"},
+      {"type": "ensure-directory", "path": "${AUZIX_STATE}/ssh", "mode": "0700", "owner": "0:0"},
+      {"type": "generate-host-key", "algorithm": "rsa", "path": "${AUZIX_STATE}/ssh/ssh_host_rsa_key"},
+      {"type": "generate-host-key", "algorithm": "ecdsa", "path": "${AUZIX_STATE}/ssh/ssh_host_ecdsa_key"},
+      {"type": "generate-host-key", "algorithm": "ed25519", "path": "${AUZIX_STATE}/ssh/ssh_host_ed25519_key"},
+      {"type": "install-service-runner", "path": "/Services/ssh/run"},
+      {"type": "remove-obsolete-conffile", "path": "${AUZIX_SETTINGS}/network/if-up.d/openssh-server", "prior_version": "1:7.9p1-1~"}
+    ],
+    "retained_state": ["${AUZIX_SETTINGS}/ssh/sshd_config", "${AUZIX_STATE}/ssh"]
+  },
+  "lifecycle": {
+    "before_install": "/Programs/OpensshServer/${version}/Package/Scripts/before-install",
+    "after_install": "/Programs/OpensshServer/${version}/Package/Scripts/after-install",
+    "before_remove": "/Programs/OpensshServer/${version}/Package/Scripts/before-remove",
+    "after_remove": "/Programs/OpensshServer/${version}/Package/Scripts/after-remove"
+  },
+  "validation": {"commands": ["sshd -t"]}
+}

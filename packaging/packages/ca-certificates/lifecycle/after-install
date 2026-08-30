@@ -1,0 +1,42 @@
+#!/bin/sh
+set -eu
+
+settings=${AUZIX_SETTINGS:-/System/Settings}
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+donor_certs="$package_root/RootFS/usr/share/ca-certificates"
+selection="$settings/ca-certificates.conf"
+cert_dir="$settings/ssl/certs"
+local_certs="$settings/ca-certificates/local"
+
+[ -d "$donor_certs" ] || { echo "CA adapter: donor certificate payload is missing" >&2; exit 1; }
+mkdir -p "$cert_dir" "$local_certs"
+chmod 0755 "$cert_dir" "$local_certs"
+
+if [ ! -s "$selection" ]; then
+  find "$donor_certs" -type f -name '*.crt' | sed "s#^$donor_certs/##" | sort >"$selection"
+fi
+
+rm -f "$cert_dir"/*.pem "$cert_dir"/*.crt "$cert_dir"/[0-9a-f]*.[0-9]* 2>/dev/null || true
+: >"$cert_dir/ca-certificates.crt"
+while IFS= read -r entry; do
+  case "$entry" in ''|'#'*|'!'*) continue ;; esac
+  source="$donor_certs/$entry"
+  [ -f "$source" ] || continue
+  target="$cert_dir/$(basename "$entry")"
+  cp "$source" "$target"
+  cat "$source" >>"$cert_dir/ca-certificates.crt"
+done <"$selection"
+for source in "$local_certs"/*.crt; do
+  [ -f "$source" ] || continue
+  target="$cert_dir/local-$(basename "$source")"
+  cp "$source" "$target"
+  cat "$source" >>"$cert_dir/ca-certificates.crt"
+done
+chmod 0644 "$selection" "$cert_dir"/*.crt "$cert_dir/ca-certificates.crt"
+
+openssl_command=
+for candidate in /System/Compatibility/usr/bin/openssl /System/Compatibility/bin/openssl; do
+  if [ -x "$candidate" ]; then openssl_command=$candidate; break; fi
+done
+[ -n "$openssl_command" ] || { echo 'CA adapter: openssl dependency is unavailable' >&2; exit 1; }
+"$openssl_command" rehash "$cert_dir"

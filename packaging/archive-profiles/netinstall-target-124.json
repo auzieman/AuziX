@@ -1,0 +1,49 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "netinstall-target-124",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {
+    "Htop": ["NcursesBase"],
+    "Glances": ["NcursesBase"]
+  },
+  "external_providers": {},
+  "intake_exclusions": {
+    "Dpkg": "donor packaging/database authority; no AUZiX runtime package depends on it"
+  },
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Busybox", "Debconf", "Libzstd1", "Zlib1g", "Libelf1t64", "Libbpf1",
+    "Libcap2", "Libdb53t64", "Libmnl0", "Libpcre280", "Libselinux1",
+    "Libkrb5support0", "LibcomErr2", "Libk5crypto3", "Libkeyutils1",
+    "OpensslProviderLegacy", "Libssl3t64", "Libkrb53", "LibgssapiKrb52",
+    "LibtirpcCommon", "Libtirpc3t64", "Libxtables12", "Libcap2Bin", "Iproute2",
+    "Openssl", "CaCertificates", "Libdebconfclient0", "BasePasswd", "LibauditCommon",
+    "LibcapNg0", "Libaudit1", "Libcrypt1", "Libpam0g", "Libsystemd0",
+    "LibpamModulesBin", "LibpamModules", "LoginDefs", "Libacl1", "Libattr1",
+    "Libmd0", "Libbsd0", "LibsemanageCommon", "Libbz210", "Libsepol2",
+    "Libsemanage2", "Passwd", "Adduser", "InitSystemHelpers", "Libtinfo6",
+    "Libedit2", "Libcbor010", "Libudev1", "Libfido21", "OpensshClient",
+    "LibpamRuntime", "SysvinitUtils", "LsbBase", "OpensshSftpServer", "Libncursesw6",
+    "Libproc20", "Procps", "NetTools", "PerlBase", "LibtextCharwidthPerl", "LibtextWrapi18nPerl",
+    "SensibleUtils", "Ucf", "RunitHelper", "SystemdStandaloneSysusers", "Libwrap0",
+    "Libsqlite30", "Libwtmpdb0", "OpensshServer", "Dmidecode", "Libblkid1",
+    "Dmsetup", "Libdevmapper1021", "Libuuid1", "Libparted2t64", "ReadlineCommon",
+    "Libreadline8t64", "Parted", "Liblzma5", "LibmagicMgc", "Libmagic1t64", "File",
+    "NcursesBase", "Htop", "Libpython313Minimal", "Libexpat1", "Python313Minimal",
+    "Tar", "Python3Minimal", "MediaTypes", "Netbase", "Tzdata", "Libffi8",
+    "Libpython313Stdlib", "Python313", "Libpython3Stdlib", "Python3", "Python3Orjson",
+    "Python3TypingExtensions", "Python3AnnotatedTypes", "Python3PydanticCore",
+    "Python3Dnspython", "Python3Idna", "Python3EmailValidator", "Python3Pydantic",
+    "Python3Exceptiongroup", "Python3Sniffio", "Python3Anyio", "Python3Starlette",
+    "Python3H11", "Python3Wsproto", "Python3Click", "Libuv1t64", "Python3Uvloop",
+    "Python3Uvicorn", "Python3Fastapi", "Python3Defusedxml", "Python3Packaging",
+    "Python3Psutil", "Glances"
+  ]
+}

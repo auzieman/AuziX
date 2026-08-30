@@ -1,0 +1,10 @@
+{
+  "format":"auzix-package-v1","name":"Tzdata","version":"2026b-0+deb13u1",
+  "source":{"kind":"existing-auzix-payload","receipt_glob":"System/PackageDB/Tzdata-*.auzix.json"},
+  "layout":{"domain":"system-runtime","prefix":"/Programs/Tzdata/${version}"},
+  "payload":{"surfaces":["/Programs/Tzdata","/System/Compatibility/usr/share/zoneinfo","/System/Settings/timezone","/System/Settings/localtime","/System/PackageDB"]},
+  "dependencies":{"runtime":[]},
+  "intake_adapter":{"format":"auzix-lifecycle-adapter-v1","template_dir":"packaging/packages/tzdata/lifecycle","configuration":[],"scripts":{"after_install":"after-install","after_remove":"after-remove"},"operations":[{"type":"select-timezone","input_order":["${AUZIX_SETTINGS}/timezone","AUZIX_TIMEZONE","Etc/UTC"],"validation":"package-zoneinfo-exists"},{"type":"materialize-timezone","source":"${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/zoneinfo/${timezone}","destination":"${AUZIX_SETTINGS}/localtime"},{"type":"publish-data-directory","source":"${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/zoneinfo","destination":"/System/Compatibility/usr/share/zoneinfo"}],"retained_state":["${AUZIX_SETTINGS}/timezone","${AUZIX_SETTINGS}/localtime"]},
+  "lifecycle":{"before_install":null,"after_install":"/Programs/Tzdata/${version}/Package/Scripts/after-install","before_remove":null,"after_remove":"/Programs/Tzdata/${version}/Package/Scripts/after-remove"},
+  "validation":{"commands":["test -s /System/Settings/localtime"]}
+}

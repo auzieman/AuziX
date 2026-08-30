@@ -1,0 +1,21 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Nginx",
+  "version": "1.26.3-3+deb13u7",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "legacy_entrypoint": "scripts/build-auzix-nginx-package.sh",
+    "producer_argv": ["scripts/build-auzix-nginx-package.sh", "${staging_root}"],
+    "receipt_glob": "System/PackageDB/Nginx-*.json"
+  },
+  "layout": {"domain": "service", "prefix": "/Programs/Nginx/${version}"},
+  "payload": {
+    "surfaces": [
+      "/Programs/Nginx", "/Services/Nginx", "/System/Settings/Nginx",
+      "/System/State/Nginx", "/System/Logs/Nginx", "/Work/Nginx"
+    ]
+  },
+  "dependencies": {"runtime": ["RuntimeGlibc", "BusyBox"], "provides": ["http-service"]},
+  "fragments": ["program.versioned-prefix", "service.runner"],
+  "validation": {"commands": ["nginx -t -c /System/Settings/Nginx/nginx.conf -p /"]}
+}

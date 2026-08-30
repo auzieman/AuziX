@@ -1,0 +1,9 @@
+{
+  "format": "auzix-activation-fragment-v1",
+  "id": "base.ca-and-repository",
+  "owner": "CACerts",
+  "source_logic": ["scripts/build-auzix-ca-certificates-package.sh", "attic/netinstall-v1/tiny-netinstall-remote.profile.json"],
+  "creates": ["/System/Compatibility/etc/ssl/certs/ca-certificates.crt", "/System/Settings/packages/repositories.json", "/System/Settings/apk/repositories"],
+  "policy": {"repository": "declared-at-build-or-install", "transport": "https-preferred", "index_signature": "required"},
+  "gates": ["CA bundle is non-empty", "repository configuration is explicit", "repository index signature verifies"]
+}

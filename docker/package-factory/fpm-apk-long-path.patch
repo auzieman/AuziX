@@ -1,0 +1,15 @@
+--- a/lib/fpm/package/apk.rb
++++ b/lib/fpm/package/apk.rb
+@@ -446,6 +446,11 @@
+     end
+ 
+     ret = ret.insert(pax_slash, "/PaxHeaders.14670/")
+     ret = ret.sub("//", "/")
++    # The tar name field is exactly 100 bytes. pad_string_to expands names
++    # longer than that to 200 bytes, corrupting the following header fields.
++    # PAX extension record names are metadata-only, so use a deterministic
++    # short name while leaving the following payload member path untouched.
++    ret = "PaxHeaders.14670/#{Digest::SHA1.hexdigest(ret)}" if ret.bytesize > 99
+     return ret
+   end
+ 

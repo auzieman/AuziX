@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Dosfstools",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "packages/dosfstools.command-suite.json", "receipt_glob": "System/PackageDB/Dosfstools-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Dosfstools/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["fat-filesystem-tools"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "storage.fat"],
+  "validation": {"commands": ["mkfs.fat --help", "fsck.fat --help"]}
+}

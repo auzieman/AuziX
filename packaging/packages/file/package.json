@@ -1,0 +1,15 @@
+{
+  "format": "auzix-package-v1",
+  "name": "File",
+  "version": "trixie",
+  "source": {
+    "kind": "debian-binary",
+    "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh",
+    "producer_argv": ["scripts/build-auzix-debian-intake-package.sh", "${staging_root}", "file"],
+    "receipt_glob": "System/PackageDB/File-*.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/File/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["file-inspector"]},
+  "fragments": ["debian.extract", "program.versioned-prefix", "commands.publish"],
+  "validation": {"commands": ["file --version", "file /Programs/BusyBox/current/Commands/busybox"]}
+}

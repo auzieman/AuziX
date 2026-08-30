@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AuzixPackageTools",
+  "version": "0.1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-package-tools-package.sh", "receipt_glob": "System/PackageDB/AuzixPackageTools-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/AuzixPackageTools/${version}"},
+  "dependencies": {"runtime": ["BusyBox", "RuntimeGlibc", "ApkTools"], "provides": ["auzix-pkg"]},
+  "fragments": ["program.versioned-prefix", "commands.publish", "apk.policy-wrapper"],
+  "validation": {"commands": ["auzix-pkg --help", "auzix-pkg status"]}
+}

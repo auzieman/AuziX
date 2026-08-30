@@ -1,0 +1,26 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "wave1-small-docker",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "packages": [
+    "Iproute2",
+    "CaCertificates",
+    "OpensshClient",
+    "OpensshServer",
+    "OpensshSftpServer",
+    "Python3",
+    "Htop",
+    "Glances"
+  ],
+  "dependency_additions": {
+    "Htop": ["NcursesBase"],
+    "Glances": ["NcursesBase"]
+  },
+  "external_providers": {
+    "Busybox": "auzix-busy-box"
+  }
+}

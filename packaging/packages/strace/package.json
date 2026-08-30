@@ -1,0 +1,10 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Strace",
+  "version": "trixie",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-strace-package.sh", "receipt_glob": "System/PackageDB/Strace-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Strace/${version}"},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["syscall-tracer"]},
+  "fragments": ["program.versioned-prefix", "commands.publish"],
+  "validation": {"commands": ["strace -V"]}
+}

@@ -1,0 +1,5 @@
+{
+  "format": "auzix-profile-v1",
+  "name": "bootstrap-base",
+  "packages": ["BaseLayout", "BusyBox", "ApkTools"]
+}

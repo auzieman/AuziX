@@ -1,0 +1,42 @@
+#!/bin/sh
+set -eu
+
+settings=${AUZIX_SETTINGS:-/System/Settings}
+state=${AUZIX_STATE:-/System/State}
+mkdir -p "$settings/pam.d" "$state/pam"
+chmod 0755 "$settings/pam.d" "$state/pam"
+
+write_if_absent() {
+  destination=$1
+  [ -e "$destination" ] && return 0
+  cat >"$destination"
+  chmod 0644 "$destination"
+}
+
+write_if_absent "$settings/pam.d/common-auth" <<'EOF'
+auth [success=1 default=ignore] pam_unix.so nullok try_first_pass
+auth requisite pam_deny.so
+auth required pam_permit.so
+EOF
+write_if_absent "$settings/pam.d/common-account" <<'EOF'
+account [success=1 new_authtok_reqd=done default=ignore] pam_unix.so
+account requisite pam_deny.so
+account required pam_permit.so
+EOF
+write_if_absent "$settings/pam.d/common-password" <<'EOF'
+password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt
+password requisite pam_deny.so
+password required pam_permit.so
+EOF
+write_if_absent "$settings/pam.d/common-session" <<'EOF'
+session required pam_unix.so
+session requisite pam_deny.so
+session required pam_permit.so
+session optional pam_umask.so
+EOF
+write_if_absent "$settings/pam.d/common-session-noninteractive" <<'EOF'
+session required pam_unix.so
+session requisite pam_deny.so
+session required pam_permit.so
+session optional pam_umask.so
+EOF

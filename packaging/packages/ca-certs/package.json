@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "CACerts",
+  "version": "20250419-auzix1",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-ca-certificates-package.sh", "receipt_glob": "System/PackageDB/CACerts-*.json"},
+  "layout": {"domain": "system-runtime", "prefix": "/System/Compatibility/etc/ssl"},
+  "payload": {"surfaces": ["/System/Compatibility/etc/ssl/certs/ca-certificates.crt", "/System/Compatibility/etc/ssl/cert.pem", "/System/Settings/pki/tls/certs/ca-bundle.crt", "/System/PackageDB/CACerts-20250419-auzix1.auzix.json"]},
+  "dependencies": {"runtime": ["BusyBox"], "provides": ["ca-certificates"]},
+  "fragments": ["certificates.bundle", "compatibility.ssl"],
+  "validation": {"commands": ["test -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt"]}
+}
