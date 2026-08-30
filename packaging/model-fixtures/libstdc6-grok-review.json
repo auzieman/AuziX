@@ -1,0 +1,34 @@
+{
+  "fixture": "libstdc6-grok-review",
+  "package": "Libstdc6",
+  "contract": {
+    "effect_candidates_are_evidence_only": true,
+    "package_root": "/Programs/Libstdc6/14.2.0-19",
+    "apk_has_no_dpkg_database": true,
+    "remove_must_not_touch_other_packages": true
+  },
+  "evidence": {
+    "before_remove": [
+      {"lines": [5, 11], "text": "on remove or upgrade, use dpkg -L libstdc++6:amd64 to derive Python source paths, remove their matching __pycache__/*.py[co], then remove only empty __pycache__ directories"}
+    ],
+    "payload": [
+      "The Libstdc6 package owns its files below /Programs/Libstdc6/14.2.0-19/RootFS",
+      "The cleanup query names the same donor binary package, libstdc++6:amd64"
+    ],
+    "other_behavior": [
+      "ldconfig trigger has already become AUZiX public-library publication metadata",
+      "libstdc++.so.6 and libstdc++.so.6.0.33 are published through /Libraries"
+    ]
+  },
+  "question": "Classify the portable cleanup intent and donor-only manifest query. Propose only package-root-bounded behavior and identify what must be count-checked before deterministic translation.",
+  "_oracle": {
+    "minimum_operations": 1,
+    "minimum_payload_rewrites": 0,
+    "required_terms": ["package", "root", "byte", "empty", "dpkg"],
+    "required_discard_terms": ["dpkg"],
+    "forbidden_terms": ["rm -rf /usr", "systemctl", "/System/State/master"],
+    "exclusive_concepts": [
+      {"terms": ["dpkg -l", "dpkg --listfiles"]}
+    ]
+  }
+}

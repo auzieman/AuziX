@@ -1,0 +1,45 @@
+{
+  "fixture": "libglib200t64-grok-review",
+  "package": "Libglib200t64",
+  "contract": {
+    "effect_candidates_are_evidence_only": true,
+    "apk_has_no_distinct_purge": true,
+    "install_chroot_must_not_mutate_host": true,
+    "generated_caches_are_rebuildable_not_authoritative": true
+  },
+  "evidence": {
+    "after_install": [
+      {"lines": [8, 30], "effect": "handle trigger paths for GSettings schemas and GIO modules"},
+      {"lines": [32, 42], "effect": "on Debian trigger or ordinary configure, run package-owned glib-compile-schemas and gio-querymodules against shared schema/module directories"}
+    ],
+    "after_remove": [
+      {"lines": [9, 42], "effect": "purge-only guarded cleanup of giomodule.cache, retaining it when another GLib ABI tree or module remains"},
+      {"lines": [44, 85], "effect": "purge-only guarded cleanup of gschemas.compiled, retaining it when another GLib ABI tree or schema remains"}
+    ],
+    "before_install": [
+      {"lines": [7, 47], "effect": "Debian database surgery removes an obsolete libglib2.0-0 postrm control script to prevent a later Debian purge deleting shared generated caches"}
+    ],
+    "triggers": [
+      "interest-noawait /usr/lib/x86_64-linux-gnu/gio/modules",
+      "interest-await /usr/share/glib-2.0/schemas",
+      "activate-noawait ldconfig"
+    ],
+    "known_boundary": [
+      "AUZiX must preserve cache-regeneration intent but cannot execute host trigger actions during chroot construction",
+      "APK normal removal must not be treated as Debian purge",
+      "the obsolete Debian control-script deletion has no AUZiX target and its protective intent must be retained"
+    ]
+  },
+  "question": "Classify portable cache-generation intent, deferred actions, purge-only cleanup, obsolete Debian database surgery, and unresolved shared-path ownership. Do not invent immediate host activation or destructive removal.",
+  "_oracle": {
+    "minimum_operations": 3,
+    "minimum_payload_rewrites": 0,
+    "required_terms": ["schema", "gio", "cache", "defer", "purge", "retain", "dpkg"],
+    "required_discard_terms": ["dpkg", "purge"],
+    "normal_remove_must_retain_state": true,
+    "forbidden_terms": ["rm -rf", "systemctl", "immediate host"],
+    "exclusive_concepts": [
+      {"terms": ["dpkg-query", "control script"]}
+    ]
+  }
+}
