@@ -98,6 +98,13 @@ PYTHON_CLEAN_BLOCK = re.compile(
     r"fi"
 )
 
+DPKG_SELF_PYTHON_CACHE_BLOCK = re.compile(
+    r"(?m)^(?P<indent>[ \t]*)files=\$\(dpkg -L (?P<package>[^\s|]+)[^\n]*\n"
+    r"(?P=indent)rm -f \$files\n"
+    r"(?P=indent)dirs=\$\(dpkg -L (?P=package)[^\n]*\n"
+    r"(?P=indent)find \$dirs[^\n]*$"
+)
+
 RM_CONFFILE_LINE = re.compile(
     r"^(?P<indent>\s*)dpkg-maintscript-helper\s+rm_conffile\s+"
     r"(?P<path>\S+)\s+(?P<prior_version>\S+)"
@@ -169,7 +176,13 @@ def _extract_maintscript_migrations(
     return DPKG_DIVERT_COMMAND.sub(replace_usrmerge_diversion, text), migrations
 
 
-def _apply_generated_script_rules(text: str) -> tuple[str, list[str]]:
+def _package_atom(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.split(":", 1)[0].casefold())
+
+
+def _apply_generated_script_rules(
+    text: str, package_name: str, package_root: str
+) -> tuple[str, list[str]]:
     rules: list[str] = []
     if "# Automatically added by dh_python3" in text:
         replacement = """if command -v py3clean >/dev/null 2>&1; then
@@ -185,6 +198,23 @@ fi"""
             raise ContractError(f"python bytecode cleanup rule matched {count} blocks")
         if count == 1:
             rules.append("python-bytecode-cleanup")
+
+    def replace_self_cache(match: re.Match[str]) -> str:
+        if _package_atom(match.group("package")) != _package_atom(package_name):
+            return match.group(0)
+        indent = match.group("indent")
+        root = f'"{package_root}/RootFS"'
+        return (
+            f"{indent}find {root} -type f -path '*/__pycache__/*' "
+            "\\( -name '*.pyc' -o -name '*.pyo' \\) -delete\n"
+            f"{indent}find {root} -type d -name __pycache__ -empty -delete"
+        )
+
+    text, count = DPKG_SELF_PYTHON_CACHE_BLOCK.subn(replace_self_cache, text)
+    if count > 1:
+        raise ContractError(f"self-package Python cache rule matched {count} blocks")
+    if count == 1 and "dpkg -L" not in text:
+        rules.append("self-package-python-bytecode-cleanup")
     return text, rules
 
 
@@ -471,7 +501,9 @@ def normalize_lifecycle(
                 {"id": "maintscript-file-migration", "state": "transformed", "stages": []},
             )
             rule["stages"].append(lifecycle_name)
-        normalized_body, applied_script_rules = _apply_generated_script_rules(normalized_body)
+        normalized_body, applied_script_rules = _apply_generated_script_rules(
+            normalized_body, str(receipt.get("name")), prefix
+        )
         normalized_body, wrapped_arguments = _wrap_lifecycle_arguments(
             normalized_body, lifecycle_name
         )

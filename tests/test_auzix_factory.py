@@ -375,6 +375,47 @@ fi
             self.assertNotIn("dpkg -L", candidate)
             self.assertIn("-name '*.pyc'", candidate)
 
+    def test_self_package_python_cache_cleanup_is_root_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Libstdc6/1/Metadata/control/prerm"
+            script.parent.mkdir(parents=True)
+            script.write_text("""#!/bin/sh
+files=$(dpkg -L libstdc++6:amd64 | awk '/.py$/ {print}')
+rm -f $files
+dirs=$(dpkg -L libstdc++6:amd64 | awk '/.py$/ {print}')
+find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
+""")
+            result = normalize_lifecycle(root, {
+                "name": "Libstdc6", "version": "1", "prefix": "/Programs/Libstdc6/1",
+                "maintainer_surfaces": ["/Programs/Libstdc6/1/Metadata/control/prerm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("dpkg -L", candidate)
+            self.assertIn('find "/Programs/Libstdc6/1/RootFS"', candidate)
+            self.assertIn("-name '*.pyc'", candidate)
+            self.assertIn("-name __pycache__ -empty -delete", candidate)
+
+    def test_dependency_package_python_cache_query_stays_in_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Python/1/Metadata/control/prerm"
+            script.parent.mkdir(parents=True)
+            script.write_text("""#!/bin/sh
+files=$(dpkg -L libpython:amd64 | awk '/.py$/ {print}')
+rm -f $files
+dirs=$(dpkg -L libpython:amd64 | awk '/.py$/ {print}')
+find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
+""")
+            result = normalize_lifecycle(root, {
+                "name": "Python", "version": "1", "prefix": "/Programs/Python/1",
+                "maintainer_surfaces": ["/Programs/Python/1/Metadata/control/prerm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "needs-review")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("dpkg -L libpython:amd64", candidate)
+
     def test_rm_conffile_helper_becomes_native_migration_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"

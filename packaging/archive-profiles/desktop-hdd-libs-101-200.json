@@ -1,0 +1,40 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-libs-101-200",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Libjpeg62Turbo", "Libxxhash0", "Liblz41", "Libemile1", "Libeet1",
+    "LibecoreCon1t64", "LibecoreFile1", "LibecoreIpc1", "Libefreet1a", "Libeio1",
+    "LibefreetBin", "Libglib20Data", "Libglib20Bin", "LibgdkPixbuf20Common",
+    "Libdeflate0", "Libjbig0", "Liblerc4", "Libsharpyuv0", "Libwebp7", "Libtiff6",
+    "LibgdkPixbuf200", "LibunoSal3t64", "LibunoSalhelpergcc33t64", "LibunoCppu3t64",
+    "Libicu76", "LiblangtagCommon", "Liblangtag1", "LibunoCppuhelpergcc33t64",
+    "LibunoPurpenvhelpergcc33t64", "LibnumbertextData", "Libabsl20240722", "Libargon21",
+    "LibboostThread1830", "LibboostLocale1830", "LibxcbRender0", "Libcairo2",
+    "LibcluceneCore1t64", "LibcluceneContribs1t64", "Libunistring5", "Libidn20",
+    "Libsasl2ModulesDb", "Libsasl22", "Libldap2", "Libnghttp214", "Libnghttp39",
+    "Libpsl5t64", "Libhogweed6t64", "Libp11Kit0", "Libtasn16", "Libgnutls30t64",
+    "Librtmp1", "Libssh21t64", "Libcurl4t64", "Libcmis066t64", "LibavahiCommonData",
+    "LibavahiCommon3", "LibavahiClient3", "Libcups2t64", "Libdconf1", "Libeot0",
+    "LibexttextcatData", "Libexttextcat200", "LibgpgError0", "Libassuan9", "Libgcrypt20",
+    "Libksba8", "Libnpth0t64", "Libgpgme11t64", "Libgpgmepp6t64", "Libgraphite23",
+    "Libgstreamer100", "Liborc040t64", "LibgstreamerPluginsBase100", "Libharfbuzz0b",
+    "LibharfbuzzIcu0", "Libhunspell170", "Libhyphen0", "Liblcms22", "Libmythes120",
+    "Libnspr4", "Libnss3", "Libnumbertext100", "Libopenjp27", "LibboostIostreams1830",
+    "LiborcusParser0180", "Liborcus0180", "Libngtcp216", "Libngtcp2CryptoGnutls8",
+    "Libcurl3t64Gnutls", "Libpoppler147", "Libxslt11", "Libyajl2", "Libraptor20",
+    "Libltdl7", "Libmhash2", "Librasqal3t64", "Librdf0t64", "Librevenge000",
+    "Libxmlsec1t64", "Libxmlsec1t64Nss"
+  ]
+}
