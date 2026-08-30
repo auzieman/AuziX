@@ -876,6 +876,45 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             self.assertIsNotNone(intake["adapter"])
             self.assertEqual(len(intake["triggers"]), 1)
 
+    def test_adapter_publishes_runtime_loader_as_package_owned_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            package_root = root / "Programs/Libc6/1"
+            loader = package_root / "RootFS/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+            loader.parent.mkdir(parents=True)
+            loader.write_bytes(b"loader")
+            receipt_path = root / "System/PackageDB/Libc6-1.json"
+            receipt_path.parent.mkdir(parents=True)
+            receipt = {
+                "name": "Libc6", "version": "1", "prefix": "/Programs/Libc6/1",
+                "maintainer_surfaces": [],
+            }
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            package_definition = {
+                "dependencies": {"runtime": []},
+                "intake_adapter": {
+                    "format": "auzix-lifecycle-adapter-v1",
+                    "template_dir": "tests/fixtures/apk-trigger",
+                    "configuration": [], "scripts": {}, "publish_libraries": True,
+                    "compatibility_links": [{
+                        "path": "/System/Compatibility/lib64/ld-linux-x86-64.so.2",
+                        "target": "/Libraries/ld-linux-x86-64.so.2",
+                    }],
+                },
+            }
+            intake = normalize_lifecycle(
+                root, receipt, Path(directory) / "review", package_definition,
+            )
+            package_json, _ = promote_auzix_package(
+                root, receipt_path, intake, package_definition,
+            )
+            self.assertTrue((root / "Libraries/ld-linux-x86-64.so.2").is_symlink())
+            self.assertEqual(
+                (root / "System/Compatibility/lib64/ld-linux-x86-64.so.2").readlink(),
+                Path("/Libraries/ld-linux-x86-64.so.2"),
+            )
+            self.assertEqual(len(package_json["libraries"]["compatibility_links"]), 1)
+
     def test_package_json_drives_fpm_dependencies_and_lifecycle(self):
         package = {
             "name": "Example",

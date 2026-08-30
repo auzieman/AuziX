@@ -520,6 +520,11 @@ def _public_library_plan(package_root: Path, name: str, version: str) -> list[di
             if not (source.is_file() or source.is_symlink()):
                 continue
             if source.name in seen:
+                # libc commonly ships /usr/lib64/ld-linux as a convenience
+                # symlink to the canonical multiarch loader.  Publish the
+                # canonical object once; the adapter owns compatibility aliases.
+                if source.is_symlink():
+                    continue
                 raise ContractError(f"{name}: duplicate public library basename: {source.name}")
             seen.add(source.name)
             owned = f"/Libraries/Packages/{name}/{version}/{source.name}"
@@ -644,6 +649,7 @@ def normalize_lifecycle(
     findings: list[dict[str, Any]] = []
     configuration: list[str] = []
     library_publications: list[dict[str, str]] = []
+    compatibility_links: list[dict[str, str]] = []
     migrations: list[dict[str, str]] = []
     rules: dict[str, dict[str, Any]] = {}
     evidence_dir = output_dir / "evidence"
@@ -880,6 +886,30 @@ def normalize_lifecycle(
             raise ContractError("lifecycle adapter configuration must be a string array")
         configuration = configured
         package_root = stage / prefix.lstrip("/")
+        if adapter.get("publish_libraries"):
+            direct_publications = _public_library_plan(
+                package_root, str(receipt.get("name")), str(receipt.get("version"))
+            )
+            existing_public = {item["public"] for item in library_publications}
+            library_publications.extend(
+                item for item in direct_publications if item["public"] not in existing_public
+            )
+            rules["adapter-library-publication"] = {
+                "id": "adapter-library-publication",
+                "state": "transformed",
+                "stages": [],
+                "outputs": [item["public"] for item in direct_publications],
+            }
+        compatibility_links = list(adapter.get("compatibility_links", []))
+        if not all(
+            isinstance(item, dict)
+            and isinstance(item.get("path"), str)
+            and item["path"].startswith("/System/Compatibility/")
+            and isinstance(item.get("target"), str)
+            and item["target"].startswith("/Libraries/")
+            for item in compatibility_links
+        ):
+            raise ContractError("lifecycle adapter compatibility_links are invalid")
         operations = [
             {"type": "install-configuration", "destination": path}
             for path in configuration
@@ -1009,6 +1039,7 @@ def normalize_lifecycle(
         "adapter": adapter_record,
         "configuration": sorted(set(configuration)),
         "library_publications": library_publications,
+        "compatibility_links": compatibility_links,
         "migrations": migrations,
         "rules": sorted(rules.values(), key=lambda rule: rule["id"]),
         "residual_findings": findings,
@@ -1028,6 +1059,7 @@ def normalize_lifecycle(
         "migrations": migrations,
         "configuration": sorted(set(configuration)),
         "library_publications": library_publications,
+        "compatibility_links": compatibility_links,
         "rendered_scripts": scripts,
         "rendered_triggers": trigger_scripts,
         "residual_findings": findings,
@@ -1077,6 +1109,19 @@ def promote_auzix_package(
                 )
             shutil.move(str(source), str(owned))
             public.symlink_to(publication["owned"])
+    for link in intake.get("compatibility_links", []):
+        destination = stage / link["path"].lstrip("/")
+        target = stage / link["target"].lstrip("/")
+        if not (target.exists() or target.is_symlink()):
+            raise ContractError(
+                f"{receipt.get('name')}: compatibility link target is missing: {link}"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            raise ContractError(
+                f"{receipt.get('name')}: compatibility link destination exists: {link}"
+            )
+        destination.symlink_to(link["target"])
     for protected_path in intake.get("configuration", []):
         settings_prefix = "${AUZIX_SETTINGS}/"
         if not protected_path.startswith(settings_prefix):
@@ -1129,7 +1174,8 @@ def promote_auzix_package(
         "dependencies": {"runtime": dependencies},
         "configuration": {"protected_paths": intake.get("configuration", [])},
         "libraries": {
-            "public": [item["public"] for item in intake.get("library_publications", [])]
+            "public": [item["public"] for item in intake.get("library_publications", [])],
+            "compatibility_links": intake.get("compatibility_links", []),
         },
         "migrations": intake.get("migrations", []),
         "lifecycle": lifecycle,

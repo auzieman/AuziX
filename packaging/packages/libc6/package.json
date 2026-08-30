@@ -1,0 +1,26 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Libc6",
+  "version": "2.41-12+deb13u3",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/Libc6-*.auzix.json"},
+  "layout": {"domain": "system-runtime", "prefix": "/Programs/Libc6/${version}"},
+  "payload": {"surfaces": ["/Programs/Libc6", "/Libraries", "/System/Compatibility/lib64", "/System/PackageDB"]},
+  "dependencies": {"runtime": []},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/libc6/lifecycle",
+    "configuration": [],
+    "scripts": {},
+    "publish_libraries": true,
+    "compatibility_links": [
+      {"path": "/System/Compatibility/lib64/ld-linux-x86-64.so.2", "target": "/Libraries/ld-linux-x86-64.so.2"}
+    ],
+    "operations": [
+      {"type": "publish-package-libraries", "source": "${AUZIX_PACKAGE_ROOT}/RootFS/usr/lib/x86_64-linux-gnu", "destination": "/Libraries"},
+      {"type": "publish-runtime-loader", "destination": "/System/Compatibility/lib64/ld-linux-x86-64.so.2"}
+    ],
+    "retained_state": []
+  },
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["/lib64/ld-linux-x86-64.so.2 --help >/dev/null"]}
+}
