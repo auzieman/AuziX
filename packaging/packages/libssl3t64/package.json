@@ -5,6 +5,19 @@
   "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-debian-intake-package.sh", "receipt_glob": "System/PackageDB/Libssl3t64-*.json"},
   "layout": {"domain": "program", "prefix": "/Programs/Libssl3t64/${version}"},
   "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["libcrypto.so.3", "libssl.so.3"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/libssl3t64/lifecycle",
+    "configuration": [],
+    "scripts": {},
+    "publish_libraries": true,
+    "compatibility_links": [
+      {"path": "/System/Compatibility/lib/libcrypto.so.3", "target": "/Libraries/libcrypto.so.3"},
+      {"path": "/System/Compatibility/lib/libssl.so.3", "target": "/Libraries/libssl.so.3"}
+    ],
+    "operations": [{"type": "publish-package-libraries", "destination": "/System/Libraries"}],
+    "retained_state": []
+  },
   "payload": {"surfaces": ["/Programs/Libssl3t64", "/System/Compatibility/lib/libcrypto.so.3", "/System/Compatibility/lib/libssl.so.3", "/System/PackageDB/Libssl3t64-3.5.6-1~deb13u2.auzix.json"]},
   "fragments": ["program.versioned-prefix", "library.soname-export"],
   "validation": {"commands": ["test -e /System/Compatibility/lib/libcrypto.so.3"]}
