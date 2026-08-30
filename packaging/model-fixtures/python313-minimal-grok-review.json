@@ -1,0 +1,35 @@
+{
+  "fixture": "python313-minimal-grok-review",
+  "package": "Python313Minimal",
+  "contract": {
+    "effect_candidates_are_evidence_only": true,
+    "invented_paths_or_actions_are_hard_failures": true,
+    "apk_has_no_distinct_purge": true,
+    "package_queries_must_not_call_dpkg": true
+  },
+  "evidence": {
+    "residual_findings": [
+      "dpkg -L queries the libpython3.13-minimal:amd64 payload",
+      "unresolved /usr/local Python extension directories",
+      "Debian Python runtime.d install and remove hook dispatch",
+      "update-binfmts import and removal intent"
+    ],
+    "effect_candidates": [
+      {"stage": "after_install", "lines": [19, 29], "effect": "conditionally create /usr/local/lib/python3.13 and dist-packages with root or staff ownership"},
+      {"stage": "after_install", "lines": [31, 33], "effect": "request binfmt registration for python3.13"},
+      {"stage": "after_install", "lines": [48, 54], "effect": "enumerate libpython3.13-minimal Python files and compile normal and optionally optimized bytecode"},
+      {"stage": "after_install", "lines": [74, 77], "effect": "dispatch executable *.rtinstall hooks when enabled by donor version policy"},
+      {"stage": "before_remove", "lines": [10, 17], "effect": "dispatch *.rtremove hooks and remove python3.13 binfmt registration"},
+      {"stage": "before_remove", "lines": [19, 22], "effect": "remove only empty local Python extension directories"},
+      {"stage": "before_install", "lines": [5, 10], "effect": "create an installation marker used only by Debian runtime-hook transition logic"}
+    ]
+  },
+  "question": "Classify the portable AUZiX intent, donor-only protocol, deferred actions, path decisions, and unresolved relationships. Do not invent an AUZiX path for /usr/local and do not emit executable shell for unresolved effects.",
+  "_oracle": {
+    "minimum_operations": 3,
+    "minimum_payload_rewrites": 0,
+    "required_terms": ["payload", "byte", "binfmt", "runtime", "empty", "unresolved", "/usr/local"],
+    "required_discard_terms": ["dpkg"],
+    "forbidden_terms": ["/System/State/master", "rm -rf", "systemctl"]
+  }
+}

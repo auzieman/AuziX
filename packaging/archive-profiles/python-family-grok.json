@@ -1,0 +1,24 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "python-family-grok",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "Libpython313Minimal",
+    "Python313Minimal",
+    "Python3Minimal",
+    "Libpython313Stdlib",
+    "Python313",
+    "Python3"
+  ]
+}
