@@ -18,7 +18,7 @@ from auzix.archive_fpm import (
     _archive_apk_name, _archive_layout_domain, _review_summary,
 )
 from auzix.lifecycle_intake import normalize_lifecycle, promote_auzix_package
-from auzix.intake_ir import account_donor_script
+from auzix.intake_ir import account_donor_script, grok_donor_script
 
 
 class FactoryTests(unittest.TestCase):
@@ -32,6 +32,50 @@ class FactoryTests(unittest.TestCase):
         )
         self.assertEqual(accounted["hunks"][2]["disposition"], "preserve")
         self.assertEqual(accounted["hunks"][3]["disposition"], "requires-translation")
+
+    def test_extended_grok_extracts_python_effects_with_exact_evidence(self):
+        source = r"""#!/bin/sh
+files=$(dpkg -L libpython3.13-minimal:amd64 \\
+    | sed -n '/python3.13\/.*\\.py$/p')
+/usr/bin/python3.13 -E -S /usr/lib/python3.13/py_compile.py $files
+for hook in /usr/share/python3/runtime.d/*.rtinstall; do
+    $hook rtinstall python3.13
+done
+update-binfmts --import python3.13
+mkdir -p /usr/local/lib/python3.13
+"""
+        effects = grok_donor_script("control/postinst", source)
+        by_type = {effect["type"]: effect for effect in effects}
+        self.assertEqual(by_type["package-payload-query"]["target"], "libpython3.13-minimal:amd64")
+        self.assertEqual(by_type["package-payload-query"]["evidence"]["lines"], [2, 3])
+        self.assertEqual(by_type["python-bytecode-compile"]["disposition"], "portable-intent")
+        self.assertEqual(by_type["python-bytecode-compile"]["target"], "/usr/bin/python3.13")
+        self.assertEqual(by_type["runtime-hook-dispatch"]["disposition"], "donor-protocol")
+        self.assertEqual(by_type["binfmt-registration"]["disposition"], "deferred-boot-action")
+        self.assertEqual(by_type["filesystem-effect"]["command"], "mkdir")
+
+    def test_extended_grok_ignores_shell_case_and_helper_probe(self):
+        effects = grok_donor_script(
+            "control/postinst",
+            "case \"$1\" in\n  install) : ;;\nesac\n"
+            "if command -v update-binfmts >/dev/null; then\n  :\nfi\n",
+        )
+        self.assertEqual(effects, [])
+
+    def test_lifecycle_manifest_keeps_grok_candidates_out_of_approved_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Python/1/Metadata/control/postinst"
+            script.parent.mkdir(parents=True)
+            script.write_text("#!/bin/sh\nfiles=$(dpkg -L libpython)\n")
+            result = normalize_lifecycle(root, {
+                "name": "Python", "version": "1", "prefix": "/Programs/Python/1",
+                "maintainer_surfaces": ["/Programs/Python/1/Metadata/control/postinst"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "needs-review")
+            self.assertEqual(result["operations"], [])
+            self.assertEqual(result["effect_candidates"][0]["type"], "package-payload-query")
+            self.assertEqual(result["effect_candidates"][0]["stage"], "after_install")
 
     def test_lifecycle_intake_separates_donor_ir_and_rendered_script(self):
         with tempfile.TemporaryDirectory() as directory:

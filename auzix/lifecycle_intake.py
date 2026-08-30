@@ -339,7 +339,8 @@ def normalize_lifecycle(
     if not retained and not other_surfaces:
         return {
             "status": "static", "scripts": [], "configuration": [],
-            "library_publications": [], "rules": [], "residual_findings": [], "findings": [],
+            "library_publications": [], "rules": [], "effect_candidates": [],
+            "residual_findings": [], "findings": [],
         }
 
     prefix = receipt.get("prefix")
@@ -348,6 +349,7 @@ def normalize_lifecycle(
     output_dir.mkdir(parents=True, exist_ok=True)
     scripts: list[dict[str, str]] = []
     donor_objects: list[dict[str, Any]] = []
+    effect_candidates: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
     configuration: list[str] = []
@@ -438,9 +440,11 @@ def normalize_lifecycle(
         if not source.is_file():
             raise ContractError(f"retained lifecycle script is missing: {source_path}")
         original = source.read_text(encoding="utf-8", errors="replace")
-        donor_objects.append(
-            write_donor_object(donor_dir, donor_name, source_path, original)
-        )
+        donor_object = write_donor_object(donor_dir, donor_name, source_path, original)
+        for effect in donor_object["effect_candidates"]:
+            effect["stage"] = lifecycle_name
+            effect_candidates.append(effect)
+        donor_objects.append(donor_object)
         normalized_body = _replace_paths(original, stage / prefix.lstrip("/"))
         normalized_body, script_migrations = _extract_maintscript_migrations(
             normalized_body, lifecycle_name
@@ -612,6 +616,7 @@ def normalize_lifecycle(
         "status": status,
         "scripts": scripts,
         "donor_objects": donor_objects,
+        "effect_candidates": effect_candidates,
         "operations": operations,
         "adapter": adapter_record,
         "configuration": sorted(set(configuration)),
@@ -630,6 +635,7 @@ def normalize_lifecycle(
         "package": receipt.get("name"),
         "version": receipt.get("version"),
         "operations": operations,
+        "effect_candidates": effect_candidates,
         "adapter": adapter_record,
         "migrations": migrations,
         "configuration": sorted(set(configuration)),

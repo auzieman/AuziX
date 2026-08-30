@@ -19,6 +19,84 @@ SHELL_CONTROL = re.compile(
     r"^(?:if|then|elif|else|fi|case|esac|for|while|until|do|done|\{|\}|[A-Za-z_][A-Za-z0-9_]*\(\))"
 )
 
+EFFECT_PATTERNS = (
+    (
+        "package-payload-query",
+        "donor-protocol",
+        re.compile(r"\bdpkg\s+(?:-L|--listfiles)\s+(?P<target>[^\s|;]+)"),
+    ),
+    (
+        "python-bytecode-compile",
+        "portable-intent",
+        re.compile(
+            r"(?<![A-Za-z0-9._/-])(?P<target>/[^\s;]*python[0-9.]+)\b"
+            r"[^\n;]*\bpy_compile\.py\b"
+        ),
+    ),
+    (
+        "runtime-hook-dispatch",
+        "donor-protocol",
+        re.compile(r"\bfor\s+\w+\s+in\s+(?P<target>/\S*/runtime\.d/\*\.rt(?:install|remove))"),
+    ),
+    (
+        "binfmt-registration",
+        "deferred-boot-action",
+        re.compile(r"(?:^|[;&|]\s*)update-binfmts\s+(?P<target>[^\n]*)"),
+    ),
+    (
+        "filesystem-effect",
+        "portable-intent",
+        re.compile(
+            r"(?:^|[;&|]\s*)(?P<command>mkdir|chmod|chown|chgrp|mv|ln|rm|rmdir|touch|install|cp)\s"
+        ),
+    ),
+)
+
+
+def _logical_shell_lines(text: str) -> list[tuple[int, int, str]]:
+    """Join explicit shell continuations while retaining exact evidence ranges."""
+    physical = text.splitlines()
+    logical: list[tuple[int, int, str]] = []
+    start = 1
+    buffered: list[str] = []
+    for number, raw in enumerate(physical, 1):
+        if not buffered:
+            start = number
+        buffered.append(raw)
+        if raw.rstrip().endswith("\\"):
+            continue
+        logical.append((start, number, "\n".join(buffered)))
+        buffered = []
+    if buffered:
+        logical.append((start, len(physical), "\n".join(buffered)))
+    return logical
+
+
+def grok_donor_script(source_path: str, text: str) -> list[dict[str, Any]]:
+    """Extract review candidates without treating recognition as authorization."""
+    effects: list[dict[str, Any]] = []
+    for start, end, logical in _logical_shell_lines(text):
+        flattened = re.sub(r"\\\n\s*", " ", logical).strip()
+        if not flattened or flattened.startswith("#"):
+            continue
+        for effect_type, disposition, pattern in EFFECT_PATTERNS:
+            for match in pattern.finditer(flattened):
+                effect: dict[str, Any] = {
+                    "type": effect_type,
+                    "disposition": disposition,
+                    "evidence": {
+                        "source": source_path,
+                        "lines": [start, end],
+                        "sha256": hashlib.sha256(logical.encode("utf-8")).hexdigest(),
+                        "text": logical,
+                    },
+                }
+                for field, value in match.groupdict().items():
+                    if value is not None:
+                        effect[field] = value.strip()
+                effects.append(effect)
+    return effects
+
 
 def account_donor_script(source_path: str, text: str) -> dict[str, Any]:
     """Account for every donor line without deciding that unknown shell is safe."""
@@ -55,6 +133,7 @@ def account_donor_script(source_path: str, text: str) -> dict[str, Any]:
         "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
         "lines": len(text.splitlines()),
         "hunks": hunks,
+        "effect_candidates": grok_donor_script(source_path, text),
     }
 
 
@@ -75,4 +154,5 @@ def write_donor_object(
         "hunks": str(object_path),
         "sha256": accounted["sha256"],
         "lines": accounted["lines"],
+        "effect_candidates": accounted["effect_candidates"],
     }
