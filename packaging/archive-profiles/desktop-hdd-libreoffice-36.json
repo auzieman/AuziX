@@ -1,0 +1,28 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "desktop-hdd-libreoffice-36",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "dependency_additions": {},
+  "external_providers": {},
+  "intake_exclusions": {},
+  "package_names": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
+  "packages": [
+    "LibreOfficeUiconfigCommon", "LibreOfficeCore", "LibreOfficeStyleColibre",
+    "LibreOfficeCommon", "LibreOfficeCoreNogui", "LibreOfficeBaseCore",
+    "LibreOfficeUiconfigWriter", "Libabw011", "LibeBook011", "Libepubgen011",
+    "Libetonyek011", "Libmwaw033", "Libodfgen011", "Libstaroffice000",
+    "Libwps044", "LibreOfficeWriter", "LibreOfficeUiconfigCalc", "Libblas3",
+    "Libgfortran5", "Liblapack3", "Libgomp1", "Libsuitesparseconfig7",
+    "Libcolamd3", "LibreOfficeCalc", "LibreOfficeUiconfigDraw",
+    "LibreOfficeUiconfigImpress", "Libcdr011", "Libfreehand011", "Libmspub011",
+    "Libpagemaker000", "Libqxp000", "Libvisio011", "Libzmf000",
+    "LibreOfficeDraw", "Libbox2d2", "LibreOfficeImpress"
+  ]
+}
