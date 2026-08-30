@@ -317,7 +317,7 @@ DONOR_ACTIONS = {
 }
 
 PURGE_IF = re.compile(
-    r'^\s*if\s+\[\s*"?\$1"?\s*=\s*"?purge"?\s*\]\s*(?:&&[^;]+)?;?\s*then\s*$'
+    r'^\s*if\s+\[\s*"?\$1"?\s*=\s*"?purge"?\s*\]\s*(?:&&[^;]+)?;?\s*(?:then)?\s*$'
 )
 
 CONSTANT_STRING_IF = re.compile(
@@ -380,8 +380,15 @@ def _prune_unreachable_purge_blocks(text: str, lifecycle_name: str) -> tuple[str
     while index < len(lines):
         line = lines[index]
         if PURGE_IF.match(line.rstrip("\n")):
+            body_start = index + 1
+            if body_start < len(lines) and lines[body_start].strip() == "then":
+                body_start += 1
+            elif not line.rstrip().endswith("then"):
+                output.append(line)
+                index += 1
+                continue
             depth = 1
-            end = index + 1
+            end = body_start
             while end < len(lines) and depth:
                 stripped = lines[end].strip()
                 if re.match(r"^if\b.*\bthen$", stripped):

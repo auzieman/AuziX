@@ -495,6 +495,26 @@ fi
             self.assertNotIn("generated.cache", candidate)
             self.assertIn("purge-only effects", candidate)
 
+    def test_after_remove_prunes_two_line_purge_only_effects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Fonts/1/Metadata/control/postrm"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+if [ "$1" = "purge" ]
+then
+    rm -f /usr/share/fonts/X11/fonts.scale
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "Fonts", "version": "1", "prefix": "/Programs/Fonts/1",
+                "maintainer_surfaces": ["/Programs/Fonts/1/Metadata/control/postrm"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("/usr/share/fonts", candidate)
+            self.assertIn("purge-only effects", candidate)
+
     def test_after_remove_keeps_real_remove_effects(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
