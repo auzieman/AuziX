@@ -24,6 +24,8 @@ def score(proposal: dict, oracle: dict) -> dict:
         checks["minimum_operations"] = len(proposal["operations"]) >= oracle["minimum_operations"]
     if "minimum_payload_rewrites" in oracle:
         checks["minimum_payload_rewrites"] = len(rewrites) >= oracle["minimum_payload_rewrites"]
+    if "maximum_payload_rewrites" in oracle:
+        checks["maximum_payload_rewrites"] = len(rewrites) <= oracle["maximum_payload_rewrites"]
     if "required_new_values" in oracle:
         checks["required_new_values"] = all(value in new_values for value in oracle["required_new_values"])
     if "required_terms" in oracle:
