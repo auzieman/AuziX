@@ -440,6 +440,39 @@ fi
             candidate = Path(result["scripts"][0]["candidate"]).read_text()
             self.assertIn("rm -rf ${AUZIX_STATE}/spool/example", candidate)
 
+    def test_libreoffice_registry_loop_becomes_native_migrations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/LibreOfficeDraw/1/Metadata/control/preinst"
+            script.parent.mkdir(parents=True)
+            script.write_text('''#!/bin/sh
+set -e
+if [ "$1" = "upgrade" ] && dpkg --compare-versions "$2" lt 4:25.2.1~rc1-3; then
+\tfor i in draw.xcd graphicfilter.xcd; do
+\t\trm -f /etc/libreoffice/registry/$i
+\t\tucf --purge /etc/libreoffice/registry/$i
+\t\tucfr --force --purge libreoffice-draw /etc/libreoffice/registry/$i
+\tdone
+elif [ "$1" = "install" ] && [ -f /etc/libreoffice/registry/draw.xcd ]; then
+\tfor i in draw.xcd graphicfilter.xcd; do
+\t\trm -f /etc/libreoffice/registry/$i
+\t\tucf --purge /etc/libreoffice/registry/$i
+\t\tucfr --force --purge libreoffice-draw /etc/libreoffice/registry/$i
+\tdone
+fi
+''')
+            result = normalize_lifecycle(root, {
+                "name": "LibreOfficeDraw", "version": "1",
+                "prefix": "/Programs/LibreOfficeDraw/1",
+                "maintainer_surfaces": ["/Programs/LibreOfficeDraw/1/Metadata/control/preinst"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(len(result["migrations"]), 2)
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("for i in draw.xcd graphicfilter.xcd", candidate)
+            self.assertNotIn("dpkg", candidate)
+            self.assertNotIn("ucfr", candidate)
+
     def test_dependency_package_python_cache_query_stays_in_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"

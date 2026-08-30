@@ -115,6 +115,23 @@ UCF_OBSOLETE_REGISTRY_BLOCK = re.compile(
     r'fi',
 )
 
+UCF_OBSOLETE_REGISTRY_LOOP = re.compile(
+    r'if \[ "\$1" = "upgrade" \] && dpkg --compare-versions "\$2" lt '
+    r'(?P<prior>[^;]+); then\n'
+    r'\tfor i in (?P<items>[^;]+); do\n'
+    r'\t\trm -f (?P<directory>\$\{AUZIX_SETTINGS\}/[^$\n]+)/\$i\n'
+    r'\t\tucf --purge (?P=directory)/\$i\n'
+    r'\t\tucfr --force --purge (?P<package>\S+) (?P=directory)/\$i\n'
+    r'\tdone\n'
+    r'elif \[ "\$1" = "install" \] && \[ -f (?P=directory)/[^\]]+ \]; then\n'
+    r'\tfor i in (?P=items); do\n'
+    r'\t\trm -f (?P=directory)/\$i\n'
+    r'\t\tucf --purge (?P=directory)/\$i\n'
+    r'\t\tucfr --force --purge (?P=package) (?P=directory)/\$i\n'
+    r'\tdone\n'
+    r'fi',
+)
+
 RM_CONFFILE_LINE = re.compile(
     r"^(?P<indent>\s*)dpkg-maintscript-helper\s+rm_conffile\s+"
     r"(?P<path>\S+)\s+(?P<prior_version>\S+)"
@@ -181,6 +198,24 @@ def _extract_maintscript_migrations(
         return f'if [ -f {path} ]; then\n\trm -f {path}\nfi'
 
     text = UCF_OBSOLETE_REGISTRY_BLOCK.sub(replace_ucf_registry, text)
+
+    def replace_ucf_registry_loop(match: re.Match[str]) -> str:
+        directory = match.group("directory")
+        items = match.group("items").split()
+        migrations.extend({
+            "operation": "remove-obsolete-managed-configuration",
+            "path": f"{directory}/{item}",
+            "prior_version": match.group("prior").strip(),
+            "stage": lifecycle_name,
+            "disposition": "native-filesystem-effect-without-donor-registry",
+        } for item in items)
+        return (
+            f"for i in {' '.join(items)}; do\n"
+            f'\t[ ! -f "{directory}/$i" ] || rm -f "{directory}/$i"\n'
+            "done"
+        )
+
+    text = UCF_OBSOLETE_REGISTRY_LOOP.sub(replace_ucf_registry_loop, text)
 
     def replace_usrmerge_diversion(match: re.Match[str]) -> str:
         command = match.group(0)
