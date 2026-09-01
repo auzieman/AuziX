@@ -220,7 +220,8 @@ mount_runtime() {
     "${BB}" rm -rf /run/user /run/dbus /run/sshd 2>/dev/null || true
   fi
   "${BB}" rm -f /tmp/.X*-lock /tmp/.X11-unix/X* 2>/dev/null || true
-  "${BB}" mkdir -p /run /run/lock /run/user /tmp /tmp/.X11-unix /dev/shm /Work/Temp /System/State /System/Cache /System/Logs /Network/DNS
+  "${BB}" mkdir -p /run /run/lock /run/user /run/sshd /tmp /tmp/.X11-unix /dev/shm /Work/Temp /System/State /System/State/log /System/Cache /System/Logs /Network/DNS
+  "${BB}" chmod 0755 /run/sshd 2>/dev/null || true
   "${BB}" touch /System/Logs/lastlog 2>/dev/null || true
   "${BB}" ln -sfn /run/resolv.conf /System/Settings/resolv.conf 2>/dev/null || true
   # POSIX/libc contract: user/group/name-service lookups are conventionally
@@ -231,6 +232,12 @@ mount_runtime() {
     "${BB}" rmdir /etc 2>/dev/null || true
   fi
   [ -e /etc ] || "${BB}" ln -s /System/Settings /etc 2>/dev/null || true
+  # APK/container roots legitimately carry a populated /etc, so the directory
+  # cannot always be replaced by the historical /System/Settings link.  In
+  # that layout publish DHCP's live resolver file at the libc-standard path.
+  if [ -d /etc ] && [ ! -L /etc ]; then
+    "${BB}" ln -sfn /run/resolv.conf /etc/resolv.conf 2>/dev/null || true
+  fi
   "${BB}" mkdir -p /System/Compatibility/etc 2>/dev/null || true
   for settings_file in passwd group shadow shells nsswitch.conf hosts; do
     if [ -e "/System/Settings/${settings_file}" ]; then
@@ -2255,10 +2262,6 @@ if [ -c /dev/tty1 ]; then
   "${BB}" setsid "${BB}" sh -c 'echo "Auzix console shell. Run /System/Tools/start-gui-stage for desktop." >/dev/tty1; exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/tty1 >/dev/tty1 2>&1' &
 fi
 
-if [ -c /dev/ttyS0 ]; then
-  "${BB}" setsid "${BB}" sh -c 'exec /Programs/BusyBox/1.36.1/Commands/busybox sh </dev/ttyS0 >/dev/ttyS0 2>&1' &
-fi
-
 if [ -e /System/Settings/display/autostart ] &&
    [ "$(cat /System/Settings/display/autostart 2>/dev/null)" != "manual" ]; then
   exec "${BB}" sh -c 'while true; do sleep 3600; done'
@@ -3395,10 +3398,17 @@ run_x11() {
   export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
   export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
   export DISPLAY=:0
-  xorg_config="${XORG_CONFIG_FILE:-/System/Settings/X11/xorg.conf}"
-  echo "mode=x11 command=${xinit} ${enlightenment} -- ${xorg} :0 vt${vt} -keeptty -nolisten tcp -config ${xorg_config} -xkbdir ${XKB_CONFIG_ROOT}" | "${BB}" tee "${LOG}"
-  trace_exec "${xinit}" "${enlightenment}" -- "${xorg}" :0 "vt${vt}" -keeptty -nolisten tcp \
-    -config "${xorg_config}" -xkbdir "${XKB_CONFIG_ROOT}" >>"${LOG}" 2>&1
+  # Autodetection is the default. A caller may still select a relative config
+  # explicitly; Xorg.wrap rejects absolute paths while elevated.
+  if [ -n "${XORG_CONFIG_FILE:-}" ]; then
+    echo "mode=x11 command=${xinit} ${enlightenment} -- ${xorg} :0 vt${vt} -keeptty -nolisten tcp -config ${XORG_CONFIG_FILE}" | "${BB}" tee "${LOG}"
+    trace_exec "${xinit}" "${enlightenment}" -- "${xorg}" :0 "vt${vt}" -keeptty -nolisten tcp \
+      -config "${XORG_CONFIG_FILE}" >>"${LOG}" 2>&1
+  else
+    echo "mode=x11 command=${xinit} ${enlightenment} -- ${xorg} :0 vt${vt} -keeptty -nolisten tcp" | "${BB}" tee "${LOG}"
+    trace_exec "${xinit}" "${enlightenment}" -- "${xorg}" :0 "vt${vt}" -keeptty -nolisten tcp \
+      >>"${LOG}" 2>&1
+  fi
 }
 
 case "${MODE}" in
