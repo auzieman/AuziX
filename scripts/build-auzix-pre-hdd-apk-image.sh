@@ -6,6 +6,10 @@ set -euo pipefail
 }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODE="${1:-run}"
+[[ "$MODE" == run || "$MODE" == preflight ]] || {
+  echo "usage: $0 [preflight|run]" >&2; exit 2;
+}
 RUN_ID="${AUZIX_PRE_HDD_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 WORK="${AUZIX_PRE_HDD_WORK:-/var/lib/auzix-build/pre-hdd-apk/${RUN_ID}}"
 BOOTSTRAP_VOLUME="${AUZIX_BOOTSTRAP_VOLUME:-auzix-lifecycle-bootstrap-repo-20260829}"
@@ -19,6 +23,9 @@ PRE_HDD_IMAGE="${AUZIX_PRE_HDD_IMAGE:-auzix/validation:pre-hdd-apk-${RUN_ID}}"
 VALIDATION_IMAGE="${AUZIX_VALIDATION_IMAGE:-auzix/validation:netinstall-${RUN_ID}}"
 
 fail() { echo "pre-hdd-apk: $*" >&2; exit 1; }
+for command_name in docker jq python3 tar sha256sum unsquashfs; do
+  command -v "$command_name" >/dev/null 2>&1 || fail "missing command: $command_name"
+done
 for required_source in \
   docker/extended-builder/Dockerfile \
   docker/package-factory/Dockerfile \
@@ -33,6 +40,18 @@ for required_source in \
   [[ -e "$ROOT_DIR/$required_source" ]] \
     || fail "required source is absent: $ROOT_DIR/$required_source"
 done
+docker volume inspect "$BOOTSTRAP_VOLUME" >/dev/null \
+  || fail "bootstrap volume is absent: $BOOTSTRAP_VOLUME"
+docker volume inspect "$PACKAGE_VOLUME" >/dev/null \
+  || fail "package volume is absent: $PACKAGE_VOLUME"
+test -d "$DELTA_SPOOL/packages" || fail "delta package spool is absent: $DELTA_SPOOL/packages"
+test -d "$DELTA_SPOOL/entries" || fail "delta entry spool is absent: $DELTA_SPOOL/entries"
+test -s "$DELTA_PROFILE" || fail "delta profile is absent: $DELTA_PROFILE"
+test -s "$REFERENCE_SQUASHFS" || fail "reference root is absent: $REFERENCE_SQUASHFS"
+if [[ "$MODE" == preflight ]]; then
+  echo "pre-hdd-apk: PREFLIGHT PASS host=$(hostname -s) run=$RUN_ID"
+  exit 0
+fi
 [[ ! -e "$WORK" ]] || fail "immutable run directory already exists: $WORK"
 mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,support-stages,support-packages,refresh-stages,refresh-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
 copy_volume() {
