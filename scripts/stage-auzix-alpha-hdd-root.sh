@@ -433,6 +433,16 @@ for session_tool in start-e start-enlightenment-session start-e-supervisor; do
 [ ! -r /System/Settings/auzix-runtime-env ] || . /System/Settings/auzix-runtime-env' \
     "${OUTPUT_ROOT}/System/Tools/${session_tool}"
 done
+sed -i 's/AUZIX_PRESTART_EFREETD:-0/AUZIX_PRESTART_EFREETD:-1/' \
+  "${OUTPUT_ROOT}/System/Tools/start-enlightenment-session"
+
+# The anchor can contain the old devtmpfs /dev/ptmx device.  Point the public
+# node at the mounted devpts instance so unprivileged terminals can allocate a
+# PTY on first boot.
+sed -i '/chmod 0666 \/dev\/ptmx \/dev\/pts\/ptmx/i\
+  "${BB}" rm -f /dev/ptmx 2>/dev/null || true\
+  "${BB}" ln -s pts/ptmx /dev/ptmx 2>/dev/null || true' \
+  "${OUTPUT_ROOT}/System/Boot/StartSequence"
 
 test -x "${OUTPUT_ROOT}/System/Boot/InstalledInit"
 test -x "${OUTPUT_ROOT}/System/Boot/StartSequence"
@@ -447,6 +457,10 @@ test -s "${OUTPUT_ROOT}/etc/X11/xorg.conf.d/40-libinput.conf"
 test -s "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons/hicolor/index.theme"
 test -s "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons/hicolor/128x128/apps/elementary.png"
 test -s "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons/hicolor/128x128/apps/terminology.png"
+grep -Fq 'AUZIX_PRESTART_EFREETD:-1' \
+  "${OUTPUT_ROOT}/System/Tools/start-enlightenment-session"
+grep -Fq 'ln -s pts/ptmx /dev/ptmx' \
+  "${OUTPUT_ROOT}/System/Boot/StartSequence"
 test -s "${OUTPUT_ROOT}/Users/auzix/.e/e/config/profile.cfg"
 test -s "${OUTPUT_ROOT}/Users/auzix/.e/e/config/standard/e.cfg"
 cmp -s "${ROOT_DIR}/assets/display/config/profile.cfg" \

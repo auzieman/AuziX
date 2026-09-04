@@ -316,7 +316,11 @@ FSTAB
   "${BB}" mdev -s 2>/dev/null || true
   "${BB}" chmod 0666 /dev/null 2>/dev/null || true
   "${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
-  "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx 2>/dev/null || true
+  # devtmpfs/mdev may publish a separate 0660 /dev/ptmx node after devpts is
+  # mounted.  POSIX PTY allocation must enter the mounted devpts instance.
+  "${BB}" rm -f /dev/ptmx 2>/dev/null || true
+  "${BB}" ln -s pts/ptmx /dev/ptmx 2>/dev/null || true
+  "${BB}" chmod 0666 /dev/pts/ptmx 2>/dev/null || true
 }
 
 repair_live_user_home() {
@@ -3026,7 +3030,10 @@ prune_enlightenment_masked_modules
 disable_enlightenment_first_run_wizard
 
 start_efreet_session() {
-  [ "${AUZIX_PRESTART_EFREETD:-0}" = "1" ] || return 0
+  # Efreet is part of the desktop-session spine.  Starting it here makes menu
+  # discovery deterministic on a fresh user profile instead of depending on E
+  # eventually spawning it after the first desktop has appeared.
+  [ "${AUZIX_PRESTART_EFREETD:-1}" = "1" ] || return 0
   command -v efreetd >/dev/null 2>&1 || return 0
   if "${BB}" ps | "${BB}" grep '[e]freetd' >/dev/null 2>&1; then
     return 0

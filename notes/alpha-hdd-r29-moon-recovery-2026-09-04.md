@@ -80,3 +80,25 @@ machine has an address, but the fresh image contains no authorized-key state,
 so an external root public-key login is denied. Key seeding belongs in the HDD
 provisioning input/hook and must be tested from outside the VM. It must not be
 left as an unrecorded serial-console hotfix.
+
+Visual validation corrected two false positives from the file-only smoke test:
+
+1. Desktop files existed, but the fresh `auzix` profile had no Efreet cache and
+   the session did not run `efreetd`; the visible application menu was empty.
+   A live Efreet run populated the complete desktop, utility, MIME, and icon
+   caches. The session generator and HDD staging now default the already
+   existing Efreet prestart hook on.
+2. The Terminology desktop entry targeted
+   `/System/Tools/launch-auzix-terminal`, but `apk info -L terminology` proved
+   that the emitted package contained the desktop entry and binary while
+   omitting that package-owned launcher. The alpha finalizer now closes the old
+   package-wave gap, and validation requires both the launcher and its desktop
+   mapping. The Terminology package builder already authors the launcher; its
+   next APK emission must retain the entire staged package root.
+
+After live launcher restoration, Terminology reached window/PTY creation but
+`posix_openpt()` was denied. `/dev/ptmx` was a separate devtmpfs node with mode
+0660 while `/dev/pts/ptmx` was the correct devpts node with mode 0666. Replacing
+the public node with the conventional `pts/ptmx` symlink removed the PTY error
+and launched Terminology. The boot generator and HDD staging now retain that
+mapping, with validation gates preventing another file-only false pass.
