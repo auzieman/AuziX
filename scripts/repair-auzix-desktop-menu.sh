@@ -225,11 +225,12 @@ normalize_desktop_file() {
     }
     /^NoDisplay=/ { saw_nodisplay=1; next }
     /^Exec=/ && exec_target != "" {
-      count = split($0, parts, " ")
-      suffix=""
-      for (i = 2; i <= count; i++) {
-        if (parts[i] ~ /^%/) suffix = suffix " " parts[i]
-      }
+      # Replace only argv[0]. Debian desktop entries often carry meaningful
+      # component selectors such as `libreoffice --calc %U`; retaining only
+      # field codes silently changes which application the wrapper starts.
+      original=$0
+      sub(/^Exec=[^[:space:]]+/, "", original)
+      suffix=original
       if (terminal_wrapper != "" && terminal_true == 1) {
         print "Exec=" terminal_wrapper " " exec_target suffix
       } else {

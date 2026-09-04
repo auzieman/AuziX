@@ -37,6 +37,17 @@ need() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
+ensure_target_dir() {
+  local root="$1" path="$2" target
+  if [[ -L "${root}/${path}" ]]; then
+    target="$(readlink "${root}/${path}")"
+    [[ "${target}" = /* ]] || fail "relative target directory link is unsupported: /${path} -> ${target}"
+    mkdir -p "${root}${target}"
+  else
+    mkdir -p "${root}/${path}"
+  fi
+}
+
 ensure_loop_partition_node() {
   local loop_dev="$1"
   local part_no="$2"
@@ -188,7 +199,29 @@ if [[ "${free_mb:-0}" -lt "${MIN_FREE_MB}" ]]; then
 fi
 log "installed root free space: ${free_mb}MiB"
 
-mkdir -p "${MNT_ROOT}/boot" "${MNT_ROOT}/dev" "${MNT_ROOT}/proc" "${MNT_ROOT}/sys" "${MNT_ROOT}/run"
+# Do not turn a staged-root regression into another boot image.  These are the
+# package/session contracts proven on the live validation VM: E must see the
+# shared desktop tree first, terminals need a usable login shell, and
+# LibreOffice must load its assembled UNO program tree before global libraries.
+session_launcher="${MNT_ROOT}/System/Tools/start-enlightenment-session"
+calc_launcher="$(find "${MNT_ROOT}/Programs/LibreOfficeCalc" -mindepth 3 -maxdepth 3 \
+  -path '*/Commands/localc' -type f -print -quit 2>/dev/null || true)"
+calc_desktop="${MNT_ROOT}/System/Compatibility/usr/share/applications/auzix-LibreOfficeCalc-libreoffice-calc.desktop"
+[[ -f "${session_launcher}" ]] || fail "staged root lacks Enlightenment session launcher"
+[[ -n "${calc_launcher}" ]] || fail "staged root lacks LibreOffice Calc launcher"
+[[ -f "${calc_desktop}" ]] || fail "staged root lacks LibreOffice Calc desktop entry"
+grep -Fq 'export SHELL="${SHELL:-/System/Compatibility/bin/sh}"' "${session_launcher}" ||
+  fail "Enlightenment session launcher lacks the interactive shell contract"
+grep -Fq 'export XDG_DATA_DIRS="/System/Compatibility/usr/local/share:/System/Compatibility/usr/share' "${session_launcher}" ||
+  fail "Enlightenment session launcher does not prioritize the shared desktop tree"
+grep -Fq 'export LD_LIBRARY_PATH="${program}:/System/Libraries:' "${calc_launcher}" ||
+  fail "LibreOffice Calc launcher does not prioritize its assembled UNO program tree"
+grep -Eq '^Exec=/Programs/LibreOfficeCalc/current/Commands/localc([[:space:]]|$)' "${calc_desktop}" ||
+  fail "LibreOffice Calc desktop entry is not adapted to its package-local command"
+
+for target_dir in boot dev proc sys run; do
+  ensure_target_dir "${MNT_ROOT}" "${target_dir}"
+done
 cp -a "${ISO_TREE}/boot/." "${MNT_ROOT}/boot/"
 if [[ -x "${MNT_ROOT}/System/Boot/InstalledInit" ]]; then
   cp -a "${MNT_ROOT}/System/Boot/InstalledInit" "${MNT_ROOT}/init"

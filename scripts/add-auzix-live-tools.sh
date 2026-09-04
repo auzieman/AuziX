@@ -2686,17 +2686,18 @@ cat > "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal" <<'SCRIPT'
 #!/Programs/BusyBox/1.36.1/Commands/busybox sh
 set -eu
 
-PATH=/System/Compatibility/bin:/Programs/XTerm/current/Commands:/Programs/Terminology/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
+PATH=/System/Compatibility/bin:/Programs/Xterm/current/Commands:/Programs/Terminology/current/Commands:/Programs/BusyBox/current/Commands:/Programs/BusyBox/1.36.1/Commands:${PATH:-}
 export PATH
 export HOME="${HOME:-/Users/auzix}"
+export SHELL="${SHELL:-/System/Compatibility/bin/sh}"
 
 if command -v xterm >/dev/null 2>&1; then
   exec xterm -T "AUZiX Rescue Terminal" -e /System/Compatibility/bin/sh -lc \
-    'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh'
+    'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh -i'
 fi
 
 exec terminology -e /System/Compatibility/bin/sh -lc \
-  'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh'
+  'echo AUZiX rescue terminal; exec /System/Compatibility/bin/sh -i'
 SCRIPT
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-rescue-terminal"
 
@@ -2753,6 +2754,7 @@ export PATH
 
 BB=/Programs/BusyBox/1.36.1/Commands/busybox
 export HOME="${HOME:-/Users/auzix}"
+export SHELL="${SHELL:-/System/Compatibility/bin/sh}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
@@ -2761,7 +2763,7 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/Programs/Enlightenment/host/Resources/share:/Programs/EFL/host/Resources/share}"
+export XDG_DATA_DIRS="/System/Compatibility/usr/local/share:/System/Compatibility/usr/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
 export E_PREFIX="${E_PREFIX:-/System/Compatibility/usr}"
 export E_BIN_DIR="${E_BIN_DIR:-/System/Compatibility/usr/bin}"

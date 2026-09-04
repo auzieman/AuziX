@@ -766,7 +766,11 @@ esac
 export TERMINFO_DIRS="\${TERMINFO_DIRS:-/Programs/NcursesBase/current/RootFS/usr/share/terminfo:/Programs/NcursesTerm/current/RootFS/usr/share/terminfo:/Programs/KittyTerminfo/current/RootFS/usr/share/terminfo:/System/Compatibility/usr/share/terminfo:/System/Compatibility/lib/terminfo}"
 export URE_BOOTSTRAP="vnd.sun.star.pathname:\${program}/fundamentalrc"
 export UNO_PATH="\${program}"
-export LD_LIBRARY_PATH="/System/Libraries:/System/Libraries/Runtime/glibc:\${program}:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+# LibreOffice's UNO registry resolves relative to the directory containing its
+# loaded libraries.  Prefer the assembled package-local program tree so
+# its origin-relative registry remains coherent; loading a split UNO library from
+# /System/Libraries makes it incorrectly seek unorc and services.rdb there.
+export LD_LIBRARY_PATH="\${program}:/System/Libraries:/System/Libraries/Runtime/glibc:\${rootfs}/usr/lib/x86_64-linux-gnu:\${common}/usr/lib/x86_64-linux-gnu:\${core}/usr/lib/x86_64-linux-gnu:\${rootfs}/usr/lib:\${common}/usr/lib:\${core}/usr/lib\${runtime_lib_path}:/System/Compatibility/usr/lib/x86_64-linux-gnu:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/lib:/System/Compatibility/lib:/System/Compatibility/lib64\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 runtime_loader=""
 for candidate_loader in \
   "/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2" \
@@ -914,7 +918,7 @@ if [ -z "\${runtime_loader}" ]; then
   done
 fi
 export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin${inherited_path_suffix}"
-export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
+export XDG_DATA_DIRS="/System/Compatibility/usr/local/share:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}\${own_data_path:+:\${own_data_path}}\${runtime_data_path:+:\${runtime_data_path}}"
 export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
 export HOME="\${HOME:-/Users/root}"
@@ -995,22 +999,41 @@ while IFS= read -r rel_desktop; do
   desktop_base="$(basename "${rel_desktop}")"
   command_name_allowed "${desktop_base}" || continue
   desktop_target="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}"
+  desktop_source="${program_root}/RootFS/${rel_desktop}"
+  # Adapt argv[0] to the AUZiX package-local command while retaining the
+  # distribution launcher's arguments. For example:
+  #   libreoffice --calc %U -> .../Commands/localc --calc %U
+  # Generic packages still derive argv[0] from each individual desktop file;
+  # selecting the first executable in the package corrupted multi-command
+  # packages such as Enlightenment and Xterm.
   case "${native_name}" in
     LibreOfficeWriter) desktop_exec_name=lowriter ;;
     LibreOfficeCalc) desktop_exec_name=localc ;;
     LibreOfficeImpress) desktop_exec_name=loimpress ;;
     LibreOfficeDraw) desktop_exec_name=lodraw ;;
-    *) desktop_exec_name="$(jq -r '.[0] // empty | split("/")[-1]' <<<"${commands_json}")" ;;
+    *)
+      desktop_exec_name="$({
+        sed -n -E 's/^Exec=([^[:space:]]+).*/\1/p' "${desktop_source}" || true
+      } | head -n 1)"
+      desktop_exec_name="${desktop_exec_name##*/}"
+      ;;
   esac
   if [[ -z "${desktop_exec_name}" ]]; then
     desktop_exec_name="${desktop_base%.desktop}"
   fi
-  desktop_exec_target="/Programs/${native_name}/current/Commands/${desktop_exec_name}"
-  sed -E \
-    -e "s#^(TryExec=)([^[:space:]/]+).*#\\1${desktop_exec_target}#" \
-    -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1${desktop_exec_target}\\3#" \
-    "${program_root}/RootFS/${rel_desktop}" >"${desktop_target}"
-  if [[ "${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}" != "1" ]] &&
+  if [[ -x "${program_root}/Commands/${desktop_exec_name}" ]]; then
+    desktop_exec_target="/Programs/${native_name}/current/Commands/${desktop_exec_name}"
+    sed -E \
+      -e "s#^(TryExec=)([^[:space:]]+).*#\\1${desktop_exec_target}#" \
+      -e "s#^(Exec=)([^[:space:]]+)(.*)#\\1${desktop_exec_target}\\3#" \
+      "${desktop_source}" >"${desktop_target}"
+  else
+    # Keep the distribution entry intact when its command is provided by a
+    # dependency or wrapper.  The staged-root launcher gate validates that
+    # command after the full package group is installed.
+    cp "${desktop_source}" "${desktop_target}"
+  fi
+  if [[ "${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-1}" != "1" ]] &&
      [[ "${native_name}" != LibreOffice* ]]; then
     if grep -q '^NoDisplay=' "${desktop_target}"; then
       sed -i -E 's/^NoDisplay=.*/NoDisplay=true/' "${desktop_target}"
