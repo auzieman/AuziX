@@ -35,8 +35,15 @@ copy_absent_tree() {
   done < <(cd "$source" && find . \( -type f -o -type l \) -print0)
 }
 overlay_current_program_tree() {
-  local package="$1" relative="$2" destination="$3" source
-  source="${OUTPUT_ROOT}/Programs/${package}/current/RootFS/${relative}"
+  local package="$1" relative="$2" destination="$3" current target source
+  current="${OUTPUT_ROOT}/Programs/${package}/current"
+  [[ -L "${current}" ]] || fail "current package link is absent: ${package}"
+  target="$(readlink "${current}")"
+  if [[ "${target}" = /* ]]; then
+    source="${OUTPUT_ROOT}${target}/RootFS/${relative}"
+  else
+    source="$(dirname "${current}")/${target}/RootFS/${relative}"
+  fi
   [[ -d "${source}" ]] || fail "current package tree is absent: ${package}:${relative}"
   mkdir -p "${destination}"
   cp -a "${source}/." "${destination}/"
