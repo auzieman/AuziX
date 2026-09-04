@@ -139,6 +139,7 @@
     "Python3": "python3",
     "Python3Minimal": "python3-minimal",
     "Python313Minimal": "python3.13-minimal",
+    "TerminologyData": "terminology-data",
     "UtilLinux": "util-linux",
     "UtilLinuxExtra": "util-linux-extra"
   },
@@ -203,6 +204,7 @@
     "Pluma",
     "Python3",
     "Python3Minimal",
-    "Python313Minimal"
+    "Python313Minimal",
+    "TerminologyData"
   ]
 }
