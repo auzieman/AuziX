@@ -22,6 +22,7 @@ ZERO_IMAGE="${AUZIX_ZERO_IMAGE:-auzix/service:zero-busybox-apk-${RUN_ID}}"
 NGINX_IMAGE="${AUZIX_NGINX_IMAGE:-auzix/service:one-nginx-apk-repository-${RUN_ID}}"
 PRE_HDD_IMAGE="${AUZIX_PRE_HDD_IMAGE:-auzix/validation:pre-hdd-apk-${RUN_ID}}"
 VALIDATION_IMAGE="${AUZIX_VALIDATION_IMAGE:-auzix/validation:netinstall-${RUN_ID}}"
+EFL_BUILDER_IMAGE="${AUZIX_EFL_BUILDER_IMAGE:-auzix/builder:lab}"
 
 fail() { echo "pre-hdd-apk: $*" >&2; exit 1; }
 for command_name in docker jq python3 tar sha256sum unsquashfs; do
@@ -45,6 +46,8 @@ docker volume inspect "$BOOTSTRAP_VOLUME" >/dev/null \
   || fail "bootstrap volume is absent: $BOOTSTRAP_VOLUME"
 docker volume inspect "$PACKAGE_VOLUME" >/dev/null \
   || fail "package volume is absent: $PACKAGE_VOLUME"
+docker image inspect "$EFL_BUILDER_IMAGE" >/dev/null \
+  || fail "EFL builder image is absent: $EFL_BUILDER_IMAGE"
 test -d "$DELTA_SPOOL/packages" || fail "delta package spool is absent: $DELTA_SPOOL/packages"
 test -d "$DELTA_SPOOL/entries" || fail "delta entry spool is absent: $DELTA_SPOOL/entries"
 test -s "$DELTA_PROFILE" || fail "delta profile is absent: $DELTA_PROFILE"
@@ -133,7 +136,7 @@ test "$(find "$WORK/nginx-packages" -type f -name '*.apk' | wc -l)" -eq 1
 docker run --rm \
   -v "$ROOT_DIR:/workspace:ro" \
   -v "$WORK/support-stages/Sudo:/staging" \
-  "auzix/extended-builder:pre-hdd-${RUN_ID}" \
+  "$EFL_BUILDER_IMAGE" \
   /workspace/scripts/build-auzix-sudo-package.sh /staging
 for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy Sudo; do
   package_name="$(basename "$package_stage")"
@@ -216,7 +219,7 @@ cp "$WORK/reference-root/System/PackageDB/AuzixInstallerEfl-0.1.auzix.json" \
 docker run --rm \
   -v "$ROOT_DIR:/workspace:ro" \
   -v "$WORK/reference-stages/AuzixInstallerEfl:/staging" \
-  "auzix/extended-builder:pre-hdd-${RUN_ID}" sh -ec '
+  "$EFL_BUILDER_IMAGE" sh -ec '
     gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
       -o /tmp/auzix-installer-efl /workspace/installer/efl/auzix-installer-efl.c \
       $(pkg-config --cflags --libs elementary)
@@ -228,7 +231,7 @@ mkdir -p "$WORK/reference-stages/AuzixPackageManagerEfl/System"
 docker run --rm \
   -v "$ROOT_DIR:/workspace:ro" \
   -v "$WORK/reference-stages/AuzixPackageManagerEfl:/staging" \
-  "auzix/extended-builder:pre-hdd-${RUN_ID}" sh -ec '
+  "$EFL_BUILDER_IMAGE" sh -ec '
     gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
       -o /tmp/auzix-package-manager-efl /workspace/installer/efl/auzix-package-manager-efl.c \
       $(pkg-config --cflags --libs elementary)
