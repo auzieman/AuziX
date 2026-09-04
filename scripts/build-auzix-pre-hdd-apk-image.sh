@@ -15,6 +15,7 @@ WORK="${AUZIX_PRE_HDD_WORK:-/var/lib/auzix-build/pre-hdd-apk/${RUN_ID}}"
 BOOTSTRAP_VOLUME="${AUZIX_BOOTSTRAP_VOLUME:-auzix-lifecycle-bootstrap-repo-20260829}"
 PACKAGE_VOLUME="${AUZIX_PACKAGE_VOLUME:-auzix-workstation-layered-r18-20260830}"
 DELTA_SPOOL="${AUZIX_DELTA_SPOOL:-/var/lib/auzix-build/factory-delta/pre-hdd-missing-r2/spool}"
+RUNTIME_REFRESH_SPOOL="${AUZIX_RUNTIME_REFRESH_SPOOL:-/var/lib/auzix-build/factory-delta/pre-hdd-runtime-repair-r3/spool}"
 DELTA_PROFILE="${AUZIX_DELTA_PROFILE:-${ROOT_DIR}/packaging/archive-profiles/pre-hdd-missing.json}"
 REFERENCE_SQUASHFS="${AUZIX_REFERENCE_SQUASHFS:-/var/lib/auzix-build/pre-hdd-reference/20260831-known-good-small-moon-ca/auzix-root.squashfs}"
 ZERO_IMAGE="${AUZIX_ZERO_IMAGE:-auzix/service:zero-busybox-apk-${RUN_ID}}"
@@ -46,6 +47,11 @@ docker volume inspect "$PACKAGE_VOLUME" >/dev/null \
   || fail "package volume is absent: $PACKAGE_VOLUME"
 test -d "$DELTA_SPOOL/packages" || fail "delta package spool is absent: $DELTA_SPOOL/packages"
 test -d "$DELTA_SPOOL/entries" || fail "delta entry spool is absent: $DELTA_SPOOL/entries"
+test -d "$RUNTIME_REFRESH_SPOOL/packages" || fail "runtime refresh spool is absent: $RUNTIME_REFRESH_SPOOL/packages"
+for package_stage in Enlightenment Udev; do
+  test "$(find "$RUNTIME_REFRESH_SPOOL/packages" -maxdepth 1 -type f -name "${package_stage}-*.auzix.tar.gz" | wc -l)" -eq 1 \
+    || fail "runtime refresh spool must contain exactly one ${package_stage} archive"
+done
 test -s "$DELTA_PROFILE" || fail "delta profile is absent: $DELTA_PROFILE"
 test -s "$REFERENCE_SQUASHFS" || fail "reference root is absent: $REFERENCE_SQUASHFS"
 if [[ "$MODE" == preflight ]]; then
@@ -122,7 +128,7 @@ test "$(jq -r '(.summary.passed // 0) + (.summary.static // 0)' "$WORK/delta-apk
 # stages directly so no dpkg/update-alternatives/systemctl lifecycle crosses
 # into the APK repository.
 for package_stage in Enlightenment Udev; do
-  archive="$(find "$WORK/delta-repo/packages" -maxdepth 1 -type f \
+  archive="$(find "$RUNTIME_REFRESH_SPOOL/packages" -maxdepth 1 -type f \
     -name "${package_stage}-*.auzix.tar.gz" -print -quit)"
   test -s "$archive"
   mkdir -p "$WORK/refresh-stages/$package_stage"
