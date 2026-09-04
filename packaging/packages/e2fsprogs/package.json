@@ -1,10 +1,1 @@
-{
-  "format": "auzix-package-v1",
-  "name": "E2fsprogs",
-  "version": "trixie",
-  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "packages/e2fsprogs.command-suite.json", "receipt_glob": "System/PackageDB/E2fsprogs-*.json"},
-  "layout": {"domain": "program", "prefix": "/Programs/E2fsprogs/${version}"},
-  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["ext-filesystem-tools"]},
-  "fragments": ["program.versioned-prefix", "commands.publish", "storage.ext"],
-  "validation": {"commands": ["mke2fs -V", "mkfs.ext4 -V", "e2fsck -V"]}
-}
+{"format":"auzix-package-v1","name":"E2fsprogs","version":"1.47.2-3+b11","source":{"kind":"retained-proven-auzix-payload","legacy_entrypoint":"packages/e2fsprogs.command-suite.json","receipt_glob":"System/PackageDB/E2fsprogs-*.json"},"layout":{"domain":"program","prefix":"/Programs/E2fsprogs/${version}"},"payload":{"surfaces":["/Programs/E2fsprogs","/System/Compatibility","/System/PackageDB"]},"dependencies":{"runtime":["RuntimeGlibc"],"provides":["ext-filesystem-tools"]},"fragments":["program.versioned-prefix","commands.publish","storage.ext"],"lifecycle":{"before_install":null,"after_install":null,"before_remove":null,"after_remove":null},"validation":{"commands":["mke2fs -V","mkfs.ext4 -V","e2fsck -V"]}}

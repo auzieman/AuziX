@@ -17,6 +17,7 @@ PACKAGE_VOLUME="${AUZIX_PACKAGE_VOLUME:-auzix-workstation-layered-r18-20260830}"
 DELTA_SPOOL="${AUZIX_DELTA_SPOOL:-/var/lib/auzix-build/factory-delta/pre-hdd-missing-r2/spool}"
 DELTA_PROFILE="${AUZIX_DELTA_PROFILE:-${ROOT_DIR}/packaging/archive-profiles/pre-hdd-missing.json}"
 REFERENCE_SQUASHFS="${AUZIX_REFERENCE_SQUASHFS:-/var/lib/auzix-build/pre-hdd-reference/20260831-known-good-small-moon-ca/auzix-root.squashfs}"
+RETAINED_ALPHA_ARCHIVES="${AUZIX_RETAINED_ALPHA_ARCHIVES:-/var/lib/auzix-build/pre-hdd-apk/20260830-r46-source/artifacts/auzix/extended-repo/packages}"
 ZERO_IMAGE="${AUZIX_ZERO_IMAGE:-auzix/service:zero-busybox-apk-${RUN_ID}}"
 NGINX_IMAGE="${AUZIX_NGINX_IMAGE:-auzix/service:one-nginx-apk-repository-${RUN_ID}}"
 PRE_HDD_IMAGE="${AUZIX_PRE_HDD_IMAGE:-auzix/validation:pre-hdd-apk-${RUN_ID}}"
@@ -48,12 +49,16 @@ test -d "$DELTA_SPOOL/packages" || fail "delta package spool is absent: $DELTA_S
 test -d "$DELTA_SPOOL/entries" || fail "delta entry spool is absent: $DELTA_SPOOL/entries"
 test -s "$DELTA_PROFILE" || fail "delta profile is absent: $DELTA_PROFILE"
 test -s "$REFERENCE_SQUASHFS" || fail "reference root is absent: $REFERENCE_SQUASHFS"
+for retained_package in Podman Conmon Crun Netavark AardvarkDNS ContainersCommon E2fsprogs Dosfstools; do
+  compgen -G "$RETAINED_ALPHA_ARCHIVES/${retained_package}-*.auzix.tar.gz" >/dev/null \
+    || fail "retained alpha archive is absent: $retained_package"
+done
 if [[ "$MODE" == preflight ]]; then
   echo "pre-hdd-apk: PREFLIGHT PASS host=$(hostname -s) run=$RUN_ID"
   exit 0
 fi
 [[ ! -e "$WORK" ]] || fail "immutable run directory already exists: $WORK"
-mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,support-stages,support-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
+mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,support-stages,support-packages,retained-stages,retained-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
 copy_volume() {
   docker run --rm -v "$1:/source:ro" -v "$2:/destination" alpine:3.22 \
     sh -ec 'cp -a /source/. /destination/'
@@ -139,6 +144,22 @@ for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy
     emit-package "$package_name" /staging /packages
 done
 test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 4
+
+# Re-emit only the receipt-proven alpha disk/container closure through the
+# current factory. These are immutable AUZiX payloads previously validated on
+# VM135; no donor rebuild or feature expansion occurs in this release lane.
+for retained_package in Podman Conmon Crun Netavark AardvarkDNS ContainersCommon E2fsprogs Dosfstools; do
+  archive="$(find "$RETAINED_ALPHA_ARCHIVES" -maxdepth 1 -type f \
+    -name "${retained_package}-*.auzix.tar.gz" -print -quit)"
+  mkdir -p "$WORK/retained-stages/$retained_package"
+  tar --numeric-owner -xzf "$archive" -C "$WORK/retained-stages/$retained_package"
+  docker run --rm \
+    -v "$WORK/retained-stages/$retained_package:/staging:ro" \
+    -v "$WORK/retained-packages:/packages" \
+    "auzix/package-factory:pre-hdd-${RUN_ID}" \
+    emit-package "$retained_package" /staging /packages
+done
+test "$(find "$WORK/retained-packages" -type f -name '*.apk' | wc -l)" -eq 8
 
 # Preserve the proven VMID135/small-moon desktop contract as package-owned
 # surfaces.  Do not import the old root wholesale: only its existing installer
@@ -229,6 +250,7 @@ cp -a "$WORK/layer/packages"/*.apk "$WORK/repository/x86_64/"
 cp -a "$WORK/delta-apks/repository/x86_64"/*.apk "$WORK/repository/x86_64/"
 cp -a "$WORK/nginx-packages"/*.apk "$WORK/repository/x86_64/"
 cp -a "$WORK/support-packages"/*.apk "$WORK/repository/x86_64/"
+cp -a "$WORK/retained-packages"/*.apk "$WORK/repository/x86_64/"
 cp -a "$WORK/reference-packages"/*.apk "$WORK/repository/x86_64/"
 
 # Signing and TLS private keys are immutable run evidence, never source files.

@@ -1,12 +1,7 @@
 # Rootful and rootless OCI runtime used by the alpha technology demo.
-containers-common
-conmon
-crun
-netavark
-aardvark-dns
-podman
-buildah
-skopeo
-fuse-overlayfs
-slirp4netns
-iptables
+auzix-containers-common
+auzix-conmon
+auzix-crun
+auzix-netavark
+auzix-aardvark-dns
+auzix-podman
