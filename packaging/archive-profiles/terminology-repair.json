@@ -1,0 +1,16 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "terminology-repair",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "external_providers": {},
+  "package_names": {
+    "Terminology": "terminology"
+  },
+  "packages": [
+    "Terminology"
+  ]
+}
