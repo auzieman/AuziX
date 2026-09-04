@@ -1134,6 +1134,31 @@ done < <(
       sed 's#^#usr/libexec/#'
   } | sort
 )
+
+# Debian deliberately splits Terminology's executable and architecture-neutral
+# runtime data.  Publish the data package through the XDG compatibility view;
+# keeping it only below RootFS yields a runnable binary with no colorschemes.
+if [[ "${package_name}" == "terminology-data" ]]; then
+  terminology_share="${program_root}/RootFS/usr/share/terminology"
+  compatibility_share="${AUZIX_ROOT}/System/Compatibility/usr/share/terminology"
+  if [[ -d "${terminology_share}" ]]; then
+    mkdir -p "${compatibility_share}"
+    while IFS= read -r data_dir; do
+      data_name="$(basename "${data_dir}")"
+      # The executable package may already own its theme directory. Other
+      # split-data directories are independently addressable and noncolliding.
+      [[ "${data_name}" != "themes" ]] || continue
+      ln -sfn \
+        "/Programs/${native_name}/current/RootFS/usr/share/terminology/${data_name}" \
+        "${compatibility_share}/${data_name}"
+      compatibility_exports_json="$(
+        jq -cn --argjson current "${compatibility_exports_json}" \
+          --arg surface "/System/Compatibility/usr/share/terminology/${data_name}" \
+          '$current + [$surface] | unique'
+      )"
+    done < <(find "${terminology_share}" -mindepth 1 -maxdepth 1 -type d | sort)
+  fi
+fi
 payload_file_count="$(find "${program_root}/RootFS" -type f | wc -l | tr -d ' ')"
 payload_size_bytes="$(du -sb "${program_root}/RootFS" | awk '{print $1}')"
 required_glibc="$({
