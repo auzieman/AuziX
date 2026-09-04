@@ -4,7 +4,7 @@
   "version": "trixie",
   "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-curl-package.sh", "receipt_glob": "System/PackageDB/Curl-*.json"},
   "layout": {"domain": "program", "prefix": "/Programs/Curl/${version}"},
-  "dependencies": {"runtime": ["RuntimeGlibc", "CaCertificates"], "provides": ["http-client"]},
+  "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["http-client"]},
   "fragments": ["program.versioned-prefix", "commands.publish", "environment.ca"],
   "validation": {"commands": ["curl --version"]}
 }

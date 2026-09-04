@@ -34,6 +34,7 @@ for required_source in \
   docker/release/netinstall-validation/Dockerfile \
   docker/release/pre-hdd/Dockerfile \
   scripts/build-auzix-nginx-package.sh \
+  docker/release/one-nginx/stage-curl.sh \
   scripts/build-auzix-command-suite-package.sh \
   scripts/build-auzix-pre-hdd-support-packages.sh \
   scripts/validate-auzix-pre-hdd-root.sh; do
@@ -53,7 +54,7 @@ if [[ "$MODE" == preflight ]]; then
   exit 0
 fi
 [[ ! -e "$WORK" ]] || fail "immutable run directory already exists: $WORK"
-mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,support-stages,support-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
+mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,curl-stage,support-stages,support-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
 copy_volume() {
   docker run --rm -v "$1:/source:ro" -v "$2:/destination" alpine:3.22 \
     sh -ec 'cp -a /source/. /destination/'
@@ -95,6 +96,16 @@ cp -a "$WORK/nginx-build-root"/System/PackageDB/Nginx-*.json "$WORK/nginx-stage/
 docker build --pull=false -t "auzix/package-factory:pre-hdd-${RUN_ID}" \
   -f "$ROOT_DIR/docker/package-factory/Dockerfile" "$ROOT_DIR"
 
+# Curl is an existing AUZiX payload with a deliberately compact, private
+# runtime. Do not route it through generic Debian archive conversion: doing so
+# replaces the proven HTTP client with Debian's full-feature libcurl closure.
+docker run --rm \
+  -v "$ROOT_DIR:/workspace:ro" \
+  -v "$WORK/curl-stage:/staging" \
+  --entrypoint /bin/bash \
+  "auzix/package-factory:pre-hdd-${RUN_ID}" \
+  -lc '/workspace/docker/release/one-nginx/stage-curl.sh /staging'
+
 # Convert the corrected AUZiX archives through the same lifecycle-aware APK
 # factory used by the existing workstation waves.  The bootstrap ApkTools
 # binary is static and is used only to verify the emitted APK archives.
@@ -121,6 +132,9 @@ docker run --rm -v "$WORK/nginx-stage:/staging:ro" -v "$WORK/nginx-packages:/pac
   "auzix/package-factory:pre-hdd-${RUN_ID}" emit-package Nginx /staging /packages
 test "$(find "$WORK/nginx-packages" -type f -name '*.apk' | wc -l)" -eq 1
 
+docker run --rm -v "$WORK/curl-stage:/staging:ro" -v "$WORK/support-packages:/packages" \
+  "auzix/package-factory:pre-hdd-${RUN_ID}" emit-package Curl /staging /packages
+
 # Native validation and workstation policy packages are small package-owned
 # payloads, not Debian archive conversions. Emit them through the same factory
 # before composing the signed repository.
@@ -133,7 +147,7 @@ for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy
     "auzix/package-factory:pre-hdd-${RUN_ID}" \
     emit-package "$package_name" /staging /packages
 done
-test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 3
+test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 4
 
 # Preserve the proven VMID135/small-moon desktop contract as package-owned
 # surfaces.  Do not import the old root wholesale: only its existing installer
