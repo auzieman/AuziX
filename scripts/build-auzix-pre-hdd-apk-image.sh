@@ -133,6 +133,7 @@ test "$(find "$WORK/nginx-packages" -type f -name '*.apk' | wc -l)" -eq 1
 # payloads, not Debian archive conversions. Emit them through the same factory
 # before composing the signed repository.
 "$ROOT_DIR/scripts/build-auzix-pre-hdd-support-packages.sh" "$WORK/support-stages" >/dev/null
+mkdir -p "$WORK/support-stages/Sudo/System"
 docker run --rm \
   -v "$ROOT_DIR:/workspace:ro" \
   -v "$WORK/support-stages/Sudo:/staging" \
