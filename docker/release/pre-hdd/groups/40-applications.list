@@ -2,6 +2,8 @@ htop
 glances
 auzix-au-zi-x-python-front-doors
 flatpak
+bubblewrap
+xdg-dbus-proxy
 gnupg
 curl
 auzix-midori

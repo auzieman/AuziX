@@ -252,6 +252,20 @@ mount_runtime() {
     if [ -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt ]; then
       "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt /System/Compatibility/etc/ssl/cert.pem 2>/dev/null || true
       "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt /System/Compatibility/usr/lib/ssl/cert.pem 2>/dev/null || true
+      # The packaged Flatpak runtime carries an OpenSSL build whose upstream
+      # OPENSSLDIR is /etc/pki/tls. Publish the same trusted bundle there; this
+      # is a compatibility view, not a second certificate authority store.
+      "${BB}" mkdir -p /System/Compatibility/etc/pki/tls/certs 2>/dev/null || true
+      "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+        /System/Compatibility/etc/pki/tls/certs/ca-bundle.crt 2>/dev/null || true
+      if [ -e /System/Compatibility/etc/ssl/openssl.cnf ]; then
+        "${BB}" ln -sfn /System/Compatibility/etc/ssl/openssl.cnf \
+          /System/Compatibility/etc/pki/tls/openssl.cnf 2>/dev/null || true
+      fi
+      [ -e /System/Settings/pki ] || "${BB}" ln -s /System/Compatibility/etc/pki /System/Settings/pki 2>/dev/null || true
+      if [ -d /etc ] && [ ! -L /etc ]; then
+        [ -e /etc/pki ] || "${BB}" ln -s /System/Compatibility/etc/pki /etc/pki 2>/dev/null || true
+      fi
     fi
   fi
   if [ "$("${BB}" hostname 2>/dev/null || echo "(none)")" = "(none)" ]; then
@@ -2763,7 +2777,7 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-enlightenment}"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Enlightenment}"
 export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-e-}"
-export XDG_DATA_DIRS="/System/Compatibility/usr/local/share:/System/Compatibility/usr/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}"
+export XDG_DATA_DIRS="/System/Compatibility/usr/local/share:/System/Compatibility/usr/share:/System/State/flatpak/exports/share:${HOME}/.local/share/flatpak/exports/share${XDG_DATA_DIRS:+:${XDG_DATA_DIRS}}"
 export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/System/Settings/xdg:/System/Compatibility/etc/xdg}"
 export E_PREFIX="${E_PREFIX:-/System/Compatibility/usr}"
 export E_BIN_DIR="${E_BIN_DIR:-/System/Compatibility/usr/bin}"
