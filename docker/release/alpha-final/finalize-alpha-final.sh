@@ -115,8 +115,13 @@ EOF
 chmod 0755 /System/Tools/launch-auzix-terminal
 
 # Fresh profiles require Efreet before E builds its first application menu.
-sed -i 's/AUZIX_PRESTART_EFREETD:-0/AUZIX_PRESTART_EFREETD:-1/' \
-  /System/Tools/start-enlightenment-session
+# The HDD staging layer owns this session tool and enforces the same setting
+# after generating it.  A broad package repair may already provide the tool;
+# a focused application-data repair legitimately does not.
+if test -s /System/Tools/start-enlightenment-session; then
+  sed -i 's/AUZIX_PRESTART_EFREETD:-0/AUZIX_PRESTART_EFREETD:-1/' \
+    /System/Tools/start-enlightenment-session
+fi
 
 # Keep donor desktop metadata, but point it at the validated AUZiX front doors.
 # The factory sources carry the same mapping for subsequent package emissions;
