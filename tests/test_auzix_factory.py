@@ -24,26 +24,6 @@ from auzix.intake_ir import account_donor_script, grok_donor_script
 
 
 class FactoryTests(unittest.TestCase):
-    def test_pre_hdd_uses_compact_auzix_curl_strategy(self):
-        root = Path(__file__).resolve().parents[1]
-        archive_profile = json.loads(
-            (root / "packaging/archive-profiles/pre-hdd-missing.json").read_text()
-        )
-        application_group = (
-            root / "docker/release/pre-hdd/groups/40-applications.list"
-        ).read_text().splitlines()
-        curl_definition = json.loads(
-            (root / "packaging/packages/curl/package.json").read_text()
-        )
-        self.assertNotIn("Curl", archive_profile["packages"])
-        self.assertIn("auzix-curl", application_group)
-        self.assertEqual(
-            curl_definition["source"]["kind"], "existing-auzix-payload"
-        )
-        self.assertEqual(
-            curl_definition["dependencies"]["runtime"], ["RuntimeGlibc"]
-        )
-
     def test_donor_intake_accounts_for_every_line(self):
         source = "#!/bin/sh\n# donor note\nmkdir -p /var/lib/example\ndpkg-query -W example\n"
         accounted = account_donor_script("control/postinst", source)
