@@ -32,6 +32,9 @@ executable /Services/ssh/run
 # Promised CLI surface.
 executable /Programs/BusyBox/current/Commands/busybox
 executable /Programs/ApkTools/current/Commands/apk
+executable /System/Compatibility/bin/apk
+executable /System/Compatibility/bin/sudo
+executable /Programs/Podman/current/Commands/podman
 executable /Programs/Htop/current/Commands/htop
 executable /Programs/Glances/current/Commands/glances
 executable /Programs/Flatpak/current/Commands/flatpak
@@ -101,6 +104,12 @@ chroot "$root" /Programs/BusyBox/current/Commands/busybox sh -ec '
     python3 -c "import encodings, json, os, site, ssl, subprocess"
     for tool in strings stat netstat tail vi; do command -v "$tool" >/dev/null; done
     id auzix | grep -q "groups=.*sudo"
+    id auzix | grep -q "wheel"
+    sudo -n busybox id | grep -q "uid=0(root)"
+    sudo -n apk --version >/dev/null
+    podman --version >/dev/null
+    /System/Tools/auzix-install-root-from-repo-profile --preflight \
+      --repo https://auzix-repo.test:8443 >/dev/null
 '
 
 echo "pre-hdd validation: package-installed root passed"

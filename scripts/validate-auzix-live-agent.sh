@@ -186,7 +186,9 @@ grep -Fq 'sudo -n sh -c' "${INSTALLER_EFL_SOURCE}" ||
 grep -Fq 'mkdir -p /System/Logs/installer' "${INSTALLER_EFL_SOURCE}" ||
   fail "EFL installer preflight does not prepare installer logs"
 grep -Fq 'auzix-existing-installer-preflight' "${INSTALLER_EFL_SOURCE}" ||
-  fail "EFL installer preflight does not use sudo for privileged checks"
+  fail "EFL installer omits disk preflight"
+grep -Fq 'auzix-install-root-from-repo-profile --preflight' "${INSTALLER_EFL_SOURCE}" ||
+  fail "EFL installer omits signed APK repository preflight"
 grep -Fq 'elm_radio_value_set(whole, 1)' "${INSTALLER_EFL_SOURCE}" ||
   fail "EFL installer no longer defaults to the AUZiX split storage intent"
 grep -Fq 'user-work-programs' "${INSTALLER_EFL_SOURCE}" ||

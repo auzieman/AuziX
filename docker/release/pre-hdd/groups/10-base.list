@@ -6,6 +6,9 @@ iproute2
 openssh-client
 openssh-server
 openssh-sftp-server
+sudo
+e2fsprogs
+dosfstools
 parted
 dbus
 udev

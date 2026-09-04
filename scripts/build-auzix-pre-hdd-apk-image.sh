@@ -125,7 +125,12 @@ test "$(find "$WORK/nginx-packages" -type f -name '*.apk' | wc -l)" -eq 1
 # payloads, not Debian archive conversions. Emit them through the same factory
 # before composing the signed repository.
 "$ROOT_DIR/scripts/build-auzix-pre-hdd-support-packages.sh" "$WORK/support-stages" >/dev/null
-for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy; do
+docker run --rm \
+  -v "$ROOT_DIR:/workspace:ro" \
+  -v "$WORK/support-stages/Sudo:/staging" \
+  "auzix/extended-builder:pre-hdd-${RUN_ID}" \
+  /workspace/scripts/build-auzix-sudo-package.sh /staging
+for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy Sudo; do
   package_name="$(basename "$package_stage")"
   docker run --rm \
     -v "$WORK/support-stages/$package_stage:/staging:ro" \
@@ -133,7 +138,7 @@ for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy
     "auzix/package-factory:pre-hdd-${RUN_ID}" \
     emit-package "$package_name" /staging /packages
 done
-test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 3
+test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 4
 
 # Preserve the proven VMID135/small-moon desktop contract as package-owned
 # surfaces.  Do not import the old root wholesale: only its existing installer
@@ -184,6 +189,19 @@ cp -a "$WORK/reference-root/System/Tools/launch-auzix-installer" \
   "$WORK/reference-stages/AuzixInstallerEfl/System/Tools/"
 cp "$WORK/reference-root/System/PackageDB/AuzixInstallerEfl-0.1.auzix.json" \
   "$WORK/reference-stages/AuzixInstallerEfl/System/PackageDB/"
+
+# Rebuild the frontend from this checkout. The reference image supplies its
+# proven package layout, never an authoritative stale installer executable.
+docker run --rm \
+  -v "$ROOT_DIR:/workspace:ro" \
+  -v "$WORK/reference-stages/AuzixInstallerEfl:/staging" \
+  "auzix/extended-builder:pre-hdd-${RUN_ID}" sh -ec '
+    gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
+      -o /tmp/auzix-installer-efl /workspace/installer/efl/auzix-installer-efl.c \
+      $(pkg-config --cflags --libs elementary)
+    AUZIX_EFL_INSTALLER_BINARY=/tmp/auzix-installer-efl \
+      /workspace/scripts/build-auzix-installer-efl-package.sh /staging
+  '
 
 for package_stage in DesktopAssets AuzixInstaller AuzixInstallerEfl; do
   docker run --rm \

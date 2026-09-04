@@ -1,0 +1,37 @@
+# Installable alpha technology demo: boot, network, SSH, APK, and diagnostics.
+# Desktop applications remain live-image and post-install repository scope.
+auzix-base-layout
+auzix-busy-box
+auzix-apk-tools
+sudo
+ca-certificates
+openssl
+curl
+file
+procps
+iproute2
+openssh-client
+openssh-server
+openssh-sftp-server
+e2fsprogs
+dosfstools
+parted
+bsdutils
+util-linux
+util-linux-extra
+dbus
+udev
+auzix-au-zi-x-debug-tools
+
+# Headless server/container technology proof.
+containers-common
+conmon
+crun
+netavark
+aardvark-dns
+podman
+buildah
+skopeo
+fuse-overlayfs
+slirp4netns
+iptables

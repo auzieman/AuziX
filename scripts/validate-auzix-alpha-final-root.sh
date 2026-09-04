@@ -12,6 +12,10 @@ path /Programs/Terminology/current
 path /Programs/AuzixInstaller/current
 path /Programs/AuzixInstallerEfl/current
 path /Programs/Midori/current/Commands/midori
+path /Programs/ApkTools/current/Commands/apk
+path /Programs/Sudo/current/Commands/sudo
+path /Programs/Podman/current/Commands/podman
+file /System/Settings/install/apk-installer/10-alpha-minimal.list
 file /System/Compatibility/usr/share/applications/auzix-installer.desktop
 file /System/Compatibility/usr/share/applications/auzix-midori.desktop
 file /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
@@ -44,6 +48,10 @@ run '
   command -v vi >/dev/null
   flatpak remotes --system --columns=name | grep -qx flathub
   id auzix | grep -q "groups=.*sudo"
+  id auzix | grep -q "wheel"
+  sudo -n busybox id | grep -q "uid=0(root)"
+  sudo -n apk --version >/dev/null
+  podman --version >/dev/null
   test "$(readlink /System/Tools/launch-auzix-installer)" = \
     /Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer
   test -x /System/Tools/launch-auzix-terminal

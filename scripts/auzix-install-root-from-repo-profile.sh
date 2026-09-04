@@ -1,28 +1,31 @@
 #!/System/Compatibility/bin/sh
 set -eu
 
-# Build an installed AUZiX root from repository package artifacts and package
-# profile tiers.  This is live-installer runtime code: no compilers, no local
-# source builds, no live-root copy fallback.
+# Build an installed AUZiX root from the signed APK repository and the same
+# ordered package groups used by the pre-HDD image. This is live-installer
+# runtime code: no compilers, local source builds, or live-root copy fallback.
 
 usage() {
   cat <<'USAGE'
 Usage:
-  auzix-install-root-from-repo-profile.sh [--force] [--repo URL] [--profile FILE] /dev/DISK
+  auzix-install-root-from-repo-profile.sh --preflight [--repo URL]
+  auzix-install-root-from-repo-profile.sh --force [--repo URL] [--profile FILE] /dev/DISK
 
-The disk is destructive when --force is present.  Packages are installed from
-repo index metadata into /Work/InstallTarget, with dependencies installed first.
+The disk is destructive when --force is present. Packages are installed into
+/Work/InstallTarget by APK using the ordered alpha package groups.
 USAGE
 }
 
 force=0
-repo_url="${AUZIX_REPO_URL:-http://192.168.1.10/auzix/repo}"
+preflight=0
+repo_url="${AUZIX_REPO_URL:-https://auzix-repo.test:8443}"
 profile="${AUZIX_INSTALL_PROFILE:-/System/Settings/install/auzix-vmid135-clean-workstation.packages}"
 target=""
 link_mode="${AUZIX_LINK_MODE:-strict}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --preflight) preflight=1; shift ;;
     --force) force=1; shift ;;
     --repo) repo_url="${2:-}"; shift 2 ;;
     --repo=*) repo_url="${1#--repo=}"; shift ;;
@@ -39,6 +42,58 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+if [ "${preflight}" = 1 ]; then
+  [ -x /Programs/ApkTools/current/Commands/apk ] || {
+    echo "APK command missing: /Programs/ApkTools/current/Commands/apk" >&2
+    exit 1
+  }
+  [ -d /System/Settings/install/apk-installer ] || {
+    echo "APK group directory missing: /System/Settings/install/apk-installer" >&2
+    exit 1
+  }
+  [ -s /System/Settings/apk/repository-ca.crt ] || {
+    echo "APK repository CA is missing" >&2
+    exit 1
+  }
+  preflight_root=/run/auzix-installer-apk-preflight
+  /Programs/BusyBox/current/Commands/busybox rm -rf "${preflight_root}"
+  /Programs/BusyBox/current/Commands/busybox mkdir -p \
+    "${preflight_root}/etc/apk/keys"
+  /Programs/BusyBox/current/Commands/busybox touch "${preflight_root}/etc/apk/world"
+  for key in /System/Settings/apk/keys/*; do
+    [ -f "${key}" ] || continue
+    /Programs/BusyBox/current/Commands/busybox cp "${key}" \
+      "${preflight_root}/etc/apk/keys/"
+  done
+  package_words=""
+  for group in /System/Settings/install/apk-installer/*.list; do
+    [ -s "${group}" ] || continue
+    package_words="${package_words} $(/Programs/BusyBox/current/Commands/busybox sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "${group}")"
+  done
+  [ -n "${package_words}" ] || {
+    echo "No APK packages were selected by the alpha groups" >&2
+    exit 1
+  }
+  SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt \
+    /Programs/ApkTools/current/Commands/apk add --initdb \
+      --root "${preflight_root}" \
+      --keys-dir /etc/apk/keys \
+      --repository "${repo_url}"
+  SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt \
+    /Programs/ApkTools/current/Commands/apk update \
+      --root "${preflight_root}" \
+      --keys-dir /etc/apk/keys \
+      --repository "${repo_url}"
+  SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt \
+    /Programs/ApkTools/current/Commands/apk add --simulate \
+      --root "${preflight_root}" \
+      --keys-dir /etc/apk/keys \
+      --repository "${repo_url}" ${package_words}
+  /Programs/BusyBox/current/Commands/busybox rm -rf "${preflight_root}"
+  echo "APK_INSTALLER_PREFLIGHT_PASS repository=${repo_url}"
+  exit 0
+fi
+
 [ -n "${target}" ] || target=/dev/sda
 [ "${force}" = 1 ] || {
   echo "Refusing destructive install without --force" >&2
@@ -53,6 +108,8 @@ BB=/Programs/BusyBox/current/Commands/busybox
 [ -x "${BB}" ] || BB=/Programs/BusyBox/1.36.1/Commands/busybox
 JQ="${AUZIX_INSTALL_JQ:-/Programs/AuzixPackageTools/current/Commands/jq}"
 PKG_INSTALL=/System/Tools/auzix-install-package
+APK=/Programs/ApkTools/current/Commands/apk
+APK_GROUP_DIR=/System/Settings/install/apk-installer
 install_plan="${AUZIX_INSTALL_PLAN:-}"
 target_root=/Work/InstallTarget
 log=/System/Logs/installer/package-built-install.log
@@ -77,6 +134,36 @@ install_stage() {
   total="$2"
   shift 2
   log_msg "INSTALL_STAGE step=${step} total=${total} label=$*"
+}
+install_apk_groups() {
+  [ -x "${APK}" ] || fail "APK command missing: ${APK}"
+  [ -d "${APK_GROUP_DIR}" ] || fail "APK group directory missing: ${APK_GROUP_DIR}"
+  "${BB}" mkdir -p \
+    "${target_root}/System/Settings/apk/keys" \
+    "${target_root}/System/Settings"
+  for key in /System/Settings/apk/keys/*; do
+    [ -f "${key}" ] || continue
+    "${BB}" cp "${key}" "${target_root}/System/Settings/apk/keys/"
+  done
+  [ -s /System/Settings/apk/repository-ca.crt ] || fail "APK repository CA is missing"
+  "${BB}" cp /System/Settings/apk/repository-ca.crt \
+    "${target_root}/System/Settings/apk/repository-ca.crt"
+  "${BB}" cp /System/Settings/resolv.conf "${target_root}/System/Settings/resolv.conf" 2>/dev/null || true
+  "${BB}" cp /System/Settings/hosts "${target_root}/System/Settings/hosts" 2>/dev/null || true
+  printf '%s\n' "${repo_url}" >"${target_root}/System/Settings/apk/repositories"
+
+  for group in "${APK_GROUP_DIR}"/*.list; do
+    [ -s "${group}" ] || continue
+    packages="$("${BB}" sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "${group}")"
+    [ -n "${packages}" ] || continue
+    log_msg "APK_GROUP name=$("${BB}" basename "${group}")"
+    SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt \
+      "${APK}" add --initdb --root "${target_root}" \
+        --keys-dir /System/Settings/apk/keys --repository "${repo_url}" \
+        ${packages} >>"${log}" 2>&1 || fail "APK group install failed: ${group}"
+  done
+  [ -s "${target_root}/System/State/apk/db/installed" ] ||
+    fail "APK transaction did not create the target installed database"
 }
 find_cmd() {
   for cmd in "$@"; do
@@ -541,11 +628,12 @@ PARTED="$(find_cmd /Programs/Parted/current/Commands/parted /System/Compatibilit
 MKFS="$(find_cmd /Programs/E2fsprogs/current/Commands/mkfs.ext4 /System/Compatibility/sbin/mkfs.ext4 mkfs.ext4)" || fail "mkfs.ext4 missing"
 
 log_msg "PACKAGE_PROFILE_INSTALL_START target=${target} repo=${repo_url} profile=${profile}"
-install_stage 1 "${INSTALL_TOTAL_STAGES}" "fetching AUZiX package repository index"
-"${BB}" wget -O "${index}.tmp" "${repo_url%/}/index.json"
-"${JQ}" -e '.format == "auzix-repo-v1" and (.packages|type == "array")' "${index}.tmp" >/dev/null || fail "repo index invalid"
-mv "${index}.tmp" "${index}"
-log_msg "repo_packages=$("${JQ}" '.packages|length' "${index}")"
+install_stage 1 "${INSTALL_TOTAL_STAGES}" "validating signed APK repository package groups"
+[ -x "${APK}" ] || fail "APK command missing: ${APK}"
+[ -d "${APK_GROUP_DIR}" ] || fail "APK group directory missing: ${APK_GROUP_DIR}"
+for group in "${APK_GROUP_DIR}"/*.list; do
+  [ -s "${group}" ] || fail "empty APK package group: ${group}"
+done
 
 for mp in "${target_root}/dev/pts" "${target_root}/dev/shm" "${target_root}/dev" "${target_root}/proc" "${target_root}/sys" "${target_root}/Home" "${target_root}/Work" "${target_root}"; do
   "${BB}" umount "${mp}" 2>/dev/null || true
@@ -605,13 +693,12 @@ esac
 ensure_target_package_state >>"${log}" 2>&1 || fail "target package state initialization failed"
 seed_target_provided_state >>"${log}" 2>&1 || fail "bootstrap substrate inventory failed"
 
-install_stage 6 "${INSTALL_TOTAL_STAGES}" "installing base remote profile"
-seed_profile=/System/Settings/install/auzix-tiny-netinstall-remote.packages
-[ -f "${seed_profile}" ] && install_profile "${seed_profile}"
-install_stage 7 "${INSTALL_TOTAL_STAGES}" "installing selected workstation package profile"
-install_profile "${profile}"
-install_stage 8 "${INSTALL_TOTAL_STAGES}" "installing selected package groups"
-install_plan_groups
+install_stage 6 "${INSTALL_TOTAL_STAGES}" "installing ordered APK package groups"
+install_apk_groups
+install_stage 7 "${INSTALL_TOTAL_STAGES}" "recording selected alpha workstation profile"
+log_msg "APK_PROFILE source=${APK_GROUP_DIR} requested=${profile}"
+install_stage 8 "${INSTALL_TOTAL_STAGES}" "verifying APK target package database"
+[ -s "${target_root}/System/State/apk/db/installed" ] || fail "target APK database is absent"
 
 install_stage 9 "${INSTALL_TOTAL_STAGES}" "finalizing AUZiX runtime contract"
 "${BB}" mkdir -p "${target_root}/System/State/install" "${target_root}/boot/grub" "${target_root}/System/Boot"

@@ -14,13 +14,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       ca-certificates \
       curl \
       file \
+      gcc \
       grep \
       conmon \
       crun \
       jq \
+      libefl-all-dev \
       netavark \
       aardvark-dns \
       podman \
+      pkg-config \
+      sudo \
       nginx-light \
       patchelf \
       python3 \

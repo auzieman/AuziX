@@ -24,6 +24,11 @@ if [ -f "${ROOT_DIR}/scripts/auzix-install-root-from-repo-profile.sh" ]; then
     "${AUZIX_ROOT}/System/Tools/auzix-install-root-from-repo-profile"
   chmod 0755 "${AUZIX_ROOT}/System/Tools/auzix-install-root-from-repo-profile"
 fi
+if [ -f "${ROOT_DIR}/profiles/packages/auzix-alpha-installer.apk.list" ]; then
+  mkdir -p "${AUZIX_ROOT}/System/Settings/install/apk-installer"
+  cp "${ROOT_DIR}/profiles/packages/auzix-alpha-installer.apk.list" \
+    "${AUZIX_ROOT}/System/Settings/install/apk-installer/10-alpha-minimal.list"
+fi
 
 chown -R 0:1000 \
   "${AUZIX_ROOT}/System/Logs/installer" \
@@ -270,6 +275,15 @@ mount_runtime() {
   fi
   if [ "$("${BB}" hostname 2>/dev/null || echo "(none)")" = "(none)" ]; then
     "${BB}" hostname auzix-live 2>/dev/null || true
+  fi
+  current_hostname="$("${BB}" hostname 2>/dev/null || echo auzix-live)"
+  if [ -n "${current_hostname}" ] &&
+     ! "${BB}" grep -Eq "^[^#]*[[:space:]]${current_hostname}([[:space:]]|$)" /System/Settings/hosts 2>/dev/null; then
+    printf '127.0.1.1\t%s\n' "${current_hostname}" >>/System/Settings/hosts
+  fi
+  if [ -n "${current_hostname}" ] && [ -f /etc/hosts ] &&
+     ! "${BB}" grep -Eq "^[^#]*[[:space:]]${current_hostname}([[:space:]]|$)" /etc/hosts 2>/dev/null; then
+    printf '127.0.1.1\t%s\n' "${current_hostname}" >>/etc/hosts
   fi
   if [ ! -s /System/Settings/fstab ]; then
     cat > /System/Settings/fstab <<'FSTAB'

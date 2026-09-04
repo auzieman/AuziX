@@ -41,7 +41,7 @@ fi
 TARGET="${1:-/dev/vda}"
 BOOTLOADER="${BOOTLOADER:-grub}"
 RUN_INSTALL="${RUN_INSTALL:-0}"
-REPO_URL="${REPO_URL:-http://192.168.1.10/auzix/repo}"
+REPO_URL="${REPO_URL:-https://auzix-repo.test:8443}"
 INSTALLER="${INSTALLER:-/System/Tools/auzix-install-disk}"
 TARGET_ROOT="${TARGET_ROOT:-/Work/InstallTarget}"
 

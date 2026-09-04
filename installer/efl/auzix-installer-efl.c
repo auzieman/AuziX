@@ -411,8 +411,8 @@ static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
   progress_close(ui);
   progress_open(ui, "Installing AuziX", "Installing the selected profile from the AUZiX package repository.\nProgress streams to /System/Logs/installer/package-built-install.log.\nDo not power off this machine.", EINA_TRUE);
   snprintf(command, sizeof(command),
-           "sudo -n sh -c \"echo $$ >'%s'; AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-install-disk --force --repo '%s' --profile '%s' '%s' >'%s' 2>&1\"",
-           install_pid_path, plan_path, repo_url ? repo_url : "http://192.168.1.10/auzix/repo", profile_path, ui->reviewed_disk, install_log_path);
+           "/System/Compatibility/bin/sudo -n sh -c \"echo $$ >'%s'; AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-install-disk --force --repo '%s' --profile '%s' '%s' >'%s' 2>&1\"",
+           install_pid_path, plan_path, repo_url ? repo_url : "https://auzix-repo.test:8443", profile_path, ui->reviewed_disk, install_log_path);
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
@@ -494,8 +494,9 @@ static void run_preflight_cb(void *data, Evas_Object *obj, void *event_info) {
 
   progress_open(ui, "Running installer preflight", "Checking target disk visibility, ext4 tooling, repository path, and recovery surfaces.\nNo disk changes are made by this preflight.", EINA_TRUE);
   snprintf(command, sizeof(command),
-           "sudo -n sh -c \"mkdir -p /System/Logs/installer && REPO_URL='%s' AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-existing-installer-preflight '%s' >/System/Logs/installer/preflight.log 2>&1\"",
-           repo_url ? repo_url : "http://192.168.1.10/auzix/repo", plan_path, disk);
+           "/System/Compatibility/bin/sudo -n sh -c \"mkdir -p /System/Logs/installer && REPO_URL='%s' AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-existing-installer-preflight '%s' >/System/Logs/installer/preflight.log 2>&1 && /System/Tools/auzix-install-root-from-repo-profile --preflight --repo '%s' >>/System/Logs/installer/preflight.log 2>&1\"",
+           repo_url ? repo_url : "https://auzix-repo.test:8443", plan_path, disk,
+           repo_url ? repo_url : "https://auzix-repo.test:8443");
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {
     progress_close(ui);
@@ -770,7 +771,7 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   ui.repo_url = elm_entry_add(package_outer);
   elm_entry_single_line_set(ui.repo_url, EINA_TRUE);
   elm_object_part_text_set(ui.repo_url, "guide", "Package repository URL");
-  elm_entry_entry_set(ui.repo_url, "http://192.168.1.10/auzix/repo");
+  elm_entry_entry_set(ui.repo_url, "https://auzix-repo.test:8443");
   evas_object_size_hint_weight_set(ui.repo_url, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.repo_url, EVAS_HINT_FILL, 0.5);
   evas_object_size_hint_min_set(ui.repo_url, 620, 42);
