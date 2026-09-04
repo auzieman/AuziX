@@ -171,7 +171,7 @@ cp -an "${work}/anchor-root/System/Compatibility/usr/share/elementary" \
 # anchor may fill genuinely absent host-spine paths, but it must never leave its
 # v1.26 modules ahead of the APK workstation's v1.28 generation.  Overlay the
 # current package-owned trees and remove the stale ABI directories explicitly.
-for module_root in evas ecore_evas edje ecore_imf elementary; do
+for module_root in evas ecore_evas edje ecore_imf elementary emotion efreet; do
   find "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/${module_root}" \
     -type d -name v-1.26 -prune -exec rm -rf {} + 2>/dev/null || true
 done
@@ -194,10 +194,16 @@ overlay_current_program_tree LibecoreImf1 \
 overlay_current_program_tree Libelementary1 \
   usr/lib/x86_64-linux-gnu/elementary \
   "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/elementary"
+overlay_current_program_tree Libemotion1 \
+  usr/lib/x86_64-linux-gnu/emotion \
+  "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/emotion"
+overlay_current_program_tree Libefreet1a \
+  usr/lib/x86_64-linux-gnu/efreet \
+  "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/efreet"
 overlay_current_program_tree Enlightenment \
   usr/lib/x86_64-linux-gnu/enlightenment \
   "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment"
-for module_root in evas ecore_evas edje ecore_imf elementary; do
+for module_root in evas ecore_evas edje ecore_imf elementary emotion efreet; do
   find "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/${module_root}" \
     -type f -name '*.so' -exec chmod 0755 {} +
 done
@@ -451,8 +457,9 @@ test "$(readlink "${OUTPUT_ROOT}/System/Compatibility/lib/x86_64-linux-gnu/libc.
   /Libraries/libc.so.6
 test "$(readlink "${OUTPUT_ROOT}/System/Compatibility/lib/x86_64-linux-gnu/libm.so.6")" = \
   /Libraries/libm.so.6
+enlightenment_current="$(readlink "${OUTPUT_ROOT}/Programs/Enlightenment/current")"
 cmp -s \
-  "${OUTPUT_ROOT}/Programs/Enlightenment/current/RootFS/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system" \
+  "${OUTPUT_ROOT}${enlightenment_current}/RootFS/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system" \
   "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/enlightenment/utils/enlightenment_system"
 test -x \
   "${OUTPUT_ROOT}/System/Compatibility/usr/lib/x86_64-linux-gnu/evas/modules/engines/software_x11/v-1.28/module.so"
