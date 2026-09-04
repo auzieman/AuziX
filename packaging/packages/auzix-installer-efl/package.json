@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AuzixInstallerEfl",
+  "version": "0.1",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/AuzixInstallerEfl-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/AuzixInstallerEfl/${version}"},
+  "payload": {"surfaces": ["/Programs/AuzixInstallerEfl", "/System/Tools/launch-auzix-installer", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["AuzixInstaller", "Enlightenment"]},
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["test -x /System/Tools/launch-auzix-installer"]}
+}

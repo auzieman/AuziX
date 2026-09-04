@@ -5,9 +5,9 @@ flatpak
 gnupg
 curl
 auzix-midori
-desktop-assets
-auzix-installer
-auzix-installer-efl
+auzix-desktop-assets
+auzix-auzix-installer
+auzix-auzix-installer-efl
 abiword
 pluma
 libreoffice-writer
