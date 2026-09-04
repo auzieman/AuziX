@@ -20,6 +20,7 @@ file /System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.
 file /System/Compatibility/usr/share/icons/hicolor/index.theme
 file /System/Compatibility/usr/share/icons/hicolor/128x128/apps/elementary.png
 file /System/Compatibility/usr/share/icons/hicolor/128x128/apps/terminology.png
+file /System/Settings/pki/tls/certs/ca-bundle.crt
 file /System/Settings/X11/xorg.conf.d/40-libinput.conf
 file /System/Compatibility/usr/lib/udev/rules.d/60-input-id.rules
 path /System/Tools/launch-auzix-installer
@@ -40,6 +41,7 @@ run '
   command -v netstat >/dev/null
   command -v tail >/dev/null
   command -v vi >/dev/null
+  flatpak remotes --system --columns=name | grep -qx flathub
   id auzix | grep -q "groups=.*sudo"
   test "$(readlink /System/Tools/launch-auzix-installer)" = \
     /Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer
@@ -53,6 +55,35 @@ run '
     /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
   ! grep -q "^NoDisplay=true$" \
     /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
+'
+
+# Exercise a complete Flatpak transaction without pulling a graphical runtime:
+# export a tiny local application, install it through a temporary remote, and
+# verify that the installed ref is readable.  Flathub transport is checked by
+# the separately seeded production remote.
+run '
+  work=/Work/Temp/flatpak-install-smoke
+  rm -rf "$work"
+  mkdir -p "$work/build/files/bin" "$work/repo"
+  printf "%s\n" "#!/bin/sh" "echo auzix-flatpak-smoke-ok" > \
+    "$work/build/files/bin/auzix-flatpak-smoke"
+  chmod 0755 "$work/build/files/bin/auzix-flatpak-smoke"
+  printf "%s\n" \
+    "[Application]" \
+    "name=com.auzix.FlatpakSmoke" \
+    "runtime=org.freedesktop.Platform/x86_64/1" \
+    "sdk=org.freedesktop.Sdk/x86_64/1" \
+    "command=auzix-flatpak-smoke" >"$work/build/metadata"
+  flatpak build-finish "$work/build" >/dev/null
+  flatpak build-export "$work/repo" "$work/build" stable >/dev/null
+  flatpak remote-add --system --if-not-exists --no-gpg-verify \
+    auzix-validation "file://$work/repo"
+  flatpak install --system --noninteractive --no-deps \
+    auzix-validation com.auzix.FlatpakSmoke >/dev/null
+  flatpak info --system com.auzix.FlatpakSmoke >/dev/null
+  flatpak uninstall --system --noninteractive com.auzix.FlatpakSmoke >/dev/null
+  flatpak remote-delete --system auzix-validation
+  rm -rf "$work"
 '
 
 icon_count="$(find "$root/System/Compatibility/usr/share/icons" -type f 2>/dev/null | wc -l)"

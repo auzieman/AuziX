@@ -102,3 +102,14 @@ After live launcher restoration, Terminology reached window/PTY creation but
 the public node with the conventional `pts/ptmx` symlink removed the PTY error
 and launched Terminology. The boot generator and HDD staging now retain that
 mapping, with validation gates preventing another file-only false pass.
+
+The post-patch suite then passed all 16 original/runtime checks plus a real
+Flatpak transaction. Flatpak initially failed Flathub setup with curl error 77.
+Inspection showed its bundled `libcurl.so.4` was compiled for
+`/etc/pki/tls/certs/ca-bundle.crt`; the CA package source already authors that
+compatibility link, but the installed APK inventory did not retain it. Restoring
+the package-owned PKI link made Flathub remote setup pass. A 183-byte local
+`com.auzix.FlatpakSmoke` application was exported, installed with `--no-deps`,
+queried successfully, and removed again. The validation gate now repeats that
+local transaction without downloading a graphical runtime, while also requiring
+the production Flathub remote.

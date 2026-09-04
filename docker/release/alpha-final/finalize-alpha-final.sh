@@ -11,6 +11,21 @@ $bb mkdir -p \
   /System/Tools \
   /run/sshd
 
+# Retain the CA package's Fedora/RHEL compatibility surface used by the
+# libcurl bundled with Flatpak/OSTree.  The older APK wave retained the Debian
+# bundle but dropped this adjacent package-owned link.
+$bb mkdir -p /System/Settings/pki/tls/certs
+ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+  /System/Settings/pki/tls/certs/ca-bundle.crt
+if test ! -e /etc/pki; then
+  ln -s /System/Settings/pki /etc/pki
+fi
+if test -x /Programs/Flatpak/current/Commands/flatpak; then
+  /Programs/Flatpak/current/Commands/flatpak remote-add --system \
+    --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
 # Publish the current split EFL packages through AUZiX's runtime and
 # compatibility views.  These are factory archives built from one Trixie
 # generation; no older reference-image executable or library is imported.
