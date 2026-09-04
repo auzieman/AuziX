@@ -56,3 +56,27 @@ entries. Remaining defects must loop back to their owning inputs:
 Every accepted repair must be rebuilt through its package/intake owner, fed
 back into the pre-HDD image, and retained by the HDD builder. Live VM changes
 are diagnostic only.
+
+## VM144 boot validation
+
+The r29 artifact was imported without modifying VM143 and booted as VM144:
+
+- VM: `Auzix-Alpha-R29-144`
+- address: `192.168.1.175`
+- APK database: 407 installed packages
+- Xorg and Enlightenment: running
+- `sshd -t`: PASS
+- AbiWord, Midori, and Terminology CLI probes: PASS
+- Enlightenment, Terminology, Midori, installer, LibreOffice Writer, AbiWord,
+  and Flatpak program trees: present
+- target desktop entries: present in both compatibility and public paths
+
+The boot reproduced the three known package/lifecycle exceptions without
+introducing a broad package-set regression: `su` aborts, Writer hangs during
+its CLI probe, and Flatpak has no configured remotes.
+
+One image-provisioning exception was also confirmed: sshd is healthy and the
+machine has an address, but the fresh image contains no authorized-key state,
+so an external root public-key login is denied. Key seeding belongs in the HDD
+provisioning input/hook and must be tested from outside the VM. It must not be
+left as an unrecorded serial-console hotfix.
