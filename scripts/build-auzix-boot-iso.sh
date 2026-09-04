@@ -127,12 +127,24 @@ validate_live_root_ownership() {
 
 ensure_core_runtime_surface() {
   local root="$1"
-  local runtime_dir host_libgcc lib
+  local runtime_dir host_libgcc lib link_target rooted_target
 
-  runtime_dir="${root}/System/Libraries/Runtime/glibc"
+  if [[ -L "${root}/System/Libraries" ]] &&
+     [[ "$(readlink "${root}/System/Libraries")" = /Libraries ]]; then
+    runtime_dir="${root}/Libraries/Runtime/glibc"
+  else
+    runtime_dir="${root}/System/Libraries/Runtime/glibc"
+  fi
   mkdir -p "${runtime_dir}"
 
-  for lib in ld-linux-x86-64.so.2 libc.so.6; do
+  for lib in ld-linux-x86-64.so.2 libc.so.6 libgcc_s.so.1; do
+    if [[ ! -e "${runtime_dir}/${lib}" && -L "${root}/Libraries/${lib}" ]]; then
+      link_target="$(readlink "${root}/Libraries/${lib}")"
+      if [[ "${link_target}" = /* ]]; then
+        rooted_target="${root}${link_target}"
+        [[ ! -e "${rooted_target}" ]] || cp -L "${rooted_target}" "${runtime_dir}/${lib}"
+      fi
+    fi
     if [[ ! -e "${runtime_dir}/${lib}" && -e "${root}/System/Compatibility/lib64/${lib}" ]]; then
       cp -a "${root}/System/Compatibility/lib64/${lib}" "${runtime_dir}/${lib}"
     fi
