@@ -400,8 +400,20 @@ done
 mkdir -p "${OUTPUT_ROOT}/System/Compatibility/lib64" \
   "${OUTPUT_ROOT}/System/Compatibility/lib/x86_64-linux-gnu"
 for runtime_name in ld-linux-x86-64.so.2 libc.so.6 libm.so.6; do
-  test -e "${OUTPUT_ROOT}/Libraries/${runtime_name}" ||
-    fail "active Libc6 runtime is absent: /Libraries/${runtime_name}"
+  runtime_path="${OUTPUT_ROOT}/Libraries/${runtime_name}"
+  if [[ -L "${runtime_path}" ]]; then
+    runtime_target="$(readlink "${runtime_path}")"
+    if [[ "${runtime_target}" = /* ]]; then
+      test -e "${OUTPUT_ROOT}${runtime_target}" ||
+        fail "active Libc6 runtime target is absent: ${runtime_target}"
+    else
+      test -e "$(dirname "${runtime_path}")/${runtime_target}" ||
+        fail "active Libc6 runtime target is absent: ${runtime_target}"
+    fi
+  else
+    test -e "${runtime_path}" ||
+      fail "active Libc6 runtime is absent: /Libraries/${runtime_name}"
+  fi
 done
 ln -sfn /Libraries/ld-linux-x86-64.so.2 \
   "${OUTPUT_ROOT}/System/Compatibility/lib64/ld-linux-x86-64.so.2"
