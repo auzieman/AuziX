@@ -27,16 +27,21 @@ docker run --rm "$BASE_IMAGE" /Programs/BusyBox/current/Commands/busybox sh -c \
   'for path in /Programs/*; do echo "${path##*/}"; done' |
   sort -u >"$WORK/base-programs.txt"
 
-required_repair_entries=(
-  HicolorIconTheme Udev XserverXorgInputLibinput
-  Libeina1t64 Libecore1 LibecoreAudio1 LibecoreBin LibecoreCon1t64
-  LibecoreDrm21 LibecoreEvas1 LibecoreFb1 LibecoreFile1 LibecoreImf1
-  LibecoreInput1 LibecoreIpc1 LibecoreWl21 LibecoreX1 Libedje1
-  LibedjeBin Libefreet1a LibefreetBin Libeio1 Libelementary1
-  LibelementaryData Libembryo1 LibembryoBin Libemotion1 Libethumb1
-  LibethumbClient1 LibethumbClientBin Libevas1 Libevas1EnginesDrm
-  Libevas1EnginesWayland Libevas1EnginesX Enlightenment
-)
+if [[ -n "${AUZIX_ALPHA_FINAL_REQUIRED_ENTRIES:-}" ]]; then
+  read -r -a required_repair_entries <<<"${AUZIX_ALPHA_FINAL_REQUIRED_ENTRIES}"
+else
+  required_repair_entries=(
+    HicolorIconTheme Udev XserverXorgInputLibinput
+    Libeina1t64 Libecore1 LibecoreAudio1 LibecoreBin LibecoreCon1t64
+    LibecoreDrm21 LibecoreEvas1 LibecoreFb1 LibecoreFile1 LibecoreImf1
+    LibecoreInput1 LibecoreIpc1 LibecoreWl21 LibecoreX1 Libedje1
+    LibedjeBin Libefreet1a LibefreetBin Libeio1 Libelementary1
+    LibelementaryData Libembryo1 LibembryoBin Libemotion1 Libethumb1
+    LibethumbClient1 LibethumbClientBin Libevas1 Libevas1EnginesDrm
+    Libevas1EnginesWayland Libevas1EnginesX Enlightenment
+  )
+fi
+[[ "${#required_repair_entries[@]}" -gt 0 ]] || fail "required repair entry set is empty"
 
 for entry in "${required_repair_entries[@]}"; do
   archive="$(find "$SPOOL/packages" -maxdepth 1 -type f \
