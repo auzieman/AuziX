@@ -259,6 +259,10 @@ mkdir -p /usr/local/lib/python3.13
             package_json, scripts = promote_auzix_package(root, receipt_path, intake, None)
             self.assertEqual(scripts, [])
             self.assertEqual(package_json["lifecycle"]["after_install"], None)
+            self.assertEqual(
+                (root / "Programs/Example/current").readlink(),
+                Path("/Programs/Example/1"),
+            )
             self.assertFalse((package_root / "Metadata/debian-control-dir").exists())
             self.assertFalse((package_root / "Metadata/debian-control.txt").exists())
             promoted_receipt = json.loads(receipt_path.read_text())
@@ -348,7 +352,7 @@ mkdir -p /usr/local/lib/python3.13
             owned = root / "Libraries/Packages/Example/1/libexample.so.1"
             public = root / "Libraries/libexample.so.1"
             self.assertTrue(owned.is_file())
-            self.assertEqual(public.readlink(), Path("/Libraries/Packages/Example/1/libexample.so.1"))
+            self.assertEqual(public.readlink(), Path("Packages/Example/1/libexample.so.1"))
             self.assertEqual(package_json["libraries"]["public"], ["/Libraries/libexample.so.1"])
 
     def test_python_cleanup_drops_dpkg_database_fallback(self):
@@ -642,7 +646,7 @@ update-alternatives --install /usr/lib/x86_64-linux-gnu/libblas.so.3 \\
             receipt.write_text(json.dumps(receipt_data))
             promote_auzix_package(root, receipt, result, None)
             public = root / "Libraries/libblas.so.3"
-            self.assertEqual(public.readlink(), Path("/Programs/Blas/1/RootFS/usr/lib/x86_64-linux-gnu/blas/libblas.so.3"))
+            self.assertEqual(public.readlink(), Path("../Programs/Blas/1/RootFS/usr/lib/x86_64-linux-gnu/blas/libblas.so.3"))
             self.assertTrue(provider.is_file())
 
     def test_alternative_command_uses_highest_package_priority(self):
@@ -935,7 +939,7 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
             self.assertTrue((root / "Libraries/ld-linux-x86-64.so.2").is_symlink())
             self.assertEqual(
                 (root / "System/Compatibility/lib64/ld-linux-x86-64.so.2").readlink(),
-                Path("/Libraries/ld-linux-x86-64.so.2"),
+                Path("../../../Libraries/ld-linux-x86-64.so.2"),
             )
             self.assertEqual(len(package_json["libraries"]["compatibility_links"]), 1)
 

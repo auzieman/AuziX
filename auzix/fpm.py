@@ -89,11 +89,13 @@ def emit_apk(package: dict[str, Any], staged_root: Path, output_dir: Path, *, dr
     validate_staged_payload(package, staged_root)
     dependencies, lifecycle = receipt_fpm_metadata(package, staged_root)
     output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{apk_name(package['name'])}-{apk_version(package['version'])}.apk"
     argv = [
         "fpm", "-s", "dir", "-t", "apk",
         "--name", apk_name(package["name"]),
         "--version", apk_version(package["version"]),
-        "--package", str(output_dir),
+        "--architecture", "x86_64",
+        "--package", str(output_path),
         "--chdir", str(staged_root),
     ]
     for dependency in dependencies:

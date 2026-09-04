@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -900,13 +901,21 @@ def normalize_lifecycle(
                 "stages": [],
                 "outputs": [item["public"] for item in direct_publications],
             }
-        compatibility_links = list(adapter.get("compatibility_links", []))
+        compatibility_links = [
+            {
+                **item,
+                "target": item.get("target", "")
+                .replace("@PACKAGE_ROOT@", prefix)
+                .replace("@VERSION@", str(receipt.get("version"))),
+            }
+            for item in adapter.get("compatibility_links", [])
+        ]
         if not all(
             isinstance(item, dict)
             and isinstance(item.get("path"), str)
             and item["path"].startswith("/System/Compatibility/")
             and isinstance(item.get("target"), str)
-            and item["target"].startswith("/Libraries/")
+            and item["target"].startswith(("/Libraries/", "/Programs/"))
             for item in compatibility_links
         ):
             raise ContractError("lifecycle adapter compatibility_links are invalid")
@@ -1086,6 +1095,16 @@ def promote_auzix_package(
     native_dir = package_root / "Package"
     scripts_dir = native_dir / "Scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
+    # AUZiX programs are always addressable through a stable current link.
+    # Some legacy archives predate that invariant and contain only their
+    # versioned prefix. Publish it in the package payload so APK owns the link;
+    # activation and Docker assembly must never repair it afterward.
+    program_parts = Path(prefix).parts
+    if len(program_parts) >= 4 and program_parts[1] == "Programs":
+        program_dir = stage / "Programs" / program_parts[2]
+        current = program_dir / "current"
+        if not (current.exists() or current.is_symlink()):
+            current.symlink_to(prefix)
     for publication in intake.get("library_publications", []):
         source = stage / publication["source"].lstrip("/")
         public = stage / publication["public"].lstrip("/")
@@ -1099,7 +1118,7 @@ def promote_auzix_package(
                 f"{receipt.get('name')}: public library destination already exists: {publication}"
             )
         if publication.get("mode") == "provider-link":
-            public.symlink_to(publication["source"])
+            public.symlink_to(os.path.relpath(source, public.parent))
         else:
             owned = stage / publication["owned"].lstrip("/")
             owned.parent.mkdir(parents=True, exist_ok=True)
@@ -1108,7 +1127,10 @@ def promote_auzix_package(
                     f"{receipt.get('name')}: owned library destination already exists: {publication}"
                 )
             shutil.move(str(source), str(owned))
-            public.symlink_to(publication["owned"])
+            # APK's tar payload may truncate absolute link targets at 100
+            # bytes. A relative link from /Libraries is shorter and remains
+            # relocatable while resolving to the same package-owned object.
+            public.symlink_to(os.path.relpath(owned, public.parent))
     for link in intake.get("compatibility_links", []):
         destination = stage / link["path"].lstrip("/")
         target = stage / link["target"].lstrip("/")
@@ -1121,7 +1143,7 @@ def promote_auzix_package(
             raise ContractError(
                 f"{receipt.get('name')}: compatibility link destination exists: {link}"
             )
-        destination.symlink_to(link["target"])
+        destination.symlink_to(os.path.relpath(target, destination.parent))
     for protected_path in intake.get("configuration", []):
         settings_prefix = "${AUZIX_SETTINGS}/"
         if not protected_path.startswith(settings_prefix):

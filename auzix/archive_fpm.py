@@ -220,11 +220,17 @@ def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]
             package_definition = _with_automatic_library_publication(
                 record, package_definition
             )
-        dependencies = list(dependency_additions.get(name, []))
+        # The intake receipt owns the direct Debian dependency graph.  Package
+        # definitions and release profiles may add AUZiX-specific providers,
+        # but must not erase those upstream edges during APK conversion.
+        dependencies = [
+            *record.get("depends", []),
+            *dependency_additions.get(name, []),
+        ]
         if package_definition is not None:
             dependencies = [
-                *package_definition.get("dependencies", {}).get("runtime", []),
                 *dependencies,
+                *package_definition.get("dependencies", {}).get("runtime", []),
             ]
         dependencies = list(dict.fromkeys(dependencies))
         apk_dependencies = []
