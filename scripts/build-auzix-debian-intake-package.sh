@@ -361,7 +361,7 @@ libreoffice_mode_for_command() {
   log "AuziX root is missing: ${AUZIX_ROOT}"
   exit 1
 }
-for command_name in apt-get dpkg-deb jq rsync; do
+for command_name in apt-get dpkg-deb jq python3 rsync; do
   command -v "${command_name}" >/dev/null 2>&1 || {
     log "missing command: ${command_name}"
     exit 1
@@ -418,6 +418,28 @@ if [[ "${native_name}" == LibreOffice* && "${native_name}" != "LibreOfficeCore" 
       native_depends_words="$(tr ' ' '\n' <<<"${native_depends_words} LibreOfficeCore ${core_depends_words}" | awk 'NF && !seen[$0]++' | paste -sd' ' -)"
       native_depends_json="$(tr ' ' '\n' <<<"${native_depends_words}" | jq -R -s 'split("\n") | map(select(length > 0))')"
     fi
+  fi
+fi
+# AUZiX package definitions may add runtime providers that are not expressed by
+# the donor package metadata.  Merge those edges before wrapper generation so
+# launchers and receipts agree with the APK dependency graph.
+package_definition="${ROOT_DIR}/packaging/packages/${package_name}/package.json"
+if [[ -s "${package_definition}" ]] &&
+  jq -e --arg name "${native_name}" '.format == "auzix-package-v1" and .name == $name' \
+    "${package_definition}" >/dev/null; then
+  declared_runtime_words="$(
+    jq -r '.dependencies.runtime[]? // empty' "${package_definition}" | paste -sd' ' -
+  )"
+  if [[ -n "${declared_runtime_words}" ]]; then
+    native_depends_words="$(
+      tr ' ' '\n' <<<"${native_depends_words} ${declared_runtime_words}" |
+        awk 'NF && !seen[$0]++' |
+        paste -sd' ' -
+    )"
+    native_depends_json="$(
+      tr ' ' '\n' <<<"${native_depends_words}" |
+        jq -R -s 'split("\n") | map(select(length > 0))'
+    )"
   fi
 fi
 # Preserve the direct package edges before expanding the installed dependency
@@ -757,6 +779,14 @@ for candidate_loader in \
 done
 user_installation_arg=""
 case "${libreoffice_mode}" in
+  --writer)
+    user_installation_arg="-env:UserInstallation=file://\${XDG_CONFIG_HOME}/libreoffice-writer"
+    exec "\${program}/swriter" "\${user_installation_arg}" "\$@"
+    ;;
+  --calc)
+    user_installation_arg="-env:UserInstallation=file://\${XDG_CONFIG_HOME}/libreoffice-calc"
+    exec "\${program}/scalc" "\${user_installation_arg}" "\$@"
+    ;;
   --impress)
     user_installation_arg="-env:UserInstallation=file://\${XDG_CONFIG_HOME}/libreoffice-impress"
     exec "\${program}/simpress" "\${user_installation_arg}" "\$@"
@@ -781,6 +811,12 @@ exec "${rootfs}/'"${rel_command}"'" "$@"'
         command_loader_tail='exec /Programs/Python313Minimal/current/Commands/python3.13 "${rootfs}/'"${rel_command}"'" "$@"'
       fi
     fi
+    inherited_path_suffix='${PATH:+:${PATH}}'
+    if [[ "${native_name}" == "Adduser" ]]; then
+      # Debian adduser executes under Perl taint mode. Inheriting an arbitrary
+      # caller PATH makes its logging helpers reject the environment.
+      inherited_path_suffix=''
+    fi
     cat >"${program_root}/Commands/${command_base}" <<EOF
 #!/Programs/BusyBox/current/Commands/busybox sh
 set -eu
@@ -793,6 +829,7 @@ runtime_schema_path=""
 runtime_gi_path=""
 runtime_lib_path=""
 runtime_python_path=""
+runtime_perl_path=""
 compat_lib_path=""
 runtime_loader=""
 append_existing_path() {
@@ -826,6 +863,8 @@ for runtime_package in \${runtime_packages}; do
   append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3/dist-packages"
   append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3.13"
   append_existing_path runtime_python_path "\${runtime_root}/usr/lib/python3.13/lib-dynload"
+  append_existing_path runtime_perl_path "\${runtime_root}/usr/lib/x86_64-linux-gnu/perl-base"
+  append_existing_path runtime_perl_path "\${runtime_root}/usr/share/perl5"
   append_existing_path runtime_lib_path "\${runtime_root}/usr/lib/x86_64-linux-gnu"
   append_existing_path runtime_lib_path "\${runtime_root}/usr/lib"
   append_existing_path runtime_lib_path "\${runtime_root}/lib/x86_64-linux-gnu"
@@ -837,6 +876,7 @@ own_schema_path=""
 own_gi_path=""
 own_lib_path=""
 own_python_path=""
+own_perl_path=""
 append_existing_path own_bin_path "\${prefix}/Commands"
 append_existing_path own_bin_path "\${rootfs}/usr/bin"
 append_existing_path own_bin_path "\${rootfs}/usr/sbin"
@@ -849,6 +889,8 @@ append_existing_path own_gi_path "\${rootfs}/usr/lib/girepository-1.0"
 append_existing_path own_python_path "\${rootfs}/usr/lib/python3/dist-packages"
 append_existing_path own_python_path "\${rootfs}/usr/lib/python3.13"
 append_existing_path own_python_path "\${rootfs}/usr/lib/python3.13/lib-dynload"
+append_existing_path own_perl_path "\${rootfs}/usr/lib/x86_64-linux-gnu/perl-base"
+append_existing_path own_perl_path "\${rootfs}/usr/share/perl5"
 append_existing_path own_lib_path "\${prefix}/Libraries"
 append_existing_path own_lib_path "\${rootfs}/usr/lib/x86_64-linux-gnu"
 append_existing_path own_lib_path "\${rootfs}/usr/lib"
@@ -871,7 +913,7 @@ if [ -z "\${runtime_loader}" ]; then
     fi
   done
 fi
-export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin\${PATH:+:\${PATH}}"
+export PATH="\${own_bin_path}\${runtime_bin_path:+:\${runtime_bin_path}}:/Programs/BusyBox/current/Commands:/System/Compatibility/bin:/System/Compatibility/usr/bin:/System/Compatibility/sbin:/System/Compatibility/usr/sbin${inherited_path_suffix}"
 export XDG_DATA_DIRS="\${own_data_path}\${runtime_data_path:+:\${runtime_data_path}}:/System/Compatibility/usr/share\${XDG_DATA_DIRS:+:\${XDG_DATA_DIRS}}"
 export GSETTINGS_SCHEMA_DIR="\${own_schema_path}\${runtime_schema_path:+:\${runtime_schema_path}}\${GSETTINGS_SCHEMA_DIR:+:\${GSETTINGS_SCHEMA_DIR}}"
 export GI_TYPELIB_PATH="\${own_gi_path}\${runtime_gi_path:+:\${runtime_gi_path}}\${GI_TYPELIB_PATH:+:\${GI_TYPELIB_PATH}}"
@@ -893,6 +935,9 @@ export SSL_CERT_DIR="\${SSL_CERT_DIR:-/System/Compatibility/etc/ssl/certs}"
 export SSL_CERT_FILE="\${SSL_CERT_FILE:-/System/Compatibility/etc/ssl/certs/ca-certificates.crt}"
 export CURL_CA_BUNDLE="\${CURL_CA_BUNDLE:-\${SSL_CERT_FILE}}"
 export REQUESTS_CA_BUNDLE="\${REQUESTS_CA_BUNDLE:-\${SSL_CERT_FILE}}"
+if [ -n "\${own_perl_path}" ] || [ -n "\${runtime_perl_path}" ]; then
+  export PERL5LIB="\${own_perl_path}\${runtime_perl_path:+:\${runtime_perl_path}}\${PERL5LIB:+:\${PERL5LIB}}"
+fi
 if [ -d /Programs/Libpython313Minimal/current/RootFS/usr/lib/python3.13 ]; then
   export PYTHONHOME="\${PYTHONHOME:-/Programs/Libpython313Minimal/current/RootFS/usr}"
   python_path="\${own_python_path}\${runtime_python_path:+:\${runtime_python_path}}:/Programs/Libpython313Minimal/current/RootFS/usr/lib/python3.13"
@@ -950,7 +995,13 @@ while IFS= read -r rel_desktop; do
   desktop_base="$(basename "${rel_desktop}")"
   command_name_allowed "${desktop_base}" || continue
   desktop_target="${AUZIX_ROOT}/System/Compatibility/usr/share/applications/auzix-${native_name}-${desktop_base}"
-  desktop_exec_name="$(jq -r '.[0] // empty | split("/")[-1]' <<<"${commands_json}")"
+  case "${native_name}" in
+    LibreOfficeWriter) desktop_exec_name=lowriter ;;
+    LibreOfficeCalc) desktop_exec_name=localc ;;
+    LibreOfficeImpress) desktop_exec_name=loimpress ;;
+    LibreOfficeDraw) desktop_exec_name=lodraw ;;
+    *) desktop_exec_name="$(jq -r '.[0] // empty | split("/")[-1]' <<<"${commands_json}")" ;;
+  esac
   if [[ -z "${desktop_exec_name}" ]]; then
     desktop_exec_name="${desktop_base%.desktop}"
   fi
@@ -959,7 +1010,8 @@ while IFS= read -r rel_desktop; do
     -e "s#^(TryExec=)([^[:space:]/]+).*#\\1${desktop_exec_target}#" \
     -e "s#^(Exec=)([^[:space:]/]+)(.*)#\\1${desktop_exec_target}\\3#" \
     "${program_root}/RootFS/${rel_desktop}" >"${desktop_target}"
-  if [[ "${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}" != "1" ]]; then
+  if [[ "${AUZIX_PUBLISH_UNVALIDATED_DESKTOP_ENTRIES:-0}" != "1" ]] &&
+     [[ "${native_name}" != LibreOffice* ]]; then
     if grep -q '^NoDisplay=' "${desktop_target}"; then
       sed -i -E 's/^NoDisplay=.*/NoDisplay=true/' "${desktop_target}"
     else

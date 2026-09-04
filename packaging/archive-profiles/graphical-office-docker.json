@@ -2,6 +2,10 @@
   "format": "auzix-archive-profile-v1",
   "name": "graphical-office-docker",
   "receipt_policy": {"dependencies":"auzix-package-json","lifecycle":"intake-normalize-v1","continue_on_error":true},
+  "external_providers": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
   "packages": [
     "Xorg",
     "AbiWord",

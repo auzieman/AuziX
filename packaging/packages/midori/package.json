@@ -1,0 +1,21 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Midori",
+  "version": "11.8",
+  "source": {"kind": "native-auzix", "receipt_glob": "System/PackageDB/Midori-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Midori/${version}"},
+  "payload": {
+    "surfaces": [
+      "/Programs/Midori",
+      "/System/Compatibility/bin/midori",
+      "/System/Compatibility/usr/bin/midori",
+      "/System/Compatibility/usr/share/applications/auzix-midori.desktop",
+      "/System/Compatibility/usr/share/pixmaps/midori.png",
+      "/System/Settings/browser",
+      "/System/PackageDB"
+    ]
+  },
+  "dependencies": {"runtime": []},
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["midori --version"]}
+}

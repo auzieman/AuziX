@@ -1,0 +1,17 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AUZiXDebugTools",
+  "version": "1.0.0",
+  "source": {
+    "kind": "native-auzix",
+    "legacy_entrypoint": "scripts/stage-auzix-debug-tools.sh",
+    "producer_argv": ["scripts/stage-auzix-debug-tools.sh", "${staging_root}"],
+    "receipt_glob": "System/PackageDB/AUZiXDebugTools-*.json"
+  },
+  "layout": {"domain": "program", "prefix": "/Programs/AUZiXDebugTools/${version}"},
+  "payload": {"surfaces": ["/Programs/AUZiXDebugTools", "/System/Compatibility/bin/ldd", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["RuntimeGlibc", "BusyBox"]},
+  "fragments": ["validation-era.debug-spine"],
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["ldd /Programs/BusyBox/current/Commands/busybox"]}
+}

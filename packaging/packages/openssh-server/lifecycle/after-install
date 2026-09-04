@@ -3,16 +3,20 @@ set -eu
 
 settings=${AUZIX_SETTINGS:-/System/Settings}
 state=${AUZIX_STATE:-/System/State}
-run=${AUZIX_RUN:-/System/Run}
+run=${AUZIX_RUN:-/run}
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
 
 mkdir -p "$settings/ssh/sshd_config.d" "$state/ssh" "$run/sshd" /Services/ssh
+mkdir -p /System/Compatibility/usr/lib
+ln -sfn "$package_root/RootFS/usr/lib/openssh" \
+  /System/Compatibility/usr/lib/openssh
 chmod 0700 "$state/ssh"
 chmod 0755 "$run/sshd"
 chown 0:0 "$state/ssh" "$run/sshd"
 
 touch "$settings/passwd" "$settings/group" "$settings/shadow"
 grep -q '^sshd:' "$settings/group" || printf '%s\n' 'sshd:x:74:' >>"$settings/group"
-grep -q '^sshd:' "$settings/passwd" || printf '%s\n' 'sshd:x:74:74:sshd user:/System/Run/sshd:/sbin/nologin' >>"$settings/passwd"
+grep -q '^sshd:' "$settings/passwd" || printf '%s\n' 'sshd:x:74:74:sshd user:/run/sshd:/sbin/nologin' >>"$settings/passwd"
 grep -q '^sshd:' "$settings/shadow" || printf '%s\n' 'sshd:!:0:0:99999:7:::' >>"$settings/shadow"
 chmod 0644 "$settings/passwd" "$settings/group"
 chmod 0600 "$settings/shadow"
@@ -24,7 +28,7 @@ ListenAddress 0.0.0.0
 HostKey /System/State/ssh/ssh_host_rsa_key
 HostKey /System/State/ssh/ssh_host_ecdsa_key
 HostKey /System/State/ssh/ssh_host_ed25519_key
-PidFile /System/Run/sshd.pid
+PidFile /run/sshd.pid
 AuthorizedKeysFile .ssh/authorized_keys
 PermitRootLogin prohibit-password
 PasswordAuthentication no
@@ -54,8 +58,8 @@ chmod 0644 "$state"/ssh/ssh_host_*_key.pub
 cat >/Services/ssh/run <<'EOF'
 #!/System/Compatibility/bin/sh
 set -eu
-mkdir -p /System/Run/sshd /System/Logs/ssh
-chmod 0755 /System/Run/sshd
+mkdir -p /run/sshd /System/Logs/ssh
+chmod 0755 /run/sshd
 exec @PACKAGE_ROOT@/Commands/sshd -D -e -f /System/Settings/ssh/sshd_config
 EOF
 chmod 0755 /Services/ssh/run

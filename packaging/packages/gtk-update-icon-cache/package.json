@@ -1,0 +1,20 @@
+{
+  "format": "auzix-package-v1",
+  "name": "GTKUpdateIconCache",
+  "version": "4.18.6+ds-2",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/GTKUpdateIconCache-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/GTKUpdateIconCache/${version}"},
+  "payload": {"surfaces": ["/Programs/GTKUpdateIconCache", "/System/Compatibility/bin"]},
+  "dependencies": {"runtime": ["RuntimeGlibc"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/gtk-update-icon-cache/lifecycle",
+    "configuration": [],
+    "scripts": {},
+    "operations": [
+      {"type": "discard-donor-migration", "protocol": "dpkg-divert", "reason": "AUZiX has no competing GTK2 diversion"}
+    ],
+    "retained_state": []
+  },
+  "validation": {"commands": ["gtk4-update-icon-cache --help"]}
+}

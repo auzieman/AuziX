@@ -1,6 +1,0 @@
-#!/bin/sh
-set -eu
-
-rm -f /Services/glances/run
-rmdir /Services/glances 2>/dev/null || true
-# Configuration, service data, and its stable system identity are retained.

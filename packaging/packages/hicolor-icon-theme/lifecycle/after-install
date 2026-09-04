@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+source=${package_root}/RootFS/usr/share/icons/hicolor
+destination=/System/Compatibility/usr/share/icons/hicolor
+mkdir -p "$destination"
+cp -a "$source"/. "$destination"/
+gtk4-update-icon-cache -f "$destination"

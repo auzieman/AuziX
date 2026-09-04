@@ -3,29 +3,24 @@
   "name": "Glances",
   "version": "4.3.1+dfsg-1",
   "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/Glances-*.auzix.json"},
-  "layout": {"domain": "service", "prefix": "/Programs/Glances/${version}"},
+  "layout": {"domain": "application", "prefix": "/Programs/Glances/${version}"},
   "payload": {"surfaces": ["/Programs/Glances", "/System/Compatibility", "/System/PackageDB"]},
   "dependencies": {"runtime": ["Python3", "Python3Orjson", "Python3Fastapi", "Python3Defusedxml", "Python3Packaging", "Python3Psutil"]},
   "intake_adapter": {
     "format": "auzix-lifecycle-adapter-v1",
     "template_dir": "packaging/packages/glances/lifecycle",
-    "configuration": ["${AUZIX_SETTINGS}/glances/glances.conf"],
-    "scripts": {"after_install": "after-install", "after_remove": "after-remove"},
+    "configuration": [],
+    "scripts": {},
     "operations": [
-      {"type": "ensure-system-account", "name": "glances", "uid": 76, "gid": 76, "home": "${AUZIX_STATE}/glances", "shell": "/sbin/nologin"},
-      {"type": "ensure-directory", "path": "${AUZIX_STATE}/glances", "mode": "0750", "owner": "76:76"},
-      {"type": "ensure-directory", "path": "${AUZIX_RUN}/glances", "mode": "0755", "owner": "76:76"},
-      {"type": "install-service-runner", "path": "/Services/glances/run"},
-      {"type": "defer-python-bytecode-cache", "policy": "runtime-generated"},
-      {"type": "remove-obsolete-conffile", "path": "${AUZIX_SETTINGS}/default/glances", "prior_version": "2.11.1-3"}
+      {"type": "defer-python-bytecode-cache", "policy": "runtime-generated"}
     ],
-    "retained_state": ["${AUZIX_SETTINGS}/glances/glances.conf", "${AUZIX_STATE}/glances", "system-account:glances"]
+    "retained_state": []
   },
   "lifecycle": {
     "before_install": null,
-    "after_install": "/Programs/Glances/${version}/Package/Scripts/after-install",
+    "after_install": null,
     "before_remove": null,
-    "after_remove": "/Programs/Glances/${version}/Package/Scripts/after-remove"
+    "after_remove": null
   },
   "validation": {"commands": ["glances --version"]}
 }

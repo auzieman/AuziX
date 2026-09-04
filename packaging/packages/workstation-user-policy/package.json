@@ -1,0 +1,16 @@
+{
+  "format": "auzix-package-v1",
+  "name": "WorkstationUserPolicy",
+  "version": "1.0.0",
+  "source": {"kind": "native-auzix", "receipt_glob": "System/PackageDB/WorkstationUserPolicy-*.json"},
+  "layout": {"domain": "configuration", "prefix": "/Programs/WorkstationUserPolicy/${version}"},
+  "payload": {"surfaces": ["/Programs/WorkstationUserPolicy", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["BusyBox"]},
+  "lifecycle": {
+    "before_install": null,
+    "after_install": "/Programs/WorkstationUserPolicy/${version}/Package/Scripts/after-install",
+    "before_remove": null,
+    "after_remove": null
+  },
+  "validation": {"commands": ["id auzix"]}
+}

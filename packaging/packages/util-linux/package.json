@@ -6,5 +6,30 @@
   "layout": {"domain": "program", "prefix": "/Programs/UtilLinux/${version}"},
   "dependencies": {"runtime": ["RuntimeGlibc"], "provides": ["block-tools", "mount-tools"]},
   "fragments": ["program.versioned-prefix", "commands.publish", "storage.commands"],
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/util-linux/lifecycle",
+    "configuration": [
+      "${AUZIX_SETTINGS}/pam.d/runuser",
+      "${AUZIX_SETTINGS}/pam.d/runuser-l",
+      "${AUZIX_SETTINGS}/pam.d/su",
+      "${AUZIX_SETTINGS}/pam.d/su-l"
+    ],
+    "scripts": {},
+    "operations": [
+      {
+        "type": "donor-service-scaffold",
+        "service": "fstrim",
+        "disposition": "deferred-to-auzix-service-activation"
+      },
+      {
+        "type": "donor-command-alternative",
+        "command": "more",
+        "alternative": "pager",
+        "disposition": "replaced-by-auzix-command-publication"
+      }
+    ]
+  },
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
   "validation": {"commands": ["lsblk --version", "blkid -V", "mount --version"]}
 }

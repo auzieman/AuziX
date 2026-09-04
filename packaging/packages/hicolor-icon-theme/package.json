@@ -1,0 +1,21 @@
+{
+  "format": "auzix-package-v1",
+  "name": "HicolorIconTheme",
+  "version": "0.18-2",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/HicolorIconTheme-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/HicolorIconTheme/${version}"},
+  "payload": {"surfaces": ["/Programs/HicolorIconTheme", "/System/Compatibility/usr/share/icons/hicolor"]},
+  "dependencies": {"runtime": ["GTKUpdateIconCache", "LibgdkPixbuf200"]},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/hicolor-icon-theme/lifecycle",
+    "configuration": [],
+    "scripts": {"after_install": "after-install", "before_remove": "before-remove"},
+    "operations": [
+      {"type": "publish-shared-data", "source": "${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/icons/hicolor", "destination": "/System/Compatibility/usr/share/icons/hicolor"},
+      {"type": "generate-cache", "command": "gtk4-update-icon-cache", "path": "/System/Compatibility/usr/share/icons/hicolor"}
+    ],
+    "retained_state": []
+  },
+  "validation": {"commands": ["test -s /System/Compatibility/usr/share/icons/hicolor/icon-theme.cache"]}
+}

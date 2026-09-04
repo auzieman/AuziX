@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+package_root=${AUZIX_PACKAGE_ROOT:-@PACKAGE_ROOT@}
+source=${package_root}/RootFS/usr/share/mime
+destination=/System/Compatibility/usr/share/mime
+mkdir -p "$destination"
+cp -a "$source"/. "$destination"/
+"${package_root}/Commands/update-mime-database" "$destination"

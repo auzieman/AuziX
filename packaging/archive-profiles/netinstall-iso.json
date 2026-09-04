@@ -6,6 +6,10 @@
     "Htop": ["NcursesBase"],
     "Glances": ["NcursesBase"]
   },
+  "external_providers": {
+    "RuntimeGlibc": "auzix-runtime-glibc",
+    "LibgccS1": "auzix-libgcc-s1"
+  },
   "packages": [
     "Busybox",
     "Iproute2",

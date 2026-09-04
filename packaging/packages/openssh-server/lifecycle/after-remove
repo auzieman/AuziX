@@ -2,5 +2,6 @@
 set -eu
 
 rm -f /Services/ssh/run
+rm -f /System/Compatibility/usr/lib/openssh
 rmdir /Services/ssh 2>/dev/null || true
 # Configuration, host keys, and the locked sshd identity are persistent state.

@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "AUZiXPythonFrontDoors",
+  "version": "1.0.0",
+  "source": {"kind": "native-auzix", "receipt_glob": "System/PackageDB/AUZiXPythonFrontDoors-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/AUZiXPythonFrontDoors/${version}"},
+  "payload": {"surfaces": ["/Programs/AUZiXPythonFrontDoors", "/System/Compatibility/bin/python", "/System/Compatibility/bin/python3", "/System/PackageDB"]},
+  "dependencies": {"runtime": []},
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["python --version", "python3 --version"]}
+}

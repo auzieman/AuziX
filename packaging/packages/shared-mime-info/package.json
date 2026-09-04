@@ -1,0 +1,21 @@
+{
+  "format": "auzix-package-v1",
+  "name": "SharedMimeInfo",
+  "version": "2.4-5+b2",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/SharedMimeInfo-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/SharedMimeInfo/${version}"},
+  "payload": {"surfaces": ["/Programs/SharedMimeInfo", "/System/Compatibility/usr/share/mime"]},
+  "dependencies": {"runtime": []},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/shared-mime-info/lifecycle",
+    "configuration": [],
+    "scripts": {"after_install": "after-install", "after_remove": "after-remove"},
+    "operations": [
+      {"type": "publish-shared-data", "source": "${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/mime", "destination": "/System/Compatibility/usr/share/mime"},
+      {"type": "generate-cache", "command": "${AUZIX_PACKAGE_ROOT}/Commands/update-mime-database", "path": "/System/Compatibility/usr/share/mime"}
+    ],
+    "retained_state": []
+  },
+  "validation": {"commands": ["test -s /System/Compatibility/usr/share/mime/mime.cache"]}
+}

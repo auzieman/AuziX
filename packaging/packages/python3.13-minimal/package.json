@@ -1,0 +1,37 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Python313Minimal",
+  "version": "trixie",
+  "source": {
+    "kind": "existing-auzix-payload",
+    "receipt_glob": "System/PackageDB/Python313Minimal-*.auzix.json"
+  },
+  "layout": {
+    "domain": "program",
+    "prefix": "/Programs/Python313Minimal/${version}"
+  },
+  "dependencies": {
+    "runtime": ["RuntimeGlibc", "Libpython313Minimal", "Libexpat1", "Zlib1g"]
+  },
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/python3.13-minimal/lifecycle",
+    "configuration": [],
+    "scripts": {},
+    "operations": [
+      {
+        "type": "discard-donor-maintainer-protocol",
+        "disposition": "replaced-by-package-owned-runtime-and-auzix-python-front-doors"
+      }
+    ]
+  },
+  "lifecycle": {
+    "before_install": null,
+    "after_install": null,
+    "before_remove": null,
+    "after_remove": null
+  },
+  "validation": {
+    "commands": ["python3.13 --version"]
+  }
+}
