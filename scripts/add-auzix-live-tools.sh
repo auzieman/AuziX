@@ -2529,6 +2529,12 @@ done
 "${BB}" mdev -s 2>/dev/null || true
 "${BB}" chmod 0666 /dev/null 2>/dev/null || true
 "${BB}" chmod 0666 /dev/random /dev/urandom 2>/dev/null || true
+# Hardware discovery runs after mount_runtime and mdev may recreate the public
+# PTY node with its device-table mode.  Reassert the devpts entry only after
+# this final population pass so unprivileged desktop terminals can open PTYs.
+"${BB}" rm -f /dev/ptmx 2>/dev/null || true
+"${BB}" ln -s pts/ptmx /dev/ptmx 2>/dev/null || true
+"${BB}" chmod 0666 /dev/pts/ptmx 2>/dev/null || true
 
 log "drm=$("${BB}" ls /sys/class/drm 2>/dev/null | "${BB}" tr '\n' ' ')"
 log "dri=$("${BB}" ls /dev/dri 2>/dev/null | "${BB}" tr '\n' ' ')"
