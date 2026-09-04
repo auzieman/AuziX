@@ -20,6 +20,7 @@ file /System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.
 file /System/Compatibility/usr/share/icons/hicolor/index.theme
 file /System/Compatibility/usr/share/icons/hicolor/128x128/apps/elementary.png
 file /System/Compatibility/usr/share/icons/hicolor/128x128/apps/terminology.png
+file /System/Compatibility/usr/share/terminology/colorschemes/Default.eet
 file /System/Settings/pki/tls/certs/ca-bundle.crt
 file /System/Settings/X11/xorg.conf.d/40-libinput.conf
 file /System/Compatibility/usr/lib/udev/rules.d/60-input-id.rules

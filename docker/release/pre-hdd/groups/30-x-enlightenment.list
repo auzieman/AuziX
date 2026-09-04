@@ -47,5 +47,6 @@ libevas1-engines-wayland
 libevas1-engines-x
 enlightenment
 terminology
+terminology-data
 acpid
 lightdm

@@ -113,3 +113,18 @@ the package-owned PKI link made Flathub remote setup pass. A 183-byte local
 queried successfully, and removed again. The validation gate now repeats that
 local transaction without downloading a graphical runtime, while also requiring
 the production Flathub remote.
+
+Visual follow-up and a read-only comparison with the workable r9 HDD corrected
+the remaining E diagnosis. r9 shipped no prebuilt files under the user's
+`.e/e/config`; r29 injected default, standard, and profile EET state. The
+applications themselves launched from E's file manager, proving this was not a
+general application/dependency failure. HDD staging now retains packaged
+desktop/startup entries and branded assets but leaves the per-user E config
+directory empty for the current Enlightenment runtime to initialize.
+
+Terminology also exposed one finite adjacent-package omission. Trixie's
+`terminology` depends on `terminology-data`; `Default.eet` is owned by that data
+package. The r29 image contained the executable and two themes but no
+colorschemes. `terminology-data` is now explicit in the E/workstation group,
+and both pre-HDD and alpha-final gates require its default colorscheme plus the
+package-owned terminal launcher.

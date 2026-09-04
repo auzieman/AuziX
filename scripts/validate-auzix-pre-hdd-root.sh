@@ -46,6 +46,9 @@ test -s "$root/System/Compatibility/usr/share/elementary/themes/default.edj" \
     || fail "AUZiX default theme is absent"
 test -s "$root/System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.edj" \
     || fail "Foggy Trees wallpaper is absent"
+test -s "$root/System/Compatibility/usr/share/terminology/colorschemes/Default.eet" \
+    || fail "Terminology data package did not publish its default colorscheme"
+executable /System/Tools/launch-auzix-terminal
 test "$(readlink "$root/System/Tools/launch-auzix-installer")" = \
     /Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer \
     || fail "AUZiX installer launcher does not select the EFL frontend"

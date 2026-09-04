@@ -288,6 +288,13 @@ done
 AUZIX_DEFAULTS_HOME= \
 AUZIX_IMPORT_HOST_E_DEFAULTS=0 \
   "${ROOT_DIR}/scripts/stage-auzix-user-defaults.sh" "${OUTPUT_ROOT}"
+
+# The last workable HDD started with no per-user E config and let the current
+# Enlightenment runtime create it.  Keep package-owned desktop/startup entries
+# and branded assets, but do not inject an EET config captured from another
+# root: that produced an empty menu and regressed an otherwise healthier OS.
+rm -rf "${OUTPUT_ROOT}/Users/auzix/.e/e/config"
+mkdir -p "${OUTPUT_ROOT}/Users/auzix/.e/e/config"
 chown -R 1000:1000 "${OUTPUT_ROOT}/Users/auzix"
 
 if [[ -n "${AUZIX_ALPHA_AUTHORIZED_KEY_FILE:-}" ]]; then
@@ -461,10 +468,8 @@ grep -Fq 'AUZIX_PRESTART_EFREETD:-1' \
   "${OUTPUT_ROOT}/System/Tools/start-enlightenment-session"
 grep -Fq 'ln -s pts/ptmx /dev/ptmx' \
   "${OUTPUT_ROOT}/System/Boot/StartSequence"
-test -s "${OUTPUT_ROOT}/Users/auzix/.e/e/config/profile.cfg"
-test -s "${OUTPUT_ROOT}/Users/auzix/.e/e/config/standard/e.cfg"
-cmp -s "${ROOT_DIR}/assets/display/config/profile.cfg" \
-  "${OUTPUT_ROOT}/Users/auzix/.e/e/config/profile.cfg"
+test -d "${OUTPUT_ROOT}/Users/auzix/.e/e/config"
+test -z "$(find "${OUTPUT_ROOT}/Users/auzix/.e/e/config" -type f -print -quit)"
 test "$(readlink "${OUTPUT_ROOT}/System/Compatibility/lib64/ld-linux-x86-64.so.2")" = \
   /Libraries/ld-linux-x86-64.so.2
 test "$(readlink "${OUTPUT_ROOT}/System/Compatibility/lib/x86_64-linux-gnu/libc.so.6")" = \
