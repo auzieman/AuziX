@@ -9,7 +9,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
       dosfstools \
       e2fsprogs \
+      binutils \
       busybox \
+      ca-certificates \
+      curl \
+      file \
+      grep \
       conmon \
       crun \
       jq \
@@ -17,7 +22,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       aardvark-dns \
       podman \
       nginx-light \
-      patchelf && \
+      patchelf \
+      python3 \
+      rsync \
+      xz-utils && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

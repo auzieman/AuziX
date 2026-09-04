@@ -60,7 +60,7 @@ fi
 mkdir -p \
   "${ACPID_PROGRAM}/Commands" \
   "${AUZIX_ROOT}/System/Compatibility/bin" \
-  "${AUZIX_ROOT}/System/Settings/acpi" \
+  "${AUZIX_ROOT}/System/Settings/acpi/events" \
   "${AUZIX_ROOT}/System/Logs/acpid" \
   "${AUZIX_ROOT}/Services/acpid" \
   "${AUZIX_ROOT}/System/PackageDB" \
@@ -76,6 +76,7 @@ if [[ -d /etc/acpi ]]; then
   mkdir -p "${AUZIX_ROOT}/System/Settings"
   cp -a /etc/acpi "${AUZIX_ROOT}/System/Settings/acpi"
 fi
+mkdir -p "${AUZIX_ROOT}/System/Settings/acpi/events"
 
 cat > "${AUZIX_ROOT}/Services/acpid/run" <<'EOF'
 #!/Programs/BusyBox/1.36.1/Commands/busybox sh

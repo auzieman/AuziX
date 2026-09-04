@@ -224,9 +224,9 @@ if ! chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" true >/dev/null 2>&1; then
   exit 1
 fi
 
-glibc_loader_chroot_path="/System/Libraries/Runtime/glibc/ld-linux-x86-64.so.2"
-[[ -x "${AUZIX_ROOT}${glibc_loader_chroot_path}" ]] || {
-  printf '%s: validation needs AUZiX glibc loader at %s; run auzix-strict-dynprobe/core-runtime first\n' "${name}" "${glibc_loader_chroot_path}" >&2
+glibc_loader_chroot_path="/Libraries/ld-linux-x86-64.so.2"
+chroot "${AUZIX_ROOT}" "${busybox_chroot_path}" test -x "${glibc_loader_chroot_path}" || {
+  printf '%s: validation needs the package-owned AUZiX glibc loader at %s\n' "${name}" "${glibc_loader_chroot_path}" >&2
   exit 1
 }
 

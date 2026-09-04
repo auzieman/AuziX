@@ -1,0 +1,16 @@
+ca-certificates
+openssl
+file
+procps
+iproute2
+openssh-client
+openssh-server
+openssh-sftp-server
+parted
+dbus
+udev
+systemd-standalone-sysusers
+bsdutils
+util-linux
+util-linux-extra
+auzix-au-zi-x-debug-tools

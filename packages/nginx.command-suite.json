@@ -14,7 +14,7 @@
   ],
   "validation": {
     "smoke_commands": [
-      "$AUZIX_COMMAND_ROOT/nginx.real -v 2>&1 | grep -F nginx/"
+      "/Libraries/ld-linux-x86-64.so.2 --library-path /Libraries:/Programs/Nginx/current/Libraries /Programs/Nginx/current/Commands/nginx.real -v 2>&1 | /Programs/BusyBox/current/Commands/busybox grep -F nginx/"
     ]
   }
 }

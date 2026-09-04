@@ -109,10 +109,9 @@ copy_dir_if_present /usr/share/terminology "${RUNTIME_USR}/share/terminology"
 if [[ -f /usr/share/applications/terminology.desktop ]]; then
   install -D -m 0644 /usr/share/applications/terminology.desktop \
     "${RUNTIME_USR}/share/applications/terminology.desktop"
-  {
-    echo "NoDisplay=true"
-    echo "X-AUZIX-Note=Hidden until Terminology/EFL runtime passes live launch validation; use Auzix Terminal wrapper."
-  } >> "${RUNTIME_USR}/share/applications/terminology.desktop"
+  sed -i \
+    's|^Exec=.*|Exec=/System/Tools/launch-auzix-terminal %U|' \
+    "${RUNTIME_USR}/share/applications/terminology.desktop"
 fi
 cat > "${RUNTIME_USR}/share/applications/auzix-terminal.desktop" <<'EOF_DESKTOP'
 [Desktop Entry]
@@ -162,11 +161,11 @@ export ECORE_EVAS_ENGINE="${ECORE_EVAS_ENGINE:-software_x11}"
 export ELM_ENGINE="${ELM_ENGINE:-software_x11}"
 export E_COMP_ENGINE="${E_COMP_ENGINE:-sw}"
 
-if command -v xterm >/dev/null 2>&1; then
-  exec xterm -tn xterm-256color -T "AUZiX Terminal" -e /System/Compatibility/bin/bash "$@"
+if command -v terminology >/dev/null 2>&1; then
+  exec terminology -e /System/Compatibility/bin/bash "$@"
 fi
 
-exec terminology -e /System/Compatibility/bin/bash "$@"
+exec xterm -tn xterm-256color -T "AUZiX Terminal" -e /System/Compatibility/bin/bash "$@"
 EOF
 chmod 0755 "${AUZIX_ROOT}/System/Tools/launch-auzix-terminal"
 

@@ -1,0 +1,4 @@
+#!/Programs/BusyBox/current/Commands/busybox sh
+set -eu
+
+exec /Programs/BusyBox/current/Commands/busybox sleep 2147483647

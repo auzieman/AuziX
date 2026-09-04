@@ -1,0 +1,6 @@
+# Transitional explicit providers until regenerated APK metadata owns these
+# dependency edges.
+libmagic1t64
+libgssapi-krb5-2
+libebook-contacts-1.2-4t64
+libabiword-3.0

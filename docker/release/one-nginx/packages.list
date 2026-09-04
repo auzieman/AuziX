@@ -1,0 +1,26 @@
+# one-nginx APK payload.
+#
+# Identity of this image: Nginx plus the glibc/ssl runtime it needs.
+# Filename globs are resolved from /Repository/x86_64 at image build
+# (unsigned, --allow-untrusted). A signed APKINDEX is a netinstall concern.
+#
+auzix-nginx-*.apk
+auzix-runtime-glibc-*.apk
+auzix-libgcc-s1-*.apk
+gcc-14-base-*.apk
+libssl3t64-*.apk
+libcrypt1-*.apk
+
+# Validation-era extras for Podman/Docker layout proofs. These are not the
+# identity of zero/one. Once the ladder is stable they drop off the smaller
+# images. Do not promote them into BaseLayout/BusyBox.
+#
+# Network: real curl (BusyBox already ships wget). Curl is the first
+# non-applet HTTP client on the ladder.
+auzix-curl-*.apk
+#
+# Debug spine: ldd via auzix-au-zi-x-debug-tools (glibc loader --list).
+# stat/strings/wget stay BusyBox applets on zero; do not pull libc-bin or
+# binutils into this image. `file` needs libmagic-mgc (~10MB) — not cheap
+# here; add it on a later, larger validation image if needed.
+auzix-au-zi-x-debug-tools-*.apk

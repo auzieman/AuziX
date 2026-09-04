@@ -15,7 +15,10 @@
       "/System/State/Nginx", "/System/Logs/Nginx", "/Work/Nginx"
     ]
   },
-  "dependencies": {"runtime": ["RuntimeGlibc", "BusyBox"], "provides": ["http-service"]},
+  "dependencies": {
+    "runtime": ["RuntimeGlibc", "BusyBox"],
+    "provides": ["https-service", "apk-repository-service"]
+  },
   "fragments": ["program.versioned-prefix", "service.runner"],
   "validation": {"commands": ["nginx -t -c /System/Settings/Nginx/nginx.conf -p /"]}
 }

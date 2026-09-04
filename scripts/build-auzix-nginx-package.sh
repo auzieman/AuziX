@@ -27,8 +27,8 @@ nginx_version="$(basename "$(readlink "${AUZIX_ROOT}/Programs/Nginx/current")")"
 install -m 0755 /dev/stdin \
   "${AUZIX_ROOT}/Programs/Nginx/${nginx_version}/Commands/nginx" <<'EOF'
 #!/Programs/BusyBox/1.36.1/Commands/busybox sh
-exec /Programs/Nginx/current/Libraries/ld-linux-x86-64.so.2 \
-  --library-path /Programs/Nginx/current/Libraries \
+exec /Libraries/ld-linux-x86-64.so.2 \
+  --library-path /Libraries:/Programs/Nginx/current/Libraries \
   /Programs/Nginx/current/Commands/nginx.real "$@"
 EOF
 
@@ -55,9 +55,12 @@ http {
   scgi_temp_path /Work/Nginx/SCGI;
 
   server {
-    listen 8080;
-    server_name _;
-    root /Services/Nginx/Site;
+    listen 8443 ssl;
+    server_name auzix-repo.test;
+    ssl_certificate /System/Settings/Nginx/TLS/server.crt;
+    ssl_certificate_key /System/Settings/Nginx/TLS/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    root /Repository;
     location / {
       try_files $uri $uri/ =404;
     }
@@ -68,11 +71,22 @@ EOF
 install -m 0644 /dev/stdin "${AUZIX_ROOT}/Services/Nginx/Site/index.html" <<'EOF'
 <!doctype html>
 <html><head><title>AUZiX Nginx</title></head>
-<body><h1>AUZiX container one</h1><p>BusyBox is zero; Nginx is one.</p></body></html>
+<body><h1>AUZiX APK repository</h1><p>Served by the package-installed one-nginx image.</p></body></html>
 EOF
+
+# Keep the historical /Services/Nginx/nginx.conf path as well as Settings.
+# An older edge image shipped the binary but forgot this file.
+install -m 0644 "${AUZIX_ROOT}/System/Settings/Nginx/nginx.conf" \
+  "${AUZIX_ROOT}/Services/Nginx/nginx.conf"
 
 install -m 0755 /dev/stdin "${AUZIX_ROOT}/Services/Nginx/run" <<'EOF'
 #!/Programs/BusyBox/1.36.1/Commands/busybox sh
+set -eu
+test -s /System/Settings/Nginx/TLS/server.crt
+test -s /System/Settings/Nginx/TLS/server.key
+test -s /Repository/x86_64/APKINDEX.tar.gz
+test -e /etc/passwd || ln -s /System/Settings/passwd /etc/passwd
+test -e /etc/group || ln -s /System/Settings/group /etc/group
 exec /Programs/Nginx/current/Commands/nginx \
   -c /System/Settings/Nginx/nginx.conf \
   -p /

@@ -1,0 +1,11 @@
+# Repository-aware, non-graphical installer environment.
+ca-certificates
+openssl
+file
+# Transitional explicit providers until factory dependency grok records them.
+libmagic1t64
+procps
+iproute2
+openssh-client
+libgssapi-krb5-2
+parted
