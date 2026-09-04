@@ -411,7 +411,7 @@ static void install_confirm_cb(void *data, Evas_Object *obj, void *event_info) {
   progress_close(ui);
   progress_open(ui, "Installing AuziX", "Installing the selected profile from the AUZiX package repository.\nProgress streams to /System/Logs/installer/package-built-install.log.\nDo not power off this machine.", EINA_TRUE);
   snprintf(command, sizeof(command),
-           "/System/Compatibility/bin/sudo -n sh -c \"echo $$ >'%s'; AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-install-disk --force --repo '%s' --profile '%s' '%s' >'%s' 2>&1\"",
+           "/System/Compatibility/bin/sudo -n sh -c \"echo $$ >'%s'; AUZIX_INSTALL_PLAN='%s' /System/Tools/auzix-install-root-from-repo-profile --force --repo '%s' --profile '%s' '%s' >'%s' 2>&1\"",
            install_pid_path, plan_path, repo_url ? repo_url : "https://auzix-repo.test:8443", profile_path, ui->reviewed_disk, install_log_path);
   ui->runner = ecore_exe_run(command, ui);
   if (!ui->runner) {

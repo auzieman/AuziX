@@ -107,7 +107,6 @@ export PATH
 BB=/Programs/BusyBox/current/Commands/busybox
 [ -x "${BB}" ] || BB=/Programs/BusyBox/1.36.1/Commands/busybox
 JQ="${AUZIX_INSTALL_JQ:-/Programs/AuzixPackageTools/current/Commands/jq}"
-PKG_INSTALL=/System/Tools/auzix-install-package
 APK=/Programs/ApkTools/current/Commands/apk
 APK_GROUP_DIR=/System/Settings/install/apk-installer
 install_plan="${AUZIX_INSTALL_PLAN:-}"
@@ -622,7 +621,6 @@ install_plan_groups() {
 }
 
 [ -x "${JQ}" ] || fail "jq missing: ${JQ}"
-[ -x "${PKG_INSTALL}" ] || fail "target package installer missing: ${PKG_INSTALL}"
 [ -b "${target}" ] || fail "target block device missing: ${target}"
 PARTED="$(find_cmd /Programs/Parted/current/Commands/parted /System/Compatibility/usr/sbin/parted /System/Compatibility/sbin/parted /System/Compatibility/usr/bin/parted /System/Compatibility/bin/parted parted)" || fail "parted missing"
 MKFS="$(find_cmd /Programs/E2fsprogs/current/Commands/mkfs.ext4 /System/Compatibility/sbin/mkfs.ext4 mkfs.ext4)" || fail "mkfs.ext4 missing"
