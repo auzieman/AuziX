@@ -41,8 +41,12 @@ executable /Programs/Flatpak/current/Commands/flatpak
 executable /Programs/Midori/current/Commands/midori
 executable /Programs/AuzixInstaller/current/Commands/launch-auzix-installer
 executable /Programs/AuzixInstallerEfl/current/Commands/efl
+executable /Programs/AuzixPackageManagerEfl/current/Commands/efl
+executable /System/Tools/auzix-package-manager
 test -s "$root/System/Compatibility/usr/share/applications/auzix-installer.desktop" \
     || fail "AUZiX installer desktop entry is absent"
+test -s "$root/System/Compatibility/usr/share/applications/auzix-package-manager.desktop" \
+    || fail "AUZiX package manager desktop entry is absent"
 test -s "$root/System/Compatibility/usr/share/applications/auzix-midori.desktop" \
     || fail "Midori desktop entry is absent"
 test -s "$root/System/Compatibility/usr/share/elementary/themes/default.edj" \

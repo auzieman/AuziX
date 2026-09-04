@@ -50,8 +50,8 @@ cat >"${AUZIX_ROOT}/System/PackageDB/AuzixPackageManagerEfl-0.1.auzix.json" <<'E
   "kind": "program",
   "state": "first-pass",
   "prefix": "/Programs/AuzixPackageManagerEfl/0.1",
-  "depends": ["AuzixPackageTools", "Enlightenment"],
-  "notes": "Thin native EFL frontend; repository and transaction semantics remain in auzix-pkg."
+  "depends": ["ApkTools", "Sudo", "Enlightenment"],
+  "notes": "Thin native EFL frontend for signed APK catalog refresh and atomic package transactions."
 }
 EOF
 

@@ -87,8 +87,12 @@ static Eina_Bool run_action(Package_Manager *ui, Action action, const char *comm
 
 static void list_start(Package_Manager *ui) {
   status_set(ui, "<color=#84a7b8>Reading available packages…</color>");
-  if (!run_action(ui, ACTION_LIST, "/System/Tools/auzix-pkg list available"))
-    status_set(ui, "<color=#ff6b6b>Could not start auzix-pkg.</color>");
+  if (!run_action(ui, ACTION_LIST,
+      "/System/Compatibility/bin/sh -c \"SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt "
+      "/Programs/ApkTools/current/Commands/apk search -v '*' | "
+      "/Programs/BusyBox/current/Commands/busybox sed -n "
+      "'s/^\\(.*\\)-[0-9][^ ]* - \\(.*\\)$/\\1\\t\\2/p'\""))
+    status_set(ui, "<color=#ff6b6b>Could not start APK catalog query.</color>");
 }
 
 static unsigned int selected_count(Package_Manager *ui) {
@@ -134,7 +138,7 @@ static void list_populate(Package_Manager *ui) {
   elm_object_disabled_set(ui->install_button, EINA_TRUE);
   unsigned int count = 0;
   if (!ui->output || !ui->output[0]) {
-    status_set(ui, "<color=#ffb86c>No packages were returned by auzix-pkg.</color>");
+    status_set(ui, "<color=#ffb86c>No packages were returned by APK.</color>");
     return;
   }
   char *save = NULL;
@@ -182,7 +186,7 @@ static Eina_Bool done_cb(void *data, int type, void *event_info) {
   ui->action = ACTION_NONE;
   if (event->exit_code != 0) {
     write_last_log(ui);
-    status_set(ui, "<color=#ff6b6b>auzix-pkg failed. Review ~/.local/state/auzix/package-manager-last-action.log.</color>");
+    status_set(ui, "<color=#ff6b6b>APK operation failed. Review ~/.local/state/auzix/package-manager-last-action.log.</color>");
     return ECORE_CALLBACK_RENEW;
   }
   if (finished == ACTION_REFRESH) list_start(ui);
@@ -205,8 +209,10 @@ static void refresh_cb(void *data, Evas_Object *obj, void *event_info) {
     return;
   }
   snprintf(command, sizeof(command),
-           "/System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg refresh '%s'",
-           repo);
+           "/System/Compatibility/bin/sudo -n /System/Compatibility/bin/sh -c "
+           "\"printf '%%s\\n' '%s' > /System/Settings/apk/repositories && "
+           "SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt "
+           "/Programs/ApkTools/current/Commands/apk update\"", repo);
   status_set(ui, "<color=#84a7b8>Refreshing repository metadata…</color>");
   if (!run_action(ui, ACTION_REFRESH, command))
     status_set(ui, "<color=#ffb86c>A package operation is already running.</color>");
@@ -215,14 +221,14 @@ static void refresh_cb(void *data, Evas_Object *obj, void *event_info) {
 static void repo_lab_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Package_Manager *ui = data;
-  elm_entry_entry_set(ui->repo_entry, "http://192.168.1.10/auzix/repo");
+  elm_entry_entry_set(ui->repo_entry, "https://auzix-repo.test:8443");
   status_set(ui, "<color=#84a7b8>Repository set to lab. Refresh to use it.</color>");
 }
 
 static void repo_public_cb(void *data, Evas_Object *obj, void *event_info) {
   (void)obj; (void)event_info;
   Package_Manager *ui = data;
-  elm_entry_entry_set(ui->repo_entry, "https://auzix.auzietek.com/repo");
+  elm_entry_entry_set(ui->repo_entry, "https://auzix.auzietek.com/repository/x86_64");
   status_set(ui, "<color=#84a7b8>Repository set to public AUZiX. Refresh to use it.</color>");
 }
 
@@ -231,21 +237,22 @@ static void install_cb(void *data, Evas_Object *obj, void *event_info) {
   Package_Manager *ui = data;
   unsigned int count = selected_count(ui);
   if (count == 0) return;
-  size_t capacity = 256 + ((size_t)count * 384);
+  size_t capacity = 384 + ((size_t)count * 256);
   char *command = calloc(1, capacity);
   if (!command) return;
-  snprintf(command, capacity, "/System/Compatibility/bin/sh -c \"status=0");
+  snprintf(command, capacity,
+           "/System/Compatibility/bin/sudo -n /System/Compatibility/bin/sh -c "
+           "\"SSL_CERT_FILE=/System/Settings/apk/repository-ca.crt "
+           "/Programs/ApkTools/current/Commands/apk add");
   Eina_List *node;
   Package_Row *row;
   EINA_LIST_FOREACH(ui->rows, node, row) {
     if (!elm_check_state_get(row->check) || !package_name_safe(row->name)) continue;
-    strncat(command, "; echo '--- installing ", capacity - strlen(command) - 1);
+    strncat(command, " '", capacity - strlen(command) - 1);
     strncat(command, row->name, capacity - strlen(command) - 1);
-    strncat(command, " ---'; /System/Compatibility/bin/sudo -n /System/Tools/auzix-pkg install '", capacity - strlen(command) - 1);
-    strncat(command, row->name, capacity - strlen(command) - 1);
-    strncat(command, "' || status=1", capacity - strlen(command) - 1);
+    strncat(command, "'", capacity - strlen(command) - 1);
   }
-  strncat(command, "; exit $status\"", capacity - strlen(command) - 1);
+  strncat(command, "\"", capacity - strlen(command) - 1);
   status_set(ui, "<color=#84a7b8>Installing selected packages…</color>");
   if (!run_action(ui, ACTION_INSTALL, command))
     status_set(ui, "<color=#ffb86c>A package operation is already running.</color>");
@@ -275,7 +282,7 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
 
   Evas_Object *intro = elm_label_add(box);
   elm_object_text_set(intro,
-    "Repository-backed software catalog. Package discovery and transactions remain owned by auzix-pkg.");
+    "Signed AUZiX APK catalog. Refresh once, select packages, and apply one atomic APK transaction.");
   elm_label_line_wrap_set(intro, ELM_WRAP_WORD);
   evas_object_size_hint_weight_set(intro, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(intro, EVAS_HINT_FILL, 0.5);
@@ -288,7 +295,7 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   elm_box_padding_set(repo_box, 8, 0);
   ui.repo_entry = elm_entry_add(repo_box);
   elm_entry_single_line_set(ui.repo_entry, EINA_TRUE);
-  elm_entry_entry_set(ui.repo_entry, "http://192.168.1.10/auzix/repo");
+  elm_entry_entry_set(ui.repo_entry, "https://auzix-repo.test:8443");
   evas_object_size_hint_weight_set(ui.repo_entry, EVAS_HINT_EXPAND, 0.0);
   evas_object_size_hint_align_set(ui.repo_entry, EVAS_HINT_FILL, 0.5);
   elm_box_pack_end(repo_box, ui.repo_entry);

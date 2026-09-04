@@ -200,8 +200,12 @@ grep -Fq 'Continue to install options' "${INSTALLER_EFL_SOURCE}" ||
 grep -Fq 'INSTALL_STAGE ' "${INSTALLER_EFL_SOURCE}" ||
   fail "EFL installer progress parser does not consume disk install stages"
 [[ -r "${PACKAGE_MANAGER_EFL_SOURCE}" ]] || fail "missing package-manager EFL source"
-grep -Fq 'sudo -n /System/Tools/auzix-pkg refresh' "${PACKAGE_MANAGER_EFL_SOURCE}" ||
-  fail "EFL package manager refresh does not use sudo"
+grep -Fq '/Programs/ApkTools/current/Commands/apk update' "${PACKAGE_MANAGER_EFL_SOURCE}" ||
+  fail "EFL package manager refresh does not use APK"
+grep -Fq '/Programs/ApkTools/current/Commands/apk add' "${PACKAGE_MANAGER_EFL_SOURCE}" ||
+  fail "EFL package manager install does not use APK"
+! grep -Fq '/System/Tools/auzix-pkg' "${PACKAGE_MANAGER_EFL_SOURCE}" ||
+  fail "EFL package manager still invokes legacy auzix-pkg"
 grep -Fq 'repo_entry' "${PACKAGE_MANAGER_EFL_SOURCE}" ||
   fail "EFL package manager lacks repository selector"
 grep -Fq 'https://auzix.auzietek.com/repo' "${PACKAGE_MANAGER_EFL_SOURCE}" ||

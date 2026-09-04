@@ -11,12 +11,14 @@ path /Programs/Enlightenment/current
 path /Programs/Terminology/current
 path /Programs/AuzixInstaller/current
 path /Programs/AuzixInstallerEfl/current
+path /Programs/AuzixPackageManagerEfl/current
 path /Programs/Midori/current/Commands/midori
 path /Programs/ApkTools/current/Commands/apk
 path /Programs/Sudo/current/Commands/sudo
 path /Programs/Podman/current/Commands/podman
 file /System/Settings/install/apk-installer/10-alpha-minimal.list
 file /System/Compatibility/usr/share/applications/auzix-installer.desktop
+file /System/Compatibility/usr/share/applications/auzix-package-manager.desktop
 file /System/Compatibility/usr/share/applications/auzix-midori.desktop
 file /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
 file /System/Compatibility/usr/share/elementary/themes/default.edj
@@ -55,6 +57,11 @@ run '
   test "$(readlink /System/Tools/launch-auzix-installer)" = \
     /Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer
   test -x /System/Tools/launch-auzix-terminal
+  test -x /System/Tools/auzix-package-manager
+  grep -q "/Programs/ApkTools/current/Commands/apk update" \
+    /Programs/AuzixPackageManagerEfl/current/Resources/auzix-package-manager-efl.c
+  ! grep -q "/System/Tools/auzix-pkg" \
+    /Programs/AuzixPackageManagerEfl/current/Resources/auzix-package-manager-efl.c
   grep -q "^Exec=/System/Tools/launch-auzix-terminal" \
     /System/Compatibility/usr/share/applications/terminology.desktop
   grep -q "AUZIX_PRESTART_EFREETD:-1" \

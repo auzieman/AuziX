@@ -155,7 +155,7 @@ unsquashfs -f -d "$WORK/reference-root" "$REFERENCE_SQUASHFS" \
   System/Tools/auzix-installer System/Tools/auzix-installer-gui \
   System/Tools/auzix-package-setup System/Tools/launch-auzix-installer >/dev/null
 
-for package_stage in DesktopAssets AuzixInstaller AuzixInstallerEfl; do
+for package_stage in DesktopAssets AuzixInstaller AuzixInstallerEfl AuzixPackageManagerEfl; do
   mkdir -p "$WORK/reference-stages/$package_stage/Programs" \
     "$WORK/reference-stages/$package_stage/System/PackageDB"
 done
@@ -203,14 +203,26 @@ docker run --rm \
       /workspace/scripts/build-auzix-installer-efl-package.sh /staging
   '
 
-for package_stage in DesktopAssets AuzixInstaller AuzixInstallerEfl; do
+mkdir -p "$WORK/reference-stages/AuzixPackageManagerEfl/System"
+docker run --rm \
+  -v "$ROOT_DIR:/workspace:ro" \
+  -v "$WORK/reference-stages/AuzixPackageManagerEfl:/staging" \
+  "auzix/extended-builder:pre-hdd-${RUN_ID}" sh -ec '
+    gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror \
+      -o /tmp/auzix-package-manager-efl /workspace/installer/efl/auzix-package-manager-efl.c \
+      $(pkg-config --cflags --libs elementary)
+    AUZIX_EFL_PACKAGE_MANAGER_BINARY=/tmp/auzix-package-manager-efl \
+      /workspace/scripts/build-auzix-package-manager-efl-package.sh /staging
+  '
+
+for package_stage in DesktopAssets AuzixInstaller AuzixInstallerEfl AuzixPackageManagerEfl; do
   docker run --rm \
     -v "$WORK/reference-stages/$package_stage:/staging:ro" \
     -v "$WORK/reference-packages:/packages" \
     "auzix/package-factory:pre-hdd-${RUN_ID}" \
     emit-package "$package_stage" /staging /packages
 done
-test "$(find "$WORK/reference-packages" -type f -name '*.apk' | wc -l)" -eq 3
+test "$(find "$WORK/reference-packages" -type f -name '*.apk' | wc -l)" -eq 4
 
 cp -a "$WORK/bootstrap"/*.apk "$WORK/repository/x86_64/"
 cp -a "$WORK/layer/packages"/*.apk "$WORK/repository/x86_64/"
