@@ -17,7 +17,7 @@ libcrypt1-*.apk
 #
 # Network: real curl (BusyBox already ships wget). Curl is the first
 # non-applet HTTP client on the ladder.
-curl-*.apk
+auzix-curl-*.apk
 #
 # Debug spine: ldd via auzix-au-zi-x-debug-tools (glibc loader --list).
 # stat/strings/wget stay BusyBox applets on zero; do not pull libc-bin or
