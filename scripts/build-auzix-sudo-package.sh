@@ -136,13 +136,21 @@ Defaults mail_badpass
 root ALL=(ALL:ALL) ALL
 %sudo ALL=(ALL:ALL) NOPASSWD: ALL
 %wheel ALL=(ALL:ALL) NOPASSWD: ALL
+@includedir /System/Settings/sudoers.d
 EOF
 chmod 0440 "${AUZIX_ROOT}/System/Settings/sudoers"
 
-cat > "${AUZIX_ROOT}/System/Settings/sudoers.d/README" <<'EOF'
+# The alpha workstation account must retain its recovery/admin lane even when
+# an already-running graphical session predates supplementary-group changes.
+cat > "${AUZIX_ROOT}/System/Settings/sudoers.d/auzix" <<'EOF'
+auzix ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+chmod 0440 "${AUZIX_ROOT}/System/Settings/sudoers.d/auzix"
+
+cat > "${AUZIX_ROOT}/System/Settings/sudoers.d/README.md" <<'EOF'
 Drop sudoers fragments here. Files are included by /System/Settings/sudoers.
 EOF
-chmod 0440 "${AUZIX_ROOT}/System/Settings/sudoers.d/README"
+chmod 0440 "${AUZIX_ROOT}/System/Settings/sudoers.d/README.md"
 
 mkdir -p "${AUZIX_ROOT}/System/Settings/pam.d"
 cat > "${AUZIX_ROOT}/System/Settings/pam.d/sudo" <<'EOF'
