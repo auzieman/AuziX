@@ -63,21 +63,6 @@ auzix_upgrade_cmp() {
 	[ -n "$previous" ] || return 1
 	return 1
 }
-auzix_reload_service() {
-	name=$1
-	if command -v rc-service >/dev/null 2>&1; then
-		rc-service "$name" restart >/dev/null 2>&1 || true
-		return 0
-	fi
-	if [ -x "/Services/$name/run" ]; then
-		return 0
-	fi
-	return 0
-}
-auzix_enable_service() {
-	_name=$1
-	return 0
-}
 auzix_apply_sysctl() {
 	pattern=$1
 	command -v sysctl >/dev/null 2>&1 || return 0
@@ -130,6 +115,26 @@ EXACT_TRIGGER_RULES = {
     "activate-noawait update-initramfs": "initramfs-trigger",
     "interest update-ca-certificates\ninterest update-ca-certificates-fresh": "ca-trust-trigger",
 }
+
+DEBIAN_INTEREST_LINE = re.compile(
+    r"^(?:interest|interest-noawait)\s+(?P<path>/\S+)\s*$"
+)
+DEBIAN_ACTIVATE_LINE = re.compile(
+    r"^activate-noawait\s+(?P<name>\S+)\s*$"
+)
+
+CONCRETE_RUNTIME_PATHS = (
+    ("${AUZIX_SETTINGS}", "/System/Settings"),
+    ("${AUZIX_STATE}", "/System/State"),
+    ("${AUZIX_CACHE}", "/System/Cache"),
+    ("${AUZIX_LOGS}", "/System/Logs"),
+    ("${AUZIX_RUN}", "/System/Run"),
+    ("${AUZIX_TMP}", "/Work/Temp"),
+    ("${AUZIX_ROOT_USER}", "/Users/root"),
+)
+
+APK_PATH_TRIGGER_TEMPLATE = REPOSITORY_ROOT / "packaging/templates/apk-path.trigger"
+SERVICE_RUN_TEMPLATE = REPOSITORY_ROOT / "packaging/templates/service-run.sh"
 
 PYTHON_CLEAN_BLOCK = re.compile(
     r"if command -v py3clean >/dev/null 2>&1; then\n"
@@ -205,6 +210,16 @@ SYSTEMCTL_DAEMON_RELOAD = re.compile(
 
 UPDATE_RC_LINE = re.compile(
     r"(?P<indent>[ \t]*)update-rc\.d\s+(?P<name>\S+)\s+(?P<action>defaults|remove)\b[^\n]*\n"
+)
+
+DEB_SYSTEMD_HELPER_WAS_ENABLED = re.compile(
+    r"deb-systemd-helper(?:\s+--\S+)*\s+was-enabled\s+\S+"
+)
+
+DEB_SYSTEMD_HELPER_LINE = re.compile(
+    r"(?P<indent>[ \t]*)deb-systemd-helper(?:\s+--\S+)*\s+"
+    r"(?P<action>unmask|enable|disable|mask|update-state|debian-installed|purge)\s+"
+    r"(?P<name>\S+)[^\n]*\n"
 )
 
 DPKG_ROOT_EMPTY_AND = re.compile(
@@ -390,6 +405,91 @@ def _package_atom(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.split(":", 1)[0].casefold())
 
 
+def _service_unit_name(raw: str) -> str:
+    name = raw.strip().strip("'\"")
+    for suffix in (".service", ".socket", ".timer"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def _record_owned_service(
+    operations: list[dict[str, Any]], name: str, action: str
+) -> str:
+    path = f"/Services/{name}/run"
+    if not any(
+        item.get("type") == "own-service" and item.get("path") == path
+        for item in operations
+    ):
+        operations.append({
+            "type": "own-service",
+            "name": name,
+            "path": path,
+            "action": action,
+        })
+    return f": # package owns {path}\n"
+
+
+def _classify_debian_trigger_lines(body: str) -> dict[str, list[str]]:
+    interests: list[str] = []
+    activates: list[str] = []
+    leftovers: list[str] = []
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        interest = DEBIAN_INTEREST_LINE.match(line)
+        if interest is not None:
+            interests.append(interest.group("path"))
+            continue
+        activate = DEBIAN_ACTIVATE_LINE.match(line)
+        if activate is not None:
+            activates.append(activate.group("name"))
+            continue
+        leftovers.append(line)
+    return {
+        "interests": interests,
+        "activates": activates,
+        "leftovers": leftovers,
+    }
+
+
+def _rewrite_trigger_watch_path(path: str) -> str:
+    for donor, dest in load_payload_rewrite_paths():
+        if path == donor or path.startswith(donor if donor.endswith("/") else donor + "/"):
+            return dest + path[len(donor):]
+    rewritten = _apply_rewrite_paths(path)
+    for variable, concrete in CONCRETE_RUNTIME_PATHS:
+        rewritten = rewritten.replace(variable, concrete)
+    return rewritten
+
+
+def _render_apk_path_trigger(
+    rendered_dir: Path, prefix: str, version: str, paths: list[str]
+) -> dict[str, Any]:
+    if not APK_PATH_TRIGGER_TEMPLATE.is_file():
+        raise ContractError(
+            f"apk path trigger template is missing: {APK_PATH_TRIGGER_TEMPLATE}"
+        )
+    rendered_dir.mkdir(parents=True, exist_ok=True)
+    candidate = rendered_dir / APK_PATH_TRIGGER_TEMPLATE.name
+    candidate.write_text(
+        APK_PATH_TRIGGER_TEMPLATE.read_text(encoding="utf-8")
+        .replace("@PACKAGE_ROOT@", prefix)
+        .replace("@VERSION@", version),
+        encoding="utf-8",
+    )
+    candidate.chmod(0o755)
+    syntax = subprocess.run(
+        ["/bin/sh", "-n", str(candidate)], capture_output=True, text=True
+    )
+    if syntax.returncode:
+        raise ContractError(
+            f"apk path trigger has invalid shell syntax: {syntax.stderr.strip()}"
+        )
+    return {"candidate": str(candidate), "paths": paths}
+
+
 def _apply_generated_script_rules(
     text: str, package_name: str, package_root: str
 ) -> tuple[str, list[str], list[dict[str, Any]]]:
@@ -499,15 +599,12 @@ fi"""
             rules.append("debian-in-sysroot-unused")
 
     def replace_service_reload(match: re.Match[str]) -> str:
-        name = match.group("name").strip("'\"")
+        name = _service_unit_name(match.group("name"))
         action = match.group("action")
-        operations.append({
-            "type": "reload-service" if action != "start" else "start-service",
-            "name": name,
-            "action": action,
-        })
-        helper = "auzix_reload_service" if action != "start" else "auzix_reload_service"
-        return f'{match.group("indent")}{helper} {match.group("name")} || true\n'
+        return (
+            f'{match.group("indent")}'
+            f'{_record_owned_service(operations, name, action)}'
+        )
 
     text, count = INVOKE_RC_LINE.subn(replace_service_reload, text)
     if count:
@@ -524,15 +621,30 @@ fi"""
         operations.append({"type": "skip-systemd-daemon-reload"})
 
     def replace_update_rc(match: re.Match[str]) -> str:
-        operations.append({
-            "type": "enable-service" if match.group("action") == "defaults" else "disable-service",
-            "name": match.group("name"),
-        })
-        return f'{match.group("indent")}auzix_enable_service {match.group("name")}\n'
+        name = _service_unit_name(match.group("name"))
+        return (
+            f'{match.group("indent")}'
+            f'{_record_owned_service(operations, name, match.group("action"))}'
+        )
 
     text, count = UPDATE_RC_LINE.subn(replace_update_rc, text)
     if count:
         rules.append("debian-update-rc")
+
+    text, count = DEB_SYSTEMD_HELPER_WAS_ENABLED.subn("true", text)
+    if count:
+        rules.append("debian-systemd-helper")
+
+    def replace_systemd_helper(match: re.Match[str]) -> str:
+        name = _service_unit_name(match.group("name"))
+        return (
+            f'{match.group("indent")}'
+            f'{_record_owned_service(operations, name, match.group("action"))}'
+        )
+
+    text, extra = DEB_SYSTEMD_HELPER_LINE.subn(replace_systemd_helper, text)
+    if extra:
+        rules.append("debian-systemd-helper")
 
     text, count = DPKG_ROOT_EMPTY_AND.subn("", text)
     if count:
@@ -823,9 +935,8 @@ def _alternative_provider_plan(
 SED_SUBST = re.compile(r"^s\|(?P<donor>.+?)\|(?P<dest>.+?)\|g\s*$")
 
 
-@lru_cache(maxsize=1)
-def load_rewrite_paths() -> tuple[tuple[str, str], ...]:
-    path = REPOSITORY_ROOT / "packaging/rewrite-paths.sed"
+def _load_sed_pairs(relative: str) -> tuple[tuple[str, str], ...]:
+    path = REPOSITORY_ROOT / relative
     pairs: list[tuple[str, str]] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
@@ -833,9 +944,19 @@ def load_rewrite_paths() -> tuple[tuple[str, str], ...]:
             continue
         match = SED_SUBST.match(line)
         if match is None:
-            raise ContractError(f"invalid rewrite-paths.sed line: {raw}")
+            raise ContractError(f"invalid {relative} line: {raw}")
         pairs.append((match.group("donor").replace(r"\>", ""), match.group("dest")))
     return tuple(sorted(pairs, key=lambda item: len(item[0]), reverse=True))
+
+
+@lru_cache(maxsize=1)
+def load_rewrite_paths() -> tuple[tuple[str, str], ...]:
+    return _load_sed_pairs("packaging/rewrite-paths.sed")
+
+
+@lru_cache(maxsize=1)
+def load_payload_rewrite_paths() -> tuple[tuple[str, str], ...]:
+    return _load_sed_pairs("packaging/rewrite-payload-paths.sed")
 
 
 def _apply_rewrite_paths(text: str) -> str:
@@ -934,6 +1055,7 @@ def normalize_lifecycle(
     library_publications: list[dict[str, str]] = []
     compatibility_links: list[dict[str, str]] = []
     migrations: list[dict[str, str]] = []
+    trigger_scripts: list[dict[str, Any]] = []
     rules: dict[str, dict[str, Any]] = {}
     evidence_dir = output_dir / "evidence"
     donor_dir = output_dir / "~deb_inst"
@@ -1000,6 +1122,7 @@ def normalize_lifecycle(
                 for line in source.read_text(encoding="utf-8", errors="replace").splitlines()
                 if line.strip() and not line.lstrip().startswith("#")
             )
+            classified = _classify_debian_trigger_lines(trigger_body)
             rule_id = EXACT_TRIGGER_RULES.get(trigger_body)
             if rule_id:
                 if rule_id == "ldconfig-trigger":
@@ -1033,6 +1156,68 @@ def normalize_lifecycle(
                     "source": surface_path,
                     "matches": trigger_body.splitlines(),
                 }
+            leftover_activates = [
+                name for name in classified["activates"] if name != "ldconfig"
+            ]
+            if "ldconfig" in classified["activates"] and rule_id != "ldconfig-trigger":
+                direct_publications = _public_library_plan(
+                    stage / prefix.lstrip("/"),
+                    str(receipt.get("name")),
+                    str(receipt.get("version")),
+                )
+                existing_public = {item["public"] for item in library_publications}
+                library_publications.extend(
+                    item
+                    for item in direct_publications
+                    if item["public"] not in existing_public
+                )
+                if direct_publications:
+                    operations.extend(
+                        {
+                            "type": "publish-library",
+                            "source": item["source"],
+                            "owned": item["owned"],
+                            "public": item["public"],
+                        }
+                        for item in direct_publications
+                    )
+                    rules["ldconfig-trigger"] = {
+                        "id": "ldconfig-trigger",
+                        "state": "transformed",
+                        "source": surface_path,
+                        "matches": ["activate-noawait ldconfig"],
+                        "outputs": [item["public"] for item in direct_publications],
+                    }
+            watch_paths = [
+                _rewrite_trigger_watch_path(path) for path in classified["interests"]
+            ]
+            if watch_paths:
+                trigger_scripts.append(
+                    _render_apk_path_trigger(
+                        rendered_dir,
+                        prefix,
+                        str(receipt.get("version")),
+                        watch_paths,
+                    )
+                )
+                operations.append({
+                    "type": "apk-path-trigger",
+                    "paths": watch_paths,
+                    "source": surface_path,
+                })
+                rules["debian-interest-trigger"] = {
+                    "id": "debian-interest-trigger",
+                    "state": "transformed",
+                    "source": surface_path,
+                    "matches": classified["interests"],
+                    "outputs": watch_paths,
+                }
+            if (
+                watch_paths
+                and not classified["leftovers"]
+                and not leftover_activates
+            ):
+                continue
         finding: dict[str, Any] = {
             "stage": "package",
             "kind": "maintainer-surface",
@@ -1164,7 +1349,6 @@ def normalize_lifecycle(
 
     adapter_record = None
     donor_findings: list[dict[str, Any]] = []
-    trigger_scripts: list[dict[str, Any]] = []
     if adapter is not None:
         if adapter.get("format") != "auzix-lifecycle-adapter-v1":
             raise ContractError("unsupported lifecycle intake adapter format")
@@ -1256,6 +1440,7 @@ def normalize_lifecycle(
         if not augment:
             findings = []
             scripts = []
+            trigger_scripts = []
         rendered_dir.mkdir(parents=True, exist_ok=True)
         for lifecycle_name, template_name in adapter.get("scripts", {}).items():
             if augment and any(script["stage"] == lifecycle_name for script in scripts):
@@ -1439,6 +1624,33 @@ def promote_auzix_package(
                 f"{receipt.get('name')}: compatibility link destination exists: {link}"
             )
         destination.symlink_to(os.path.relpath(target, destination.parent))
+    for operation in intake.get("operations", []):
+        if operation.get("type") != "own-service":
+            continue
+        service_path = operation.get("path")
+        name = operation.get("name")
+        if not isinstance(service_path, str) or not service_path.startswith("/Services/"):
+            raise ContractError(
+                f"{receipt.get('name')}: owned service path is invalid: {operation}"
+            )
+        if not isinstance(name, str) or not name:
+            raise ContractError(
+                f"{receipt.get('name')}: owned service is missing a name: {operation}"
+            )
+        if not SERVICE_RUN_TEMPLATE.is_file():
+            raise ContractError(f"service run template is missing: {SERVICE_RUN_TEMPLATE}")
+        destination = stage / service_path.lstrip("/")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            continue
+        destination.write_text(
+            SERVICE_RUN_TEMPLATE.read_text(encoding="utf-8")
+            .replace("@NAME@", name)
+            .replace("@PACKAGE_ROOT@", prefix)
+            .replace("@VERSION@", str(receipt.get("version"))),
+            encoding="utf-8",
+        )
+        destination.chmod(0o755)
     for protected_path in intake.get("configuration", []):
         settings_prefix = "${AUZIX_SETTINGS}/"
         if not protected_path.startswith(settings_prefix):

@@ -301,6 +301,59 @@ mkdir -p /usr/local/lib/python3.13
             self.assertEqual(result["findings"][0]["kind"], "maintainer-surface")
             self.assertTrue((Path(directory) / "review/evidence/triggers").is_file())
 
+    def test_debian_interest_paths_become_apk_trigger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            trigger = root / "Programs/Appstream/1/Metadata/control/triggers"
+            trigger.parent.mkdir(parents=True)
+            trigger.write_text(
+                "interest /usr/share/metainfo\n"
+                "interest /usr/share/appdata\n"
+                "interest /etc/appstream.conf\n"
+            )
+            receipt = {
+                "name": "Appstream",
+                "version": "1",
+                "prefix": "/Programs/Appstream/1",
+                "maintainer_surfaces": [
+                    "/Programs/Appstream/1/Metadata/control/triggers"
+                ],
+            }
+            result = normalize_lifecycle(
+                root, receipt, Path(directory) / "review"
+            )
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(len(result["triggers"]), 1)
+            self.assertEqual(
+                result["triggers"][0]["paths"],
+                [
+                    "/System/Compatibility/usr/share/metainfo",
+                    "/System/Compatibility/usr/share/appdata",
+                    "/System/Settings/appstream.conf",
+                ],
+            )
+            self.assertFalse(
+                any(
+                    finding.get("kind") == "maintainer-surface"
+                    for finding in result["findings"]
+                )
+            )
+            receipt_path = root / "System/PackageDB/Appstream-1.json"
+            receipt_path.parent.mkdir(parents=True)
+            receipt_path.write_text(json.dumps(receipt))
+            package_json, fpm_metadata = promote_auzix_package(
+                root, receipt_path, result, None
+            )
+            self.assertEqual(
+                package_json["triggers"][0]["paths"],
+                result["triggers"][0]["paths"],
+            )
+            self.assertEqual(fpm_metadata[0][0], "--apk-trigger")
+            self.assertIn(
+                "/System/Compatibility/usr/share/metainfo",
+                str(fpm_metadata[0][1]),
+            )
+
     def test_plain_conffiles_are_translated_into_native_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"

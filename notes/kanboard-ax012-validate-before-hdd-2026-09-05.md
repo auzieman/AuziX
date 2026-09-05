@@ -44,3 +44,19 @@ tested.
 
 16:38 PDT: build-measure-learn r4 — generated dh_systemd/init scaffold
 and DPKG_ROOT empty/`/etc` prefix. Then prove-factory r4.
+
+Result: BKC `6e873a33`. Findings 181→100. Holds 35→30. Fprintd passed.
+DBus 12→2. Next leftover: dpkg-helper, unmapped-path, maintainer-surface.
+
+16:46 PDT: AuziX has no DPKG_ROOT helper. Equivalents are shell, lua,
+python, and apk triggers. Do not grow `auzix_*` as dpkg understudies.
+`notes/alpha-auzix-no-dpkg-root-2026-09-05.md`.
+
+16:50 PDT: that is the template for the leftover holds. Debian
+`interest /path` → apk trigger; generated enable → `/Services/<name>/run`.
+Local units first. Kanboard task65 sync pending.
+`notes/alpha-service-trigger-template-2026-09-05.md`.
+
+16:54 PDT: prove-factory r5 on that template. Same held-set lane, compare
+to r4 (30 holds / 100 findings). HDD still locked.
+`notes/alpha-intake-validate-r5-run-2026-09-05.md`.

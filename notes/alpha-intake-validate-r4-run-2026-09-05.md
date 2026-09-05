@@ -13,3 +13,8 @@ September 5, 2026 16:38 PDT, before lab run. Learn from r3 leftovers:
 - Compare: r3 `AX-012-4fae57852e38` (31 holds, 171 findings)
 
 No HDD or VM145.
+
+Outcome: BKC `6e873a33` completed-with-review. Findings 181→100. Holds
+35→30. New pass: Fprintd (plus the r3 four). DBus 12→2. Remaining bulk
+is `dpkg-helper` (23), `unmapped-path` (22), `maintainer-surface` (11).
+Install/HDD not tested.

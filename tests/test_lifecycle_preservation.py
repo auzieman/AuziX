@@ -190,7 +190,7 @@ class LifecyclePreservationTests(unittest.TestCase):
             any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
         )
 
-    def test_invoke_rc_restart_becomes_reload_service(self):
+    def test_invoke_rc_restart_owns_services_run(self):
         result = self._stage_helper(
             "#!/bin/sh\n"
             "case \"$1\" in\n"
@@ -200,10 +200,14 @@ class LifecyclePreservationTests(unittest.TestCase):
             "esac\n"
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
-        self.assertIn("auzix_reload_service acpid", rendered)
+        self.assertIn("/Services/acpid/run", rendered)
         self.assertNotIn("invoke-rc.d", rendered)
+        self.assertNotIn("auzix_reload_service", rendered)
         self.assertTrue(
-            any(item.get("type") == "reload-service" for item in result["operations"])
+            any(
+                item.get("type") == "own-service" and item.get("path") == "/Services/acpid/run"
+                for item in result["operations"]
+            )
         )
         self.assertFalse(
             any(finding.get("kind") == "debian-service-helper" for finding in result["findings"])
@@ -251,9 +255,13 @@ class LifecyclePreservationTests(unittest.TestCase):
         self.assertTrue(any(flag == "--after-install" for flag, _ in scripts))
         hook = root / "Programs/LibExample/1/Package/Scripts/after-install"
         self.assertTrue(hook.is_file())
-        self.assertIn("auzix_reload_service acpid", hook.read_text())
+        self.assertIn("/Services/acpid/run", hook.read_text())
+        self.assertNotIn("auzix_reload_service", hook.read_text())
+        service = root / "Services/acpid/run"
+        self.assertTrue(service.is_file())
+        self.assertIn("NAME=acpid", service.read_text())
 
-    def test_generated_systemd_scaffold_becomes_auzix_service_helpers(self):
+    def test_generated_systemd_scaffold_owns_services_run(self):
         result = self._stage_helper(
             "#!/bin/sh\n"
             'if [ -z "$DPKG_ROOT" ] && [ -d /run/systemd/system ]; then\n'
@@ -264,13 +272,22 @@ class LifecyclePreservationTests(unittest.TestCase):
             "    update-rc.d example defaults >/dev/null\n"
             "    invoke-rc.d --skip-systemd-native example start || exit 1\n"
             "fi\n"
+            "deb-systemd-helper enable 'example.service' >/dev/null || true\n"
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
-        self.assertIn("auzix_reload_service", rendered)
-        self.assertIn("auzix_enable_service example", rendered)
+        self.assertIn("/Services/example/run", rendered)
+        self.assertNotIn("auzix_reload_service", rendered)
+        self.assertNotIn("auzix_enable_service", rendered)
         self.assertNotIn("DPKG_ROOT", rendered)
         self.assertNotIn("invoke-rc.d", rendered)
         self.assertNotIn("deb-systemd-invoke", rendered)
+        self.assertNotIn("deb-systemd-helper", rendered)
+        self.assertTrue(
+            any(
+                item.get("type") == "own-service" and item.get("path") == "/Services/example/run"
+                for item in result["operations"]
+            )
+        )
         self.assertFalse(
             any(
                 finding.get("kind") in {
