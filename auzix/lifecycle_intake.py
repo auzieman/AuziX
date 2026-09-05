@@ -145,8 +145,8 @@ UCF_OBSOLETE_REGISTRY_LOOP = re.compile(
 
 RM_CONFFILE_LINE = re.compile(
     r"^(?P<indent>\s*)dpkg-maintscript-helper\s+rm_conffile\s+"
-    r"(?P<path>\S+)\s+(?P<prior_version>\S+)"
-    r"(?:\s+(?P<package>\S+))?\s+--\s+\"\$@\"\s*$",
+    r"(?P<path>\S+)(?:[ \t]+(?P<prior_version>(?!--)\S+)"
+    r"(?:[ \t]+(?P<package>(?!--)\S+))?)?[ \t]+--[ \t]+\"\$@\"[ \t]*$",
     re.MULTILINE,
 )
 DIR_TO_SYMLINK_LINE = re.compile(
@@ -178,6 +178,31 @@ def _extract_maintscript_migrations(
     migrations: list[dict[str, str]] = []
 
     def replace(match: re.Match[str]) -> str:
+        if match.group("prior_version") is None:
+            path = match.group("path")
+            # Do not turn arbitrary shell arguments into executable migration.
+            if not re.fullmatch(r"\$\{AUZIX_SETTINGS\}/[A-Za-z0-9_./-]+", path) or ".." in path.split("/"):
+                return match.group(0)
+            migrations.append({
+                "operation": "remove-obsolete-conffile", "path": path,
+                "prior_version": None, "stage": lifecycle_name,
+                "disposition": "preserve-as-auzix-bak-before-install",
+            })
+            if lifecycle_name != "before_install":
+                return match.group("indent") + ": # obsolete configuration handled before install"
+            return f'''auzix_obsolete="{path}"
+if [ -L "$auzix_obsolete" ]; then
+    echo "Refusing obsolete configuration symlink: $auzix_obsolete" >&2
+    exit 1
+fi
+if [ -e "$auzix_obsolete" ]; then
+    [ -f "$auzix_obsolete" ] || exit 1
+    if [ -e "$auzix_obsolete.auzix-bak" ] || [ -L "$auzix_obsolete.auzix-bak" ]; then
+        echo "Obsolete configuration backup already exists" >&2
+        exit 1
+    fi
+    mv -- "$auzix_obsolete" "$auzix_obsolete.auzix-bak"
+fi'''
         migration = {
             "operation": "remove-obsolete-conffile",
             "path": match.group("path"),
@@ -393,7 +418,7 @@ def _prune_unreachable_purge_blocks(text: str, lifecycle_name: str) -> tuple[str
             end = body_start
             while end < len(lines) and depth:
                 stripped = lines[end].strip()
-                if re.match(r"^if\b.*\bthen$", stripped):
+                if re.match(r"^if\b", stripped):
                     depth += 1
                 if stripped == "fi" or stripped.startswith("fi;"):
                     depth -= 1
