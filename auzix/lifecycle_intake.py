@@ -11,6 +11,7 @@ from typing import Any
 from .contracts import ContractError
 from .intake_ir import write_donor_object
 from .paths import REPOSITORY_ROOT
+from .python_lifecycle import adapt_python_prerm
 
 
 LIFECYCLE_STAGES = {
@@ -803,6 +804,10 @@ def normalize_lifecycle(
         normalized_body, applied_script_rules = _apply_generated_script_rules(
             normalized_body, str(receipt.get("name")), prefix
         )
+        python_cleanup = adapt_python_prerm(original, str(receipt.get("name")), lifecycle_name)
+        if python_cleanup is not None:
+            normalized_body = python_cleanup
+            applied_script_rules.append("reviewed-python-owned-bytecode-cleanup")
         if library_publications and "update-alternatives" in normalized_body:
             normalized_body = UPDATE_ALTERNATIVES_COMMAND.sub(
                 lambda match: match.group("indent")

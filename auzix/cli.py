@@ -205,7 +205,8 @@ def command_build_root(args: argparse.Namespace) -> int:
 
 def command_convert_archive_profile(args: argparse.Namespace) -> int:
     result = convert_archive_profile(
-        Path(args.repository), Path(args.profile), Path(args.output_dir), apk_command=args.apk_command
+        Path(args.repository), Path(args.profile), Path(args.output_dir), apk_command=args.apk_command,
+        workers=args.workers,
     )
     if args.output:
         emit(result, args.output, "archive_conversion")
@@ -329,6 +330,7 @@ def main() -> int:
     archive_convert.add_argument("profile")
     archive_convert.add_argument("output_dir")
     archive_convert.add_argument("--apk-command", required=True)
+    archive_convert.add_argument("--workers", type=int, default=1)
     archive_convert.add_argument("--output")
     archive_convert.set_defaults(func=command_convert_archive_profile)
     args = parser.parse_args()

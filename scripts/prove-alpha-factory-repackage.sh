@@ -20,6 +20,6 @@ docker run --rm \
   -v "$output:/proof" \
   auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
   convert-archive-profile /delta-repo /proof/profile.json /proof/repository \
-    --apk-command /tools/apk 2>&1 | tee "$output/proof.log"
+    --apk-command /tools/apk --workers 8 2>&1 | tee "$output/proof.log"
 jq -e '.status == "passed"' "$output/repository/conversion-proof.json" >/dev/null
 echo 'Conversion verified; installation and VM acceptance NOT tested.'

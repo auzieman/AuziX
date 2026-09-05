@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor
 
 from .contracts import ContractError, read_json
 from .names import apk_name, apk_version
@@ -265,7 +266,7 @@ def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]
 
 
 def convert_archive_profile(
-    repository: Path, profile_path: Path, output_dir: Path, *, apk_command: str
+    repository: Path, profile_path: Path, output_dir: Path, *, apk_command: str, workers: int = 1
 ) -> dict[str, Any]:
     if not shutil.which("fpm"):
         raise ContractError("fpm is required")
@@ -273,8 +274,13 @@ def convert_archive_profile(
         raise ContractError(f"apk verifier is unavailable: {apk_command}")
     plan = archive_profile_plan(repository.resolve(), profile_path.resolve())
     print(f"PREFLIGHT PASS profile={plan['profile']} packages={len(plan['packages'])}", flush=True)
+    if workers < 1 or workers > 40:
+        raise ContractError("packaging workers must be between 1 and 40")
     if output_dir.exists():
-        shutil.rmtree(output_dir)
+        raise ContractError(f"refusing to overwrite existing conversion output: {output_dir}")
+    names = [item["apk_name"] for item in plan["packages"]]
+    if len(names) != len(set(names)):
+        raise ContractError("duplicate APK names cannot share conversion output")
     output_dir.mkdir(parents=True)
     architecture_dir = output_dir / "x86_64"
     architecture_dir.mkdir()
@@ -291,7 +297,7 @@ def convert_archive_profile(
             json.dumps(item, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
 
-    for position, item in enumerate(plan["packages"], 1):
+    def convert_one(position: int, item: dict[str, Any]) -> None:
         # APK repositories are architecture-partitioned and fetch packages by
         # the canonical <name>-<version>.apk filename recorded in APKINDEX.
         output = architecture_dir / f"{item['apk_name']}-{item['apk_version']}.apk"
@@ -332,7 +338,7 @@ def convert_archive_profile(
                     item["status"] = "needs-review"
                     print(f"REVIEW {item['name']} findings={len(intake['findings'])}", flush=True)
                     record(item)
-                    continue
+                    return
 
                 package_json, lifecycle = promote_auzix_package(
                     stage, receipts[0], intake, item.get("package_definition")
@@ -351,7 +357,7 @@ def convert_archive_profile(
                     item["error"] = (result.stderr or result.stdout).strip()
                     print(f"BUILD-FAILED {item['name']}", flush=True)
                     record(item)
-                    continue
+                    return
             verify = subprocess.run(
                 [apk_command, "verify", "--allow-untrusted", str(output)],
                 capture_output=True,
@@ -372,6 +378,13 @@ def convert_archive_profile(
             print(f"INTAKE-FAILED {item['name']}: {exc}", flush=True)
         record(item)
 
+    print(f"PACKAGING-WORKERS {workers}", flush=True)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(convert_one, position, item)
+                   for position, item in enumerate(plan["packages"], 1)]
+        for future in futures:
+            future.result()
+
     counts: dict[str, int] = {}
     for item in plan["packages"]:
         status = item.get("status", "unknown")
@@ -383,6 +396,7 @@ def convert_archive_profile(
         **plan,
         "status": overall,
         "summary": counts,
+        "workers": workers,
         "review_summary": _review_summary(plan["packages"]),
         "proof": str(proof),
     }
