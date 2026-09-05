@@ -30,6 +30,12 @@ disk is the reference; preserve it unless explicitly authorized otherwise.
 
 ## Mandatory issue lifecycle
 
+- Ticket descriptions hold scope and acceptance criteria. Progress, failures,
+  decisions, commits and run results are dated comments, not description rewrites.
+  Attach relevant screenshots/log excerpts/receipts; preserve existing evidence.
+  Read back updates and deduplicate retries. Description edits are intentional
+  scope corrections only, never a side effect of routine synchronization.
+
 - Before implementation, select one AX issue and record its Kanboard task ID,
   starting evidence, action plan, rollback and test. No anonymous work.
 - Move the selected task to Work in progress only when work actually starts.

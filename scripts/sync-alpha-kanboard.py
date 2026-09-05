@@ -8,6 +8,8 @@ import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--apply', action='store_true')
+parser.add_argument('--comment-file', type=Path, help='Post a dated Markdown update; never rewrite description')
+parser.add_argument('--issue', choices=['AX-%03d' % n for n in range(1, 13)])
 parser.add_argument('--order-columns', action='store_true', help='Only reorder project3 columns; preserve cards')
 parser.add_argument('--start-ax001', action='store_true', help='Pick up task54 in the top active lane')
 parser.add_argument('--validate-ax001', action='store_true', help='Move fixed task54 to validation; not Done')
@@ -22,6 +24,16 @@ for match in re.finditer(r'^## (AX-\d{3}) — ([^\n]+)\n(.*?)(?=^## |\Z)', text,
                    'title': key + ' — ' + title,
                    'description': body.strip() + '\n\nSource: AuziX/' + str(ledger.relative_to(ledger.parents[1]))})
 assert len(issues) == 12
+if bool(args.comment_file) != bool(args.issue):
+    parser.error('--comment-file and --issue must be supplied together')
+if args.comment_file:
+    import hashlib
+    body = args.comment_file.read_text().strip()
+    if not body:
+        parser.error('comment file is empty')
+    issues = [item for item in issues if item['reference'].endswith(':' + args.issue)]
+    issues[0]['comment'] = body
+    issues[0]['comment_marker'] = '<!-- auzix-update:' + hashlib.sha256(body.encode()).hexdigest() + ' -->'
 if not args.apply:
     print(json.dumps(issues, indent=2))
     raise SystemExit()
@@ -77,12 +89,25 @@ for item in items:
     description=item['description']+'\n\n'+marker
     if matches:
         tid=int(matches[0]['id'])
-        assert rpc('updateTask',{'id':tid,'title':item['title'],'description':description})
+        # Existing task scope and human edits are authoritative.
     else:
         tid=rpc('createTask',{'project_id':3,'column_id':21,'title':item['title'],'description':description})
         assert tid
     check=rpc('getTask',{'task_id':int(tid)})
     assert marker in check['description']
+    if matches:
+        assert check['description']==matches[0]['description']
+        assert check['title']==matches[0]['title']
+    if 'comment' in item:
+        comments=rpc('getAllComments',{'task_id':int(tid)})
+        update_marker=item['comment_marker']
+        if not any(update_marker in c['comment'] for c in comments):
+            author=rpc('getUserByName',{'username':'admin'})
+            assert author and author['id']
+            assert rpc('createComment',{'task_id':int(tid),'user_id':int(author['id']),
+                'content':item['comment']+'\n\n'+update_marker})
+        comments=rpc('getAllComments',{'task_id':int(tid)})
+        assert sum(update_marker in c['comment'] for c in comments)==1
     print(json.dumps({'reference':item['reference'],'task_id':tid,'status':'verified'}),flush=True)
 '''
 import shlex
@@ -100,6 +125,6 @@ receipts = [json.loads(line) for line in guest.get('out-data', '').splitlines() 
 if args.order_columns or args.start_ax001 or args.validate_ax001 or args.plan_ax001:
     assert len(receipts)==1 and receipts[0]['status']=='verified'
 else:
-    assert len(receipts) == 12, 'Missing API readback receipts; do not claim sync success'
+    assert len(receipts) == len(issues), 'Missing API readback receipts; do not claim sync success'
     assert {r['reference'] for r in receipts} == {i['reference'] for i in issues}
 print(json.dumps(receipts, indent=2))

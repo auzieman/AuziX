@@ -6,6 +6,20 @@ these IDs, but no Kanboard tickets have been created by this entry.
 
 ## Action record template
 
+September 5 — AX-012/task65 tracking correction, before action: user requires
+updates as comments and relevant evidence as attachments, not description
+rewrites. Change sync to preserve existing titles/descriptions and add explicit,
+deduplicated comment-file updates with API readback. Record the correction on
+task65. Preserve current descriptions, comments, screenshots and board state;
+do not silently migrate/delete historical text. Rollback: scoped git revert;
+new comment remains an honest audit record. Acceptance: repeated sync leaves
+existing descriptions unchanged and repeated comment submission is a no-op.
+
+Outcome: posted the workflow correction as a comment on task65; a second
+identical submission verified exactly one matching comment. Full12-card sync
+verified existing descriptions and titles unchanged. No cards moved, no
+attachments changed. Historical description cleanup remains pending.
+
 - When / issue ID / status:
 - Exact target and frozen source or image identity:
 - Evidence (not hypothesis):
