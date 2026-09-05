@@ -50,6 +50,42 @@ Existing observations below are retrospective and explicitly not evidence that
 every prior live action was recorded before execution. From this checkpoint,
 record first. No further VM or build mutation is authorized by this ledger alone.
 
+September 5 15:46 PDT — AX-012/task65 execution of already-recorded Debian
+install observation (`notes/alpha-debian-install-trace-action-2026-09-05.md`).
+Operator confirmed held packages do not fail on Debian; the defect is AuziX
+intake/APK mapping. Prior source-audit runs (1586c2b, e509689) never executed
+`trace-debian-dbus-install.sh`. Frozen source `fea2a20a36333dbd7bd80dcc19d45f42dbe4aac1`
+already in r730 bare repo. Method: existing `apk-alpha-source-audit` worker
+script on R730 (BKC FIP 10.20.0.232 answers; swarm mgr :5000 timed out; no
+UI/API token from this session). Run ID `20260905-debian-install-trace`.
+Output `/var/lib/auzix-build/package-proof/AX-012-source-fea2a20a3633`.
+No mapping repair, package promotion, image, or VM145 change. Rollback:
+dispose container (automatic --rm); delete only this new proof directory.
+Acceptance: dpkg transaction for dbus=1.16.2-2, script trace, messagebus
+account order, helper root:messagebus 4754, bus reply — or exact failure.
+
+Outcome: observation passed. Proof
+`/var/lib/auzix-build/package-proof/AX-012-source-fea2a20a3633`. Debian
+installed dbus=1.16.2-2; messagebus then helper 4754; bus reply after an
+explicit daemon start (socket was absent post-install). Same retained
+archive still `needs-review` with helper 0755. Result note:
+`notes/alpha-debian-install-trace-result-2026-09-05.md`. Mapping repair
+not started. Task65 left Work in progress.
+
+September 5 16:04 PDT — AX-012/task65, before action: VM145 is close enough
+and stays diagnostic. No new HDD. Validate intake first. Pipelines exist
+but the prove-factory gate is dishonest: `test-held-package-effects.py`
+always exits 1, and conversion `completed-with-review` was treated as a
+crash. Change: keep conversion/effects as evidence, write
+`validation-boundary.json` (install untested, HDD locked), stop remapping
+prove-factory/source-audit onto resume-containers, keep unit tests green.
+No VM145, image, or HDD mutation. Any later lab run that alters the
+environment goes through `bkc-cli` with a paper trail; no raw SSH
+launches. Rollback: revert those scripts and this note. Acceptance: local
+lifecycle units pass; prove-factory would exit 0 on completed conversion
+even with remaining mapping families.
+
+
 ## Reference evidence
 
 - [VM145 reference](vm145-alpha-reference-2026-09-04.md): live repairs newer
@@ -217,6 +253,9 @@ install, bootloader, reboot installed disk, external SSH and desktop usability.
 Do not overwrite reference disk. A visible installer is not installation proof.
 
 ## AX-012 — Factory / cache / false-positive gates [PARTIAL]
+
+Held-package BKC failures are intake/APK mapping, not AuziX OS defects.
+Debian installs those packages; the mapper leaves effects unmapped.
 
 Index-digest cache invalidation and exact APK replacement now exist. One-off
 candidate repairs/corrected spools still need fresh-run selection reconciliation.

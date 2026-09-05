@@ -15,9 +15,15 @@ After acting, record actual commands/script revision, outcome, artifact or log
 location, remaining uncertainty, and next step. Include issue IDs in commits.
 
 Use the existing BKC CLI/API/pipelines for lab execution and retained logs.
-Builds and containers run on R730, never the laptop. Observe startup, then hand
-off a monitoring command for long runs. No fabricated test passes: correct a
-misordered test or explicitly record deferral and its release consequence.
+At minimum, anything that alters the lab environment (packages, containers,
+images, VMs, services, factory proof directories, R730/PVE runs) goes through
+`bkc-cli` so it leaves a paper trail: run id, command, logs, and receipt.
+Read-only SSH inspection is allowed. Do not launch mutating worker scripts,
+docker runs, or image/HDD builds by raw SSH, even when a pipeline script
+already exists. Builds and containers run on R730, never the laptop. Observe
+startup, then hand off a monitoring command for long runs. No fabricated test
+passes: correct a misordered test or explicitly record deferral and its
+release consequence.
 
 Packages own tools and generic configuration; image/first-boot provisioning
 owns deployment users, homes, group membership and user-specific access policy.
@@ -29,6 +35,10 @@ prove fresh-image behavior, including reboot where applicable. VM145's original
 disk is the reference; preserve it unless explicitly authorized otherwise.
 
 ## Mandatory issue lifecycle
+
+If we find or fix something, it goes on a ticket. New evidence is a dated
+comment (or a new AX card when no owner exists). Fixes attach to that card:
+plan, commit, BKC run, and result. Chat is not the ledger.
 
 - Ticket descriptions hold scope and acceptance criteria. Progress, failures,
   decisions, commits and run results are dated comments, not description rewrites.

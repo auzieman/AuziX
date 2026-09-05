@@ -38,5 +38,25 @@ python3 "$ROOT_DIR/scripts/compare-repackage-findings.py" \
 python3 "$ROOT_DIR/scripts/test-held-package-effects.py" \
   "$output/repository/conversion-proof.json" "$output/effects" --source "$ROOT_DIR" \
   2>&1 | tee "$output/effects.log"
-jq -e '.status == "passed"' "$output/repository/conversion-proof.json" >/dev/null
-echo 'Conversion verified; installation and VM acceptance NOT tested.'
+python3 - <<'PY' "$output"
+import json, sys
+from pathlib import Path
+out = Path(sys.argv[1])
+proof = json.loads((out / "repository/conversion-proof.json").read_text())
+comparison = json.loads((out / "comparison.json").read_text())
+status = proof.get("status")
+if status not in {"passed", "completed-with-review"}:
+    raise SystemExit(f"conversion did not complete: {status}")
+receipt = {
+    "boundary": "intake-convert",
+    "status": status,
+    "install_tested": False,
+    "hdd_locked": True,
+    "newly_verified": comparison.get("newly_verified", []),
+    "findings_before": comparison.get("findings_before"),
+    "findings_after": comparison.get("findings_after"),
+}
+(out / "validation-boundary.json").write_text(json.dumps(receipt, indent=2) + "\n")
+print("INTAKE-VALIDATE", json.dumps(receipt))
+print("Installation, VM, and HDD acceptance NOT tested.")
+PY

@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -21,16 +22,7 @@ LIFECYCLE_STAGES = {
     "postrm": ("after_remove", "--after-remove"),
 }
 
-PATH_VARIABLES = {
-    "/var/cache": "${AUZIX_CACHE}",
-    "/var/spool": "${AUZIX_STATE}/spool",
-    "/var/lib": "${AUZIX_STATE}",
-    "/var/log": "${AUZIX_LOGS}",
-    "/etc": "${AUZIX_SETTINGS}",
-    "/run": "${AUZIX_RUN}",
-    "/tmp": "${AUZIX_TMP}",
-    "/root": "${AUZIX_ROOT_USER}",
-}
+# Hook-exported subset only. Translation uses packaging/rewrite-paths.sed.
 
 PACKAGE_OWNED_ROOTS = ("/usr", "/sbin", "/bin", "/lib64", "/lib")
 
@@ -44,6 +36,26 @@ AUZIX_TMP=${AUZIX_TMP:-/Work/Temp}
 AUZIX_ROOT_USER=${AUZIX_ROOT_USER:-/Users/root}
 export AUZIX_PACKAGE_ROOT AUZIX_SETTINGS AUZIX_STATE AUZIX_CACHE AUZIX_LOGS
 export AUZIX_RUN AUZIX_TMP AUZIX_ROOT_USER
+auzix_ensure_system_account() {
+	account=$1
+	id "$account" >/dev/null 2>&1 && return 0
+	if command -v adduser >/dev/null 2>&1; then
+		adduser --system --quiet --group "$account" || true
+	fi
+	id "$account" >/dev/null 2>&1 && return 0
+	groupadd --system "$account" 2>/dev/null || true
+	useradd --system --gid "$account" --no-create-home --shell /usr/sbin/nologin "$account"
+}
+auzix_apply_statoverride() {
+	user=$1
+	group=$2
+	mode=$3
+	path=$4
+	[ -n "$path" ] && [ ! -L "$path" ] && [ -e "$path" ] || return 0
+	id "$group" >/dev/null 2>&1 || return 1
+	chown "$user:$group" "$path"
+	chmod "$mode" "$path"
+}
 """
 
 UNSUPPORTED_PATTERNS = {
@@ -115,6 +127,28 @@ DPKG_STATOVERRIDE_MODE_BLOCK = re.compile(
     r'[ \t]+chmod (?P<mode>[0-7]{3,4}) (?P=path)\n'
     r'[ \t]+fi\n'
     r'[ \t]+fi'
+)
+
+DPKG_STATOVERRIDE_ADD_BLOCK = re.compile(
+    r'(?P<indent>[ \t]*)if ! dpkg-statoverride --list (?P<listpath>\S+) >/dev/null(?: 2>&1)?; then\n'
+    r'(?P=indent)[ \t]*dpkg-statoverride --update --add (?P<user>\S+) (?P<group>\S+) (?P<mode>[0-7]{3,4}) (?P<path>\S+)\n'
+    r'(?P=indent)fi'
+)
+
+DPKG_STATOVERRIDE_ADD_LINE = re.compile(
+    r'(?P<indent>[ \t]*)dpkg-statoverride --update --add (?P<user>\S+) (?P<group>\S+) (?P<mode>[0-7]{3,4}) (?P<path>\S+)\n'
+)
+
+SYSTEM_ACCOUNT_SYSUSERS_BLOCK = re.compile(
+    r'(?P<indent>[ \t]*)if command -v systemd-sysusers >/dev/null; then\n'
+    r'(?P=indent)[ \t]*systemd-sysusers[^\n]+\n'
+    r'(?P=indent)else\n'
+    r'(?P=indent)[ \t]*(?:in_sysroot )?adduser --system --quiet --group (?P<account>\S+)\n'
+    r'(?P=indent)fi'
+)
+
+SYSTEM_ACCOUNT_ADDUSER_LINE = re.compile(
+    r'(?P<indent>[ \t]*)(?:in_sysroot )?adduser --system --quiet --group (?P<account>\S+)\n'
 )
 
 UCF_OBSOLETE_REGISTRY_BLOCK = re.compile(
@@ -288,8 +322,9 @@ def _package_atom(value: str) -> str:
 
 def _apply_generated_script_rules(
     text: str, package_name: str, package_root: str
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], list[dict[str, Any]]]:
     rules: list[str] = []
+    operations: list[dict[str, Any]] = []
     if "# Automatically added by dh_python3" in text:
         replacement = """if command -v py3clean >/dev/null 2>&1; then
 \tpy3clean "${AUZIX_PACKAGE_ROOT}/RootFS/usr/lib/python3/dist-packages" || true
@@ -333,7 +368,43 @@ fi"""
         raise ContractError(f"statoverride mode rule matched {count} blocks")
     if count == 1:
         rules.append("native-existing-path-mode")
-    return text, rules
+
+    def replace_statoverride_add(match: re.Match[str]) -> str:
+        operations.append({
+            "type": "apply-statoverride",
+            "user": match.group("user").strip("\"'"),
+            "group": match.group("group").strip("\"'"),
+            "mode": match.group("mode"),
+            "path": match.group("path"),
+        })
+        return (
+            f'{match.group("indent")}auzix_apply_statoverride '
+            f'{match.group("user")} {match.group("group")} '
+            f'{match.group("mode")} {match.group("path")}\n'
+        )
+
+    text, count = DPKG_STATOVERRIDE_ADD_BLOCK.subn(replace_statoverride_add, text)
+    if count:
+        rules.append("debian-statoverride-add")
+    text, extra = DPKG_STATOVERRIDE_ADD_LINE.subn(replace_statoverride_add, text)
+    if extra:
+        rules.append("debian-statoverride-add")
+
+    def replace_system_account(match: re.Match[str]) -> str:
+        account = match.group("account")
+        operations.append({
+            "type": "ensure-system-account",
+            "account": account.strip("\"'"),
+        })
+        return f'{match.group("indent")}auzix_ensure_system_account {account}\n'
+
+    text, count = SYSTEM_ACCOUNT_SYSUSERS_BLOCK.subn(replace_system_account, text)
+    if count:
+        rules.append("debian-system-account")
+    text, extra = SYSTEM_ACCOUNT_ADDUSER_LINE.subn(replace_system_account, text)
+    if extra:
+        rules.append("debian-system-account")
+    return text, rules, operations
 
 
 DONOR_ACTIONS = {
@@ -520,7 +591,7 @@ def _normalize_conffiles(
             })
             continue
         translated = entry
-        for donor, replacement in sorted(PATH_VARIABLES.items(), key=lambda item: len(item[0]), reverse=True):
+        for donor, replacement in load_rewrite_paths():
             if entry == donor or entry.startswith(donor + "/"):
                 translated = replacement + entry[len(donor):]
                 break
@@ -600,24 +671,46 @@ def _alternative_provider_plan(
     ]
 
 
+SED_SUBST = re.compile(r"^s\|(?P<donor>.+?)\|(?P<dest>.+?)\|g\s*$")
+
+
+@lru_cache(maxsize=1)
+def load_rewrite_paths() -> tuple[tuple[str, str], ...]:
+    path = REPOSITORY_ROOT / "packaging/rewrite-paths.sed"
+    pairs: list[tuple[str, str]] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = SED_SUBST.match(line)
+        if match is None:
+            raise ContractError(f"invalid rewrite-paths.sed line: {raw}")
+        pairs.append((match.group("donor").replace(r"\>", ""), match.group("dest")))
+    return tuple(sorted(pairs, key=lambda item: len(item[0]), reverse=True))
+
+
+def _apply_rewrite_paths(text: str) -> str:
+    donor_root_forms = (r"\$\{DPKG_ROOT:-\}", r'"\$DPKG_ROOT"', r"\$DPKG_ROOT")
+    for donor, replacement in load_rewrite_paths():
+        for donor_root in donor_root_forms:
+            text = re.sub(
+                donor_root + re.escape(donor) + r"(?=/|[^A-Za-z0-9_]|$)",
+                lambda _match, value=replacement: value,
+                text,
+            )
+        text = re.sub(
+            rf"(?<![A-Za-z0-9_${{}}]){re.escape(donor)}(?=/|[^A-Za-z0-9_]|$)",
+            lambda _match, value=replacement: value,
+            text,
+        )
+    return text
+
+
 def _replace_paths(text: str, package_root: Path) -> str:
     lines = text.splitlines(keepends=True)
     shebang = lines[0] if lines and lines[0].startswith("#!") else ""
     result = "".join(lines[1:]) if shebang else text
-    donor_root_forms = (r"\$\{DPKG_ROOT:-\}", r'"\$DPKG_ROOT"', r"\$DPKG_ROOT")
-    for donor, replacement in sorted(PATH_VARIABLES.items(), key=lambda item: len(item[0]), reverse=True):
-        for donor_root in donor_root_forms:
-            result = re.sub(
-                donor_root + re.escape(donor) + r"(?=/|[^A-Za-z0-9_]|$)",
-                lambda _match, value=replacement: value,
-                result,
-            )
-    for donor, replacement in sorted(PATH_VARIABLES.items(), key=lambda item: len(item[0]), reverse=True):
-        result = re.sub(
-            rf"(?<![A-Za-z0-9_${{}}]){re.escape(donor)}(?=/|[^A-Za-z0-9_]|$)",
-            lambda _match, value=replacement: value,
-            result,
-        )
+
     def replace_owned(match: re.Match[str]) -> str:
         absolute = match.group(0)
         if not any(absolute == root or absolute.startswith(root + "/") for root in PACKAGE_OWNED_ROOTS):
@@ -632,7 +725,7 @@ def _replace_paths(text: str, package_root: Path) -> str:
         return absolute
 
     result = ABSOLUTE_PATH.sub(replace_owned, result)
-    return shebang + result
+    return shebang + _apply_rewrite_paths(result)
 
 
 def _insert_environment(text: str, package_root: str) -> str:
@@ -826,9 +919,12 @@ def normalize_lifecycle(
                 {"id": "maintscript-file-migration", "state": "transformed", "stages": []},
             )
             rule["stages"].append(lifecycle_name)
-        normalized_body, applied_script_rules = _apply_generated_script_rules(
-            normalized_body, str(receipt.get("name")), prefix
+        normalized_body, applied_script_rules, protocol_operations = (
+            _apply_generated_script_rules(
+                normalized_body, str(receipt.get("name")), prefix
+            )
         )
+        operations.extend(protocol_operations)
         python_cleanup = adapt_python_prerm(original, str(receipt.get("name")), lifecycle_name)
         if python_cleanup is not None:
             normalized_body = python_cleanup

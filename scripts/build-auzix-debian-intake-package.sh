@@ -312,6 +312,7 @@ rewrite_common_payload_paths() {
       -e 's#\([[:space:]]\)/usr/sbin/#\1/System/Compatibility/sbin/#g' \
       -e 's#\([[:space:]]\)/bin/#\1/System/Compatibility/bin/#g' \
       -e 's#\([[:space:]]\)/sbin/#\1/System/Compatibility/sbin/#g' \
+      -f "${ROOT_DIR}/packaging/rewrite-paths.sed" \
       "${text_path}"
   done < <(
     find "${payload_root}" -type f \

@@ -1,0 +1,17 @@
+---
+description: Lab mutations must run through bkc-cli with a paper trail
+alwaysApply: true
+---
+
+# BKC paper trail
+
+Anything that alters the lab environment goes through `bkc-cli` (or a BKC
+pipeline it starts). That includes packages, containers, images, VMs,
+services, factory proof directories, and R730/PVE executions.
+
+Required trail: run id, command, logs, receipt. Read-only SSH inspection is
+allowed. Local laptop unit tests that do not touch the lab are allowed.
+
+Do not launch mutating worker scripts, docker runs, apt/apk, or image/HDD
+builds by raw SSH. HDD stays locked until intake validation receipts exist.
+Do not mutate VM145.

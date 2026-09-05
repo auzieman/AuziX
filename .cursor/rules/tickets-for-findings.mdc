@@ -1,0 +1,13 @@
+---
+description: Findings and fixes must land on Kanboard/AX tickets
+alwaysApply: true
+---
+
+# Tickets for findings and fixes
+
+If we find or fix something, it goes on a ticket. Chat is not the ledger.
+
+- New finding: open or attach to the owning AX/Kanboard card with evidence.
+- Fix: same card gets the plan, commit, BKC run, and result as dated comments.
+- Do not rewrite ticket descriptions for routine progress.
+- No anonymous work. If Kanboard is down, record locally and mark sync pending.

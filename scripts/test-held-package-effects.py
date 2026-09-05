@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Batch receipts for held packages; never equate conversion with installation."""
+"""Batch receipts for held packages; never equate conversion with installation.
+
+Exit 0 means the receipts were written. Package rows stay blocked until an
+install proof exists. Exit 1 only when a receipt cannot be produced.
+"""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import difflib
@@ -92,7 +96,9 @@ def main():
     (args.output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(f"EFFECT-SUMMARY total={len(rows)} accepted=0 "
           f"component-passed={summary['component_passed']} status=blocked", flush=True)
-    return 1
+    if any(row.get("component") == "error" for row in rows):
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
