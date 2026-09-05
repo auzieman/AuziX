@@ -46,3 +46,22 @@ file storage had only about 700 MiB available; do not copy an 8 GiB raw image
 there. Its `local-lvm` disk storage has ample space. Verify availability again
 before deployment. Public release remains blocked on boot/install validation
 and removal of lab-only repository configuration and authorized keys.
+
+## r4 workstation transaction boundary
+
+All 82 archive conversions passed (71 lifecycle, 11 static). Zero, Nginx and
+netinstall built; netinstall's checks passed. Pre-HDD base installation stopped
+because Sudo attempted to own the runtime's loader path. `e47902b` removes
+core ABI files from the sudo producer. The corrected APK subsequently installed
+with BaseLayout, BusyBox, ApkTools and RuntimeGlibc without an overwrite error.
+
+The APK index identified six collapsed provider spellings and ten omitted
+adjacent runtimes. Trixie APT simulation of the bounded runtime selection with
+an empty status file and `--no-install-recommends` identified eight further
+GI/typelib/font runtime dependencies. All 18 are explicit in the profile;
+the existing base/DBus/service compatibility exception is not replaced by
+blindly importing Debian's systemd, dpkg and base-files scaffolding.
+
+The follow-up intake reuses the completed 485-entry spool. Before any further
+container construction, the builder now requires an APK solver pass for the
+full requested groups. A passing per-package conversion is not a solver pass.

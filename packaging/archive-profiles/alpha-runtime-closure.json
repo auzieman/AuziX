@@ -15,6 +15,14 @@
     "Libpangocairo100": "libpangocairo-1.0-0"
   },
   "package_names": {
+    "Gir12Atk10": "gir1.2-atk-1.0",
+    "Gir12Freedesktop": "gir1.2-freedesktop",
+    "Gir12Gdkpixbuf20": "gir1.2-gdkpixbuf-2.0",
+    "Gir12Glib20": "gir1.2-glib-2.0",
+    "Gir12Harfbuzz00": "gir1.2-harfbuzz-0.0",
+    "Gir12Pango10": "gir1.2-pango-1.0",
+    "LibharfbuzzGobject0": "libharfbuzz-gobject0",
+    "Libpangoxft100": "libpangoxft-1.0-0",
     "Gir12Girepository20": "gir1.2-girepository-2.0",
     "Gir12GTK30": "gir1.2-gtk-3.0",
     "Gir12Gtksource4": "gir1.2-gtksource-4",
@@ -47,6 +55,14 @@
     "Libpeas100": "libpeas-1.0-0"
   },
   "packages": [
+    "Gir12Atk10",
+    "Gir12Freedesktop",
+    "Gir12Gdkpixbuf20",
+    "Gir12Glib20",
+    "Gir12Harfbuzz00",
+    "Gir12Pango10",
+    "LibharfbuzzGobject0",
+    "Libpangoxft100",
     "Gir12Girepository20",
     "Gir12GTK30",
     "Gir12Gtksource4",
