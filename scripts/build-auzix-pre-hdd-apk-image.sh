@@ -419,11 +419,16 @@ docker run --rm "$PRE_HDD_IMAGE" /Programs/BusyBox/current/Commands/busybox sh -
   /Programs/OpensshServer/current/Commands/sshd -t
   echo pre-hdd-https-apk-ok
 '
-docker run --rm --user auzix "$PRE_HDD_IMAGE" \
+# Initialize account/PAM aliases as root before resolving the workstation user.
+docker run --rm "$PRE_HDD_IMAGE" \
   /Programs/BusyBox/current/Commands/busybox sh -ec '
-    test "$(id -u)" -ne 0
-    sudo -n busybox id | grep "uid=0(root)"
-    sudo -n apk --version
+    id auzix
+    busybox su auzix -s /System/Compatibility/bin/sh -c "
+      set -e
+      test \"\$(id -u)\" -ne 0
+      sudo -n busybox id | grep \"uid=0(root)\"
+      sudo -n apk --version
+    "
     echo sudo-user-runtime-proof-pass
   ' >"$WORK/receipts/sudo-user-runtime.log" 2>&1 || {
     cat "$WORK/receipts/sudo-user-runtime.log"
