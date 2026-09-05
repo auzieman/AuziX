@@ -161,3 +161,36 @@ baseline rather than silently comparing against a different package producer.
 
 Implementation commits are pushed only to internal alpha branches. No public
 publication, new HDD, or VM145 disk change has occurred as of this checkpoint.
+
+## Account node and runtime-boundary proof
+
+Terminal integration passed in the assembled image. The next stop was deluser's
+absolute `/usr/sbin/userdel`: Passwd's payload/Commands existed, but the retained
+archive omitted this compatibility link. Re-intake of the same Trixie
+1:4.17.4-2 produced 332 files and 23 commands with the current publication logic.
+Spool: `/var/lib/auzix-build/package-proof/passwd-r8/spool`; refreshed APK and
+index rollback evidence: R8 `repairs/Passwd`.
+
+Direct diagnostic image `auzix/diagnostic:r8-installed` was exported from the
+already cached auzix-base stage; no factory rerun. Those diagnostics established
+that Docker's /etc mount masks the image's directory alias. The entrypoint now
+also publishes account configuration, sudoers and PAM aliases. `7944482` moves
+final validation after the actual image ENV and entrypoint are installed.
+
+The initial BKC account probe selected the old installed checksum with apk fix;
+it now installs the exact corrected local APK. That revealed a distinct issue:
+Shadow 4.17.4 intentionally opens account databases with O_NOFOLLOW, rejecting
+the Docker shim's leaf symlink /etc/passwd. Upstream reference:
+https://github.com/shadow-maint/shadow/blob/4.17.4/lib/commonio.c
+Do not remove this security check or infer missing database contents.
+
+`f89e478` exercises account writes inside /target before Docker's runtime /etc
+shim; /etc there is a directory alias and account files are regular files in
+/System/Settings. The final validator requires account_roundtrip=pass in the
+transaction receipt. BKC run `248d8978-90e8-4ce1-b8b3-a3aea007d261` independently
+passed this adduser/deluser roundtrip, then resumed image validation. Log suffix:
+`apk-alpha-20260905-alpha-bkc-r8-resume-f89e4785f5d5.log` (plus `.account-proof`).
+This is staged-root proof, not yet real-disk installation proof. Docker runtime
+account writes through leaf symlinks remain a known limitation, not silently
+declared fixed. Fontconfig emitted a missing-default-config warning; retain it
+as a separate runtime observation for desktop verification.
