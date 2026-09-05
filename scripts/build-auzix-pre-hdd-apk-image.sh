@@ -384,9 +384,11 @@ curl --fail --silent --show-error \
   --resolve "auzix-repo.test:${REPOSITORY_PORT}:127.0.0.1" \
   "https://auzix-repo.test:${REPOSITORY_PORT}/x86_64/APKINDEX.tar.gz" \
   -o "$WORK/receipts/APKINDEX.tar.gz"
+index_sha256=$(sha256sum "$WORK/receipts/APKINDEX.tar.gz" | awk '{print $1}')
 docker build --pull=false --network host \
   --add-host auzix-repo.test:127.0.0.1 \
   --build-arg "BASE_IMAGE=$ZERO_IMAGE" \
+  --build-arg "AUZIX_APK_INDEX_SHA256=$index_sha256" \
   --build-arg "AUZIX_APK_REPOSITORY=https://auzix-repo.test:${REPOSITORY_PORT}" \
   --build-context "auzix_repository_trust=$WORK/trust" \
   -f "$ROOT_DIR/docker/release/netinstall-validation/Dockerfile" \
@@ -406,6 +408,7 @@ cp "$ROOT_DIR/scripts/validate-auzix-pre-hdd-root.sh" "$WORK/build-context/scrip
 cp "$ROOT_DIR/docker/release/pre-hdd/Dockerfile" "$WORK/build-context/Dockerfile"
 sed -i 's#COPY scripts/validate-auzix-pre-hdd-root.sh /Work/validate-root#COPY scripts-validate /Work/validate-root#' "$WORK/build-context/Dockerfile"
 docker build --pull=false --network host --add-host auzix-repo.test:127.0.0.1 \
+  --build-arg "AUZIX_APK_INDEX_SHA256=$index_sha256" \
   --build-context "auzix_bootstrap=$WORK/bootstrap" \
   --build-context "auzix_repository_trust=$WORK/trust" \
   --build-arg "AUZIX_APK_REPOSITORY=https://auzix-repo.test:${REPOSITORY_PORT}" \

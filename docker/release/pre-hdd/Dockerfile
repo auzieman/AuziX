@@ -16,6 +16,7 @@ COPY docker/release/pre-hdd/groups /factory/groups/
 COPY --chmod=0755 docker/release/pre-hdd/install-groups.sh /factory/install-groups
 
 ARG AUZIX_APK_REPOSITORY=https://auzix-repo.test:8443
+ARG AUZIX_APK_INDEX_SHA256
 
 RUN test "$(find /factory/repository/bootstrap -type f -name '*.apk' | wc -l)" -eq 3
 
