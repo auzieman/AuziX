@@ -5,7 +5,7 @@
   "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-desktop-integration-package.sh", "receipt_glob": "System/PackageDB/AuzixDesktopIntegration-*.json"},
   "layout": {"domain": "desktop-integration", "prefix": "/Programs/AuzixDesktopIntegration/${version}"},
   "payload": {"surfaces": ["/Programs/AuzixDesktopIntegration", "/System/PackageDB"]},
-  "dependencies": {"runtime": ["BusyBox", "Enlightenment"]},
+  "dependencies": {"runtime": ["BusyBox", "Enlightenment"], "apk_providers": {"Enlightenment": "enlightenment"}},
   "lifecycle": {"before_install": null, "after_install": "/Programs/AuzixDesktopIntegration/${version}/Commands/activate", "before_remove": null, "after_remove": null},
   "validation": {"commands": ["test -x /Programs/AuzixDesktopIntegration/current/Commands/e-launcher-sync"]}
 }

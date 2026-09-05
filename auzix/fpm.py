@@ -99,7 +99,8 @@ def emit_apk(package: dict[str, Any], staged_root: Path, output_dir: Path, *, dr
         "--chdir", str(staged_root),
     ]
     for dependency in dependencies:
-        argv.extend(["--depends", apk_name(dependency)])
+        providers = package["dependencies"].get("apk_providers", {})
+        argv.extend(["--depends", providers.get(dependency, apk_name(dependency))])
     for flag, script in lifecycle:
         argv.extend([flag, str(script)])
     argv.append(".")

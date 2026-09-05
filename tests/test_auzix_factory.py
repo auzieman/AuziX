@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from auzix.contracts import ContractError
@@ -14,7 +15,7 @@ from auzix.package_graph import load_packages
 from auzix.layout import activate_layout
 from auzix.apk import compose_apk_layers
 from auzix.staging import stage_package
-from auzix.fpm import receipt_fpm_metadata
+from auzix.fpm import emit_apk, receipt_fpm_metadata
 from auzix.archive_fpm import (
     _archive_apk_name, _archive_layout_domain, _automatic_library_definition,
     _with_automatic_library_publication, _review_summary,
@@ -24,6 +25,21 @@ from auzix.intake_ir import account_donor_script, grok_donor_script
 
 
 class FactoryTests(unittest.TestCase):
+    def test_native_package_depends_on_declared_archive_provider(self):
+        package = {
+            "name": "DesktopAssets", "version": "1.0", "source": {},
+            "dependencies": {
+                "runtime": ["BusyBox", "Enlightenment"],
+                "apk_providers": {"Enlightenment": "enlightenment"},
+            },
+        }
+        with tempfile.TemporaryDirectory() as work, \
+                patch("auzix.fpm.shutil.which", return_value="/usr/bin/fpm"), \
+                patch("auzix.fpm.validate_staged_payload"):
+            argv = emit_apk(package, Path(work), Path(work) / "out", dry_run=True)
+        dependencies = [argv[i + 1] for i, item in enumerate(argv) if item == "--depends"]
+        self.assertEqual(dependencies, ["auzix-busy-box", "enlightenment"])
+
     def test_donor_intake_accounts_for_every_line(self):
         source = "#!/bin/sh\n# donor note\nmkdir -p /var/lib/example\ndpkg-query -W example\n"
         accounted = account_donor_script("control/postinst", source)

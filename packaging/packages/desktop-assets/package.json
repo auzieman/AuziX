@@ -5,7 +5,7 @@
   "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/DesktopAssets-*.json"},
   "layout": {"domain": "assets", "prefix": "/Programs/DesktopAssets/${version}"},
   "payload": {"surfaces": ["/Programs/DesktopAssets", "/System/Compatibility/usr/share/elementary", "/System/Compatibility/usr/share/enlightenment", "/System/Compatibility/usr/share/terminology", "/System/PackageDB"]},
-  "dependencies": {"runtime": ["Enlightenment"]},
+  "dependencies": {"runtime": ["Enlightenment"], "apk_providers": {"Enlightenment": "enlightenment"}},
   "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
   "validation": {"commands": ["test -d /System/Compatibility/usr/share/enlightenment/data/backgrounds"]}
 }

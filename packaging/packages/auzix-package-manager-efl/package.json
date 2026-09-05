@@ -5,7 +5,7 @@
   "source": {"kind": "native-auzix", "receipt_glob": "System/PackageDB/AuzixPackageManagerEfl-*.json"},
   "layout": {"domain": "program", "prefix": "/Programs/AuzixPackageManagerEfl/${version}"},
   "payload": {"surfaces": ["/Programs/AuzixPackageManagerEfl", "/System/Tools/auzix-package-manager", "/System/Compatibility/usr/share/applications/auzix-package-manager.desktop", "/System/PackageDB"]},
-  "dependencies": {"runtime": ["ApkTools", "Sudo", "Enlightenment"]},
+  "dependencies": {"runtime": ["ApkTools", "Sudo", "Enlightenment"], "apk_providers": {"Enlightenment": "enlightenment"}},
   "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
   "validation": {"commands": ["test -x /System/Tools/auzix-package-manager"]}
 }

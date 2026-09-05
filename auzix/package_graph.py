@@ -27,6 +27,12 @@ def validate_package(path: Path, package: dict[str, Any]) -> None:
     required_shebangs = package["validation"].get("required_shebangs", {})
     if not isinstance(runtime, list) or not all(isinstance(item, str) for item in runtime):
         raise ContractError(f"{path}: dependencies.runtime must be a string array")
+    providers = package["dependencies"].get("apk_providers", {})
+    if not isinstance(providers, dict) or not all(
+        name in runtime and isinstance(atom, str) and atom and not any(c.isspace() for c in atom)
+        for name, atom in providers.items()
+    ):
+        raise ContractError(f"{path}: dependencies.apk_providers must map runtime names to APK atoms")
     if not isinstance(commands, list) or not commands or not all(isinstance(item, str) for item in commands):
         raise ContractError(f"{path}: validation.commands must be a non-empty string array")
     if not isinstance(required_shebangs, dict) or not all(
