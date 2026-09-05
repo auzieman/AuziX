@@ -17,3 +17,8 @@ Rollback: revert this scoped commit; all prior outputs and R10 remain intact.
 Acceptance: real uid/gid/mode assertions in the disposable container, failure
 without the account and on symlinks, override preservation and successful
 second invocation. Update task65 by comment; do not close the factory issue.
+
+Execution: commit e509689d7d39d81dbd5cc22cc3692acf77ba9ede. First BKC run
+c7eeb540-d81c-40af-af16-64b3f58b550c rejected my abbreviated source_ref before
+execution. Retry with the full immutable hash; no script or image repair is
+needed for this invocation error. Retain the failed run as evidence.
