@@ -24,7 +24,7 @@ done </System/Settings/apk/one-nginx.packages
 # filename until a signed APKINDEX exists for netinstall. Keep maintainer
 # scripts (pre/inst/post). Do not COPY program trees into /Programs.
 /Programs/ApkTools/current/Commands/apk add --allow-untrusted --no-network \
-  --repository /Repository/x86_64 "$@"
+  --repository /Repository "$@"
 
 test -s /System/State/apk/db/installed
 
