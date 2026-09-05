@@ -7,8 +7,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-run}"
-[[ "$MODE" == run || "$MODE" == preflight ]] || {
-  echo "usage: $0 [preflight|run]" >&2; exit 2;
+[[ "$MODE" == run || "$MODE" == preflight || "$MODE" == resume-containers ]] || {
+  echo "usage: $0 [preflight|run|resume-containers]" >&2; exit 2;
 }
 RUN_ID="${AUZIX_PRE_HDD_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 WORK="${AUZIX_PRE_HDD_WORK:-/var/lib/auzix-build/pre-hdd-apk/${RUN_ID}}"
@@ -63,6 +63,24 @@ if [[ "$MODE" == preflight ]]; then
   echo "pre-hdd-apk: PREFLIGHT PASS host=$(hostname -s) run=$RUN_ID"
   exit 0
 fi
+if [[ "$MODE" == resume-containers ]]; then
+  producer_source="${AUZIX_PACKAGE_SOURCE_ROOT:?original immutable producer checkout required}"
+  test ! -e "$WORK/receipts/pre-hdd.receipt" || fail "candidate already passed; do not replace it"
+  for directory in auzix packaging installer assets; do
+    diff -qr --exclude=__pycache__ "$producer_source/$directory" "$ROOT_DIR/$directory" \
+      || fail "package inputs changed: $directory; repackage explicitly"
+  done
+  for producer in "$ROOT_DIR"/scripts/build-*-package.sh \
+    "$ROOT_DIR/scripts/build-auzix-pre-hdd-support-packages.sh" \
+    "$ROOT_DIR/scripts/stage-auzix-installer-runtime.sh" \
+    "$ROOT_DIR/scripts/add-auzix-live-tools.sh"; do
+    cmp "$producer_source/scripts/$(basename "$producer")" "$producer" \
+      || fail "package producer changed: $producer"
+  done
+  jq -e '.status == "passed"' "$WORK/delta-apks/repository/conversion-proof.json" >/dev/null
+  test -s "$WORK/repository/x86_64/APKINDEX.tar.gz"
+  echo "pre-hdd-apk: resuming consumers from unchanged package sources: $producer_source"
+else
 [[ ! -e "$WORK" ]] || fail "immutable run directory already exists: $WORK"
 mkdir -p "$WORK"/{bootstrap,layer,delta-repo/packages,delta-repo/entries,delta-apks,apk-tool,nginx-build-root,nginx-stage,nginx-packages,support-stages,support-packages,retained-stages,retained-packages,reference-root,reference-stages,reference-packages,repository/x86_64,keys,tls,trust,receipts}
 copy_volume() {
@@ -293,6 +311,7 @@ docker run --rm -v "$WORK:/work" alpine:3.22 sh -ec '
 '
 cp "$WORK/tls/server.crt" "$WORK/trust/ca.crt"
 cp "$WORK/keys/repository.rsa.pub" "$WORK/trust/repository.rsa.pub"
+fi
 tar -xOzf "$WORK/repository/x86_64/APKINDEX.tar.gz" APKINDEX |
   awk -F: '$1 == "P" {print $2}' | sort -u >"$WORK/repository-packages.list"
 cat "$ROOT_DIR"/docker/release/pre-hdd/groups/*.list |
@@ -306,6 +325,7 @@ missing_packages="$(comm -23 "$WORK/packages.list" "$WORK/repository-packages.li
 # index containing each requested name can still have missing dependencies.
 docker run --rm -v "$WORK:/work:ro" alpine:3.22 sh -ec '
   mkdir -p /solver
+  apk --root /solver --initdb --no-scripts --repositories-file /dev/null add
   set -- $(cat /work/packages.list)
   apk --root /solver --initdb --no-scripts --allow-untrusted \
     --repositories-file /dev/null --repository /work/repository \
