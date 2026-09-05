@@ -2,6 +2,8 @@
   "format": "auzix-archive-profile-v1",
   "name": "alpha-runtime-closure",
   "reviewed_archives": {
+    "Passwd": {"spool": "/var/lib/auzix-build/package-proof/passwd-r8/spool", "version": "1-4.17.4-2", "sha256": "e9dcf9022f1ba5f8578dadcea51321c9e166ce58bbce726b5f205a910ba24a78"},
+    "TerminologyData": {"spool": "/var/lib/auzix-build/package-proof/terminology-r8/spool", "version": "1.14.0-1", "sha256": "c72d2ae489b4dbd3c80587e9d5348892ef45838cbcfaf575debef15c1d02a0d4"},
     "Libbluetooth3": {"spool":"/var/lib/auzix-build/factory-delta/r28-adjacent-clean2/spool","version":"5.82-1.1","sha256":"ef78d87a09604f292659bc961e1554f01019b15d22d745181c7d193da7d4aad7"},
     "Libexif12": {"spool":"/var/lib/auzix-build/factory-delta/r28-adjacent-clean2/spool","version":"0.6.25-1+deb13u1","sha256":"ea6e4f8d39e53ee49005114b01a8bdffbf593304998c74f50590f00b7f774651"},
     "Libasyncns0": {"spool":"/var/lib/auzix-build/factory-delta/r28-adjacent-clean2/spool","version":"0.8-6+b5","sha256":"23ed5775a4ee074d003921e7fb50d2446093da6fdcc21832c72d7374eb3c0794"},

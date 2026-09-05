@@ -1,0 +1,10 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "alpha-e-adjacent",
+  "packages": ["EnlightenmentData", "Libasound2t64", "Libasound2Data"],
+  "package_names": {
+    "EnlightenmentData": "enlightenment-data",
+    "Libasound2t64": "libasound2t64",
+    "Libasound2Data": "libasound2-data"
+  }
+}
