@@ -22,7 +22,7 @@ LIFECYCLE_STAGES = {
     "postrm": ("after_remove", "--after-remove"),
 }
 
-# Hook-exported subset only. Translation uses packaging/rewrite-paths.sed.
+# Hook-exported runtime leftovers. Translation uses packaging/rewrite-paths.sed.
 
 PACKAGE_OWNED_ROOTS = ("/usr", "/sbin", "/bin", "/lib64", "/lib")
 

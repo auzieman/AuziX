@@ -85,6 +85,15 @@ launches. Rollback: revert those scripts and this note. Acceptance: local
 lifecycle units pass; prove-factory would exit 0 on completed conversion
 even with remaining mapping families.
 
+September 5 16:17 PDT — AX-012/task65, before action: operator agreed the
+layer split is the repeatable history. Split `rewrite-paths.sed` (runtime
+leftovers, including `/var/run`) from `rewrite-payload-paths.sed` (`/usr*`
+Compatibility for debian-intake payload text). Lifecycle keeps unowned
+`/usr/bin` as `unmapped-path`. Local `unittest discover` must be green.
+No BKC, HDD, or VM145 in this step. Rollback: revert the split commit.
+Acceptance: the three factory fixtures that failed on `95000cc` pass; D-Bus
+`/var/run` still rewrites; owned RootFS still wins.
+
 
 ## Reference evidence
 

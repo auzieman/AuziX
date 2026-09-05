@@ -85,11 +85,17 @@ class LifecyclePreservationTests(unittest.TestCase):
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertIn("${AUZIX_PACKAGE_ROOT}/RootFS/usr/lib/example/helper", rendered)
-        self.assertIn("/System/Compatibility/bin/dbus-daemon", rendered)
+        self.assertIn("/usr/bin/dbus-daemon", rendered)
+        self.assertIn("/bin/dbus-daemon", rendered)
         self.assertIn("${AUZIX_RUN}/dbus/system_bus_socket", rendered)
-        self.assertFalse(
-            any(finding.get("kind") == "unmapped-path" for finding in result["findings"])
-        )
+        paths = [
+            match
+            for finding in result["findings"]
+            if finding.get("kind") == "unmapped-path"
+            for match in finding["matches"]
+        ]
+        self.assertIn("/usr/bin/dbus-daemon", paths)
+        self.assertIn("/bin/dbus-daemon", paths)
 
     def test_conffiles_use_shared_rewrite_table(self):
         temporary = tempfile.TemporaryDirectory()

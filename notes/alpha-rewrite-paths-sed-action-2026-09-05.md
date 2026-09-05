@@ -13,3 +13,6 @@ Add `packaging/rewrite-paths.sed` as the shared table. Lifecycle applies it
 after package-owned RootFS rewrites so install-time helpers stay in the
 payload. Text metadata can `sed -f` the same file. Do not sed ELF. No HDD
 or VM145 change.
+
+Correction 16:17 PDT: one table hid unowned `/usr*` leftovers. Split to
+`rewrite-paths.sed` (runtime) and `rewrite-payload-paths.sed` (payload).
