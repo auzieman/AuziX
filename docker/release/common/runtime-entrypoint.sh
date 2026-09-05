@@ -4,7 +4,7 @@ set -eu
 # Docker materializes /etc for hosts, DNS, and resolver configuration. Publish
 # installed AUZiX settings into that runtime directory without replacing
 # Docker-owned files.
-for name in passwd group shadow subuid subgid ca-certificates.conf; do
+for name in passwd group shadow gshadow subuid subgid ca-certificates.conf adduser.conf deluser.conf sudoers login.defs; do
   source=/System/Settings/$name
   target=/etc/$name
   if test -e "$source" && ! test -e "$target"; then
@@ -12,7 +12,7 @@ for name in passwd group shadow subuid subgid ca-certificates.conf; do
   fi
 done
 
-for name in apk ssh ssl; do
+for name in apk ssh ssl sudoers.d pam.d; do
   source=/System/Settings/$name
   target=/etc/$name
   if test -e "$source" && ! test -e "$target"; then

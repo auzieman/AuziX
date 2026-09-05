@@ -33,8 +33,6 @@ FROM auzix-base AS workstation
 
 # Assertions only: validation may not manufacture identities, configuration,
 # keys, library links or desktop caches.
-COPY scripts/validate-auzix-pre-hdd-root.sh /Work/validate-root
-RUN ["/Programs/BusyBox/current/Commands/busybox", "sh", "-ec", "/Work/validate-root /; rm -f /Work/validate-root"]
 
 FROM scratch
 COPY --from=workstation / /
@@ -57,3 +55,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD ["/Programs/Busybox/current/Commands/busybox", "test", "-s", "/System/State/apk/db/installed"]
 ENTRYPOINT ["/Services/Container/runtime-entrypoint"]
 CMD ["/Services/Container/run"]
+
+# Validate the actual runtime environment, including Docker's /etc aliases,
+# rather than the intermediate root before ENV and entrypoint are installed.
+COPY scripts/validate-auzix-pre-hdd-root.sh /Work/validate-root
+RUN ["/Services/Container/runtime-entrypoint", "/Programs/BusyBox/current/Commands/busybox", "sh", "-ec", "/Work/validate-root /; rm -f /Work/validate-root"]
