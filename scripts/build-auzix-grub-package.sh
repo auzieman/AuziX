@@ -31,7 +31,7 @@ copy_runtime_deps() {
           continue
           ;;
       esac
-      install -D -m 0755 "${dep}" "${COMPAT}${dep}"
+      install -D -m 0755 "${dep}" "${PROGRAM_ROOT}/Libraries/$(basename "${dep}")"
     done
 }
 
@@ -51,6 +51,7 @@ done
 rm -rf "${PROGRAM_ROOT}"
 mkdir -p \
   "${PROGRAM_ROOT}/Commands" \
+  "${PROGRAM_ROOT}/Libraries" \
   "${PROGRAM_ROOT}/Resources/i386-pc" \
   "${COMPAT}/usr/bin" \
   "${COMPAT}/usr/sbin" \
@@ -65,7 +66,13 @@ for command_spec in \
 do
   command_name="${command_spec%%:*}"
   source_path="${command_spec#*:}"
-  install -m 0755 "${source_path}" "${PROGRAM_ROOT}/Commands/${command_name}"
+  install -m 0755 "${source_path}" "${PROGRAM_ROOT}/Commands/${command_name}.real"
+  cat >"${PROGRAM_ROOT}/Commands/${command_name}" <<EOF_WRAPPER
+#!/System/Compatibility/bin/sh
+export LD_LIBRARY_PATH=/Programs/GRUB/${VERSION}/Libraries:/System/Libraries/Runtime/glibc\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}
+exec /Programs/GRUB/${VERSION}/Commands/${command_name}.real "\$@"
+EOF_WRAPPER
+  chmod 0755 "${PROGRAM_ROOT}/Commands/${command_name}"
   copy_runtime_deps "${source_path}"
 done
 

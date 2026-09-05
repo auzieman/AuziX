@@ -59,17 +59,25 @@ done
 # Flatpak's bundled OpenSSL expects the Fedora-style trust location. Publish a
 # compatibility view of AUZiX's package-owned CA bundle, then seed the standard
 # system remote as part of the package lifecycle rather than HDD postprocessing.
-if [ -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt ]; then
+ca_file=/System/Settings/ssl/certs/ca-certificates.crt
+if [ -s "$ca_file" ]; then
+  "${BB}" mkdir -p /System/Compatibility/etc/ssl
+  if [ ! -e /System/Compatibility/etc/ssl/certs ]; then
+    "${BB}" ln -s /System/Settings/ssl/certs /System/Compatibility/etc/ssl/certs
+  fi
   "${BB}" mkdir -p /System/Settings/pki/tls/certs
-  "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+  "${BB}" ln -sfn "$ca_file" \
     /System/Settings/pki/tls/certs/ca-bundle.crt
   [ -e /etc/pki ] || "${BB}" ln -s /System/Settings/pki /etc/pki
 fi
-if [ -x /Programs/Flatpak/current/Commands/flatpak ]; then
-  SSL_CERT_FILE=/System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+if [ -x /Programs/Flatpak/current/Commands/flatpak ] && [ -d /proc/self/fd ]; then
+  [ -s "$ca_file" ] || { echo "FlatpakRuntimeSupport: missing CA bundle" >&2; exit 1; }
+  SSL_CERT_FILE="$ca_file" \
     /Programs/Flatpak/current/Commands/flatpak remote-add --system \
       --if-not-exists flathub \
       https://dl.flathub.org/repo/flathub.flatpakrepo
+else
+  echo "FlatpakRuntimeSupport: remote initialization deferred until runtime /proc is available"
 fi
 
 echo "FlatpakRuntimeSupport: /var is a real alias directory for ${STATE}"
@@ -85,7 +93,7 @@ cat >"${PACKAGE_DB}/FlatpakRuntimeSupport-${VERSION}.auzix.json" <<EOF
   "kind": "runtime-support",
   "migration_stage": "flatpak-bwrap-root-alias-support",
   "description": "Runtime support for Flatpak/Bubblewrap on AUZiX, including a real /var alias directory that maps children into /System/State.",
-  "depends": ["BusyBox", "Flatpak"],
+  "depends": ["BusyBox", "Flatpak", "CaCertificates"],
   "prefix": "/Programs/FlatpakRuntimeSupport/${VERSION}",
   "commands": [
     "/Programs/FlatpakRuntimeSupport/${VERSION}/Commands/repair-var-alias"

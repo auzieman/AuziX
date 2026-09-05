@@ -20,4 +20,8 @@ for name in apk ssh ssl; do
   fi
 done
 
+if test -x /Programs/FlatpakRuntimeSupport/current/Commands/repair-var-alias; then
+  /Programs/FlatpakRuntimeSupport/current/Commands/repair-var-alias
+fi
+
 exec "$@"

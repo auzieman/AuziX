@@ -136,6 +136,27 @@ docker run --rm -v "$WORK/bootstrap:/bootstrap:ro" -v "$WORK/apk-tool:/output" \
     cp /tool-root/Programs/ApkTools/current/Commands/apk /output/apk
     chmod 0755 /output/apk
   '
+if [[ -n "${AUZIX_REUSE_ARCHIVE_WORK:-}" ]]; then
+  reuse="$AUZIX_REUSE_ARCHIVE_WORK"
+  archive_source="${AUZIX_REUSE_ARCHIVE_SOURCE_ROOT:?original archive factory checkout required}"
+  # This native support package is regenerated below, never reused as an archive.
+  jq -e 'all(.packages[]; .name != "FlatpakRuntimeSupport")' "$WORK/receipts/archive-preflight.json" >/dev/null
+  for directory in auzix packaging; do
+    diff -qr --exclude=__pycache__ --exclude=flatpak-runtime-support "$archive_source/$directory" "$ROOT_DIR/$directory" \
+      || fail "archive factory inputs changed: $directory"
+  done
+  jq -e '.status == "passed"' "$reuse/delta-apks/repository/conversion-proof.json" >/dev/null
+  identity='.packages | map({name,version,sha256,apk_name,apk_version,apk_depends,package_definition}) | sort_by(.name)'
+  jq -S "$identity" "$WORK/receipts/archive-preflight.json" >"$WORK/receipts/archive-inputs.json"
+  jq -S "$identity" "$reuse/delta-apks/repository/conversion-proof.json" >"$WORK/receipts/reused-archive-inputs.json"
+  cmp "$WORK/receipts/archive-inputs.json" "$WORK/receipts/reused-archive-inputs.json" \
+    || fail "selected archive identities or dependencies changed"
+  cp -a "$reuse/delta-apks/repository" "$WORK/delta-apks/"
+  for package in "$WORK/delta-apks/repository/x86_64"/*.apk; do
+    "$WORK/apk-tool/apk" verify --allow-untrusted "$package" >/dev/null
+  done
+  printf 'archive_source=%s\nstatus=verified-reuse\n' "$reuse" >"$WORK/receipts/archive-reuse.receipt"
+else
 docker run --rm \
   -v "$WORK/selected-repo:/delta-repo:ro" \
   -v "$WORK/delta-apks:/delta-output" \
@@ -145,6 +166,7 @@ docker run --rm \
   convert-archive-profile /delta-repo \
     /delta-profile.json \
     /delta-output/repository --apk-command /tools/apk
+fi
 delta_package_count="$(jq '.packages | length' "$DELTA_PROFILE")"
 test "$(find "$WORK/delta-apks/repository/x86_64" -type f -name '*.apk' | wc -l)" -eq "$delta_package_count"
 test "$(jq -r '(.summary.passed // 0) + (.summary.static // 0)' "$WORK/delta-apks/repository/conversion-proof.json")" -eq "$delta_package_count"
@@ -230,6 +252,9 @@ cp "$WORK/reference-root/System/PackageDB/DesktopAssets-auzietek.auzix.json" \
 
 cp -a "$WORK/reference-root/Programs/AuzixInstaller" \
   "$WORK/reference-stages/AuzixInstaller/Programs/"
+# The reference root contains both packages installed together. The frontend
+# package, not the core backend package, owns this link and publishes it below.
+rm -f "$WORK/reference-stages/AuzixInstaller/Programs/AuzixInstaller/0.2/Frontends/efl"
 mkdir -p "$WORK/reference-stages/AuzixInstaller/System/Tools" \
   "$WORK/reference-stages/AuzixInstaller/System/Compatibility/usr/share/applications"
 cp -a "$WORK/reference-root/System/Tools/auzix-installer" \
