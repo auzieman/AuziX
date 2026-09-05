@@ -74,6 +74,10 @@ auzix_reload_service() {
 	fi
 	return 0
 }
+auzix_enable_service() {
+	_name=$1
+	return 0
+}
 auzix_apply_sysctl() {
 	pattern=$1
 	command -v sysctl >/dev/null 2>&1 || return 0
@@ -89,7 +93,7 @@ UNSUPPORTED_PATTERNS = {
     "debian-service-helper": re.compile(
         r"\b(?:deb-systemd-helper|deb-systemd-invoke|invoke-rc\.d|update-rc\.d)\b"
     ),
-    "foreign-service-manager": re.compile(r"\b(?:systemctl|service|runit-helper)\b"),
+    "foreign-service-manager": re.compile(r"\b(?:systemctl|runit-helper)\b|(?<![\w.])service(?!\.)\b"),
     "package-account-helper": re.compile(r"\b(?:adduser|useradd|groupadd|addgroup)\b"),
     "package-trigger-helper": re.compile(
         r"\b(?:update-alternatives|update-menus|ldconfig|sysctl|update-desktop-database|update-mime-database|gtk-update-icon-cache)\b"
@@ -181,17 +185,34 @@ IN_SYSROOT_FUNCTION = re.compile(
 )
 
 DPKG_COMPARE_VERSIONS = re.compile(
-    r"dpkg --compare-versions (?P<left>\S+) (?P<op>'?[a-z]{2}'?) (?P<right>\S+)"
+    r"dpkg --compare-versions(?:\s+--)? (?P<left>\S+) (?P<op>'?[a-z-]+'?) (?P<right>\S+)"
 )
 
 INVOKE_RC_LINE = re.compile(
-    r"(?P<indent>[ \t]*)invoke-rc\.d\s+(?P<name>\S+)\s+"
-    r"(?P<action>restart|reload|try-restart|force-reload|start)\b[^\n]*\n"
+    r"(?P<indent>[ \t]*)invoke-rc\.d(?:\s+--\S+)*\s+(?P<name>\S+)\s+"
+    r"(?P<action>restart|reload|try-restart|force-reload|start|stop)\b[^\n]*\n"
 )
 
 DEB_SYSTEMD_INVOKE_LINE = re.compile(
     r"(?P<indent>[ \t]*)deb-systemd-invoke\s+"
-    r"(?P<action>restart|reload|try-restart|start)\s+(?P<name>\S+)[^\n]*\n"
+    r"(?P<action>restart|reload|try-restart|start|stop|\$_dh_action)\s+"
+    r"(?P<name>\S+)[^\n]*\n"
+)
+
+SYSTEMCTL_DAEMON_RELOAD = re.compile(
+    r"(?P<indent>[ \t]*)systemctl --system daemon-reload >/dev/null \|\| true\n"
+)
+
+UPDATE_RC_LINE = re.compile(
+    r"(?P<indent>[ \t]*)update-rc\.d\s+(?P<name>\S+)\s+(?P<action>defaults|remove)\b[^\n]*\n"
+)
+
+DPKG_ROOT_EMPTY_AND = re.compile(
+    r"\[ -z \"?(?:\$\{DPKG_ROOT:-\}|\$DPKG_ROOT)\"? \] && "
+)
+
+DPKG_ROOT_EMPTY_IF = re.compile(
+    r"if \[ -z \"?(?:\$\{DPKG_ROOT:-\}|\$DPKG_ROOT)\"? \] \s*; then"
 )
 
 SYSCTL_SYSTEM_BLOCK = re.compile(
@@ -495,6 +516,31 @@ fi"""
     if extra:
         rules.append("debian-service-reload")
 
+    text, count = SYSTEMCTL_DAEMON_RELOAD.subn(
+        r"\g<indent>: # auzix: no systemd daemon-reload\n", text
+    )
+    if count:
+        rules.append("debian-systemd-daemon-reload")
+        operations.append({"type": "skip-systemd-daemon-reload"})
+
+    def replace_update_rc(match: re.Match[str]) -> str:
+        operations.append({
+            "type": "enable-service" if match.group("action") == "defaults" else "disable-service",
+            "name": match.group("name"),
+        })
+        return f'{match.group("indent")}auzix_enable_service {match.group("name")}\n'
+
+    text, count = UPDATE_RC_LINE.subn(replace_update_rc, text)
+    if count:
+        rules.append("debian-update-rc")
+
+    text, count = DPKG_ROOT_EMPTY_AND.subn("", text)
+    if count:
+        rules.append("debian-dpkg-root-empty")
+    text, extra = DPKG_ROOT_EMPTY_IF.subn("if true; then", text)
+    if extra:
+        rules.append("debian-dpkg-root-empty")
+
     def replace_sysctl(match: re.Match[str]) -> str:
         operations.append({
             "type": "apply-sysctl",
@@ -793,7 +839,12 @@ def load_rewrite_paths() -> tuple[tuple[str, str], ...]:
 
 
 def _apply_rewrite_paths(text: str) -> str:
-    donor_root_forms = (r"\$\{DPKG_ROOT:-\}", r'"\$DPKG_ROOT"', r"\$DPKG_ROOT")
+    donor_root_forms = (
+        r"\$\{DPKG_ROOT:-\}",
+        r"\$\{DPKG_ROOT\}",
+        r'"\$DPKG_ROOT"',
+        r"\$DPKG_ROOT",
+    )
     for donor, replacement in load_rewrite_paths():
         for donor_root in donor_root_forms:
             text = re.sub(

@@ -106,6 +106,14 @@ upgrade protocol; `invoke-rc.d` restart as optional reload; `sysctl
 Rollback: revert this intake commit. Acceptance: the four unpacked
 scripts lose those leftover findings; hooks still attach to APK.
 
+September 5 16:38 PDT — AX-012/task65 build-measure-learn r4: r3 leftover
+is generated dh_systemd/init scaffold. Recover `DPKG_ROOT` empty guards
+and `${DPKG_ROOT}/etc` as settings, `invoke-rc.d --skip-systemd-native`,
+`deb-systemd-invoke` stop/`$_dh_action`, `systemctl daemon-reload`,
+`update-rc.d` defaults/remove, and stop treating `.service` as `service`.
+Local units then one prove-factory. No HDD or VM145.
+
+
 
 ## Reference evidence
 

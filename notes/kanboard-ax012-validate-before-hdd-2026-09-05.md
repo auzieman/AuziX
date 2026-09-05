@@ -34,3 +34,13 @@ leftover `DPKG_ROOT` / `dpkg --compare-versions` / `invoke-rc.d` /
 
 16:33 PDT: recovering those four shapes as AuziX helpers on the APK
 hook. Local units first. HDD still locked.
+
+16:36 PDT: prove-factory r3 on `4fae578` to measure the held set.
+Run `20260905-intake-validate-r3`. HDD still locked.
+
+Result: BKC `5daa57c8`. The four unpacked scripts passed. Holds 35→31.
+Findings 181→171. Same leftover families on the rest. Install/HDD not
+tested.
+
+16:38 PDT: build-measure-learn r4 — generated dh_systemd/init scaffold
+and DPKG_ROOT empty/`/etc` prefix. Then prove-factory r4.

@@ -252,3 +252,44 @@ class LifecyclePreservationTests(unittest.TestCase):
         hook = root / "Programs/LibExample/1/Package/Scripts/after-install"
         self.assertTrue(hook.is_file())
         self.assertIn("auzix_reload_service acpid", hook.read_text())
+
+    def test_generated_systemd_scaffold_becomes_auzix_service_helpers(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            'if [ -z "$DPKG_ROOT" ] && [ -d /run/systemd/system ]; then\n'
+            "    systemctl --system daemon-reload >/dev/null || true\n"
+            "    deb-systemd-invoke $_dh_action 'example.service' >/dev/null || true\n"
+            "fi\n"
+            'if [ -z "$DPKG_ROOT" ] && [ -x /etc/init.d/example ]; then\n'
+            "    update-rc.d example defaults >/dev/null\n"
+            "    invoke-rc.d --skip-systemd-native example start || exit 1\n"
+            "fi\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_reload_service", rendered)
+        self.assertIn("auzix_enable_service example", rendered)
+        self.assertNotIn("DPKG_ROOT", rendered)
+        self.assertNotIn("invoke-rc.d", rendered)
+        self.assertNotIn("deb-systemd-invoke", rendered)
+        self.assertFalse(
+            any(
+                finding.get("kind") in {
+                    "donor-root-variable",
+                    "debian-service-helper",
+                    "foreign-service-manager",
+                }
+                for finding in result["findings"]
+            )
+        )
+
+    def test_dpkg_root_etc_rewrites_to_settings(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            'sed -E -i "${DPKG_ROOT}/etc/nsswitch.conf" -e "/^passwd:/ s/$/ systemd/"\n'
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("${AUZIX_SETTINGS}/nsswitch.conf", rendered)
+        self.assertNotIn("DPKG_ROOT", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "donor-root-variable" for finding in result["findings"])
+        )
