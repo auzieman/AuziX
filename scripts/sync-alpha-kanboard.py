@@ -27,8 +27,10 @@ for match in re.finditer(r'^## (AX-\d{3}) — ([^\n]+)\n(.*?)(?=^## |\Z)', text,
                    'title': key + ' — ' + title,
                    'description': body.strip() + '\n\nSource: AuziX/' + str(ledger.relative_to(ledger.parents[1]))})
 assert len(issues) == 12
-if bool(args.comment_file) != bool(args.issue):
+if not args.state and bool(args.comment_file) != bool(args.issue):
     parser.error('--comment-file and --issue must be supplied together')
+if args.issue:
+    issues = [item for item in issues if item['reference'].endswith(':' + args.issue)]
 if args.comment_file:
     import hashlib
     body = args.comment_file.read_text().strip()
