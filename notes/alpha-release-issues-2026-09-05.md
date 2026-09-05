@@ -34,6 +34,15 @@ record first. No further VM or build mutation is authorized by this ledger alone
 
 ## AX-001 — Enlightenment payload selection [OPEN, blocks HDD]
 
+September5 validation action, before execution: BKC bounded proof will select
+the pinned Moon archive using current helper, convert only Enlightenment with
+the existing R8 factory, and install the resulting APK into an ephemeral copy
+of R8. Output under /var/lib/auzix-build/package-proof/AX-001-<source SHA>;
+refuse overwrite. Check version/current link, helper and module files. Preserve
+R8 repository/image and VM145, no HDD build. Rollback is discard only the new
+proof container (automatic --rm); retained files document failures. This is
+package/install proof, not graphical acceptance. Ticket54 remains Validating.
+
 Evidence: reference image current=0.27.1-1 with RootFS helpers; candidate
 current=0.25.4-2 with Commands/Package only. enlightenment_system was absent
 from candidate Programs/Libraries/System search. Definition declares 0.27.1-1.
