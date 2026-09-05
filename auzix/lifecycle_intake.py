@@ -627,6 +627,15 @@ def normalize_lifecycle(
     surfaces = receipt.get("maintainer_surfaces", [])
     if not isinstance(surfaces, list) or not all(isinstance(item, str) for item in surfaces):
         raise ContractError("maintainer_surfaces must be a string array")
+    # Old receipts can omit annotation even though dpkg control files survived.
+    # Discover those files before deciding that a package has no lifecycle.
+    prefix_hint = receipt.get("prefix", "")
+    if isinstance(prefix_hint, str) and prefix_hint.startswith("/Programs/"):
+        control = stage / prefix_hint.lstrip("/") / "Metadata/debian-control-dir"
+        discovered = ["/" + str(path.relative_to(stage)) for path in sorted(control.glob("*"))
+                      if path.is_file() and path.name in
+                      {*LIFECYCLE_STAGES, "triggers", "conffiles", "config", "templates"}]
+        surfaces = list(dict.fromkeys([*surfaces, *discovered]))
     retained = [path for path in surfaces if Path(path).name in LIFECYCLE_STAGES]
     other_surfaces = [path for path in surfaces if Path(path).name not in LIFECYCLE_STAGES]
     # A checked-in adapter is authoritative package metadata.  Older donor
@@ -879,13 +888,16 @@ def normalize_lifecycle(
     if adapter is not None:
         if adapter.get("format") != "auzix-lifecycle-adapter-v1":
             raise ContractError("unsupported lifecycle intake adapter format")
+        augment = adapter.get("mode", "replace") == "augment"
+        if adapter.get("mode", "replace") not in {"augment", "replace"}:
+            raise ContractError("unsupported lifecycle adapter mode")
         template_dir = REPOSITORY_ROOT / adapter.get("template_dir", "")
         if not template_dir.is_dir():
             raise ContractError(f"lifecycle adapter template directory is missing: {template_dir}")
         configured = adapter.get("configuration", [])
         if not isinstance(configured, list) or not all(isinstance(path, str) for path in configured):
             raise ContractError("lifecycle adapter configuration must be a string array")
-        configuration = configured
+        configuration = list(dict.fromkeys(configuration + configured)) if augment else configured
         package_root = stage / prefix.lstrip("/")
         if adapter.get("publish_libraries"):
             direct_publications = _public_library_plan(
@@ -919,7 +931,7 @@ def normalize_lifecycle(
             for item in compatibility_links
         ):
             raise ContractError("lifecycle adapter compatibility_links are invalid")
-        operations = [
+        operations = (operations if augment else []) + [
             {"type": "install-configuration", "destination": path}
             for path in configuration
         ] + list(adapter.get("operations", []))
@@ -960,11 +972,14 @@ def normalize_lifecycle(
                 ),
                 encoding="utf-8",
             )
-        donor_findings = findings
-        findings = []
-        scripts = []
+        donor_findings = list(findings)
+        if not augment:
+            findings = []
+            scripts = []
         rendered_dir.mkdir(parents=True, exist_ok=True)
         for lifecycle_name, template_name in adapter.get("scripts", {}).items():
+            if augment and any(script["stage"] == lifecycle_name for script in scripts):
+                raise ContractError(f"augment adapter would replace donor stage: {lifecycle_name}")
             if lifecycle_name not in DONOR_ACTIONS:
                 raise ContractError(f"unknown adapter lifecycle stage: {lifecycle_name}")
             template = template_dir / template_name
@@ -1029,7 +1044,7 @@ def normalize_lifecycle(
         adapter_record = {
             "format": adapter["format"],
             "template_dir": str(template_dir),
-            "disposition": "replaced-by-package-adapter",
+            "disposition": "augmented-by-package-adapter" if augment else "replaced-by-package-adapter",
             "donor_residual_findings": donor_findings,
             "retained_state": adapter.get("retained_state", []),
         }
@@ -1213,13 +1228,16 @@ def promote_auzix_package(
         encoding="utf-8",
     )
 
-    metadata = package_root / "Metadata"
-    if metadata.is_dir():
-        for donor in metadata.glob("debian-*"):
-            if donor.is_dir():
-                shutil.rmtree(donor)
-            else:
-                donor.unlink()
+    # Preserve source control evidence with the adapted package. These files
+    # are inert metadata, not hooks executed by APK. Do not erase our audit trail.
+    (native_dir / "donor-provenance.json").write_text(json.dumps({
+        "source": receipt.get("source"),
+        "maintainer_surfaces": receipt.get("maintainer_surfaces", []),
+        "donor_objects": intake.get("donor_objects", []),
+        "rules": intake.get("rules", []),
+        "adapter": intake.get("adapter"),
+        "operations": intake.get("operations", []),
+    }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     for key in (
         "depends", "direct_depends", "recommends", "maintainer_surfaces",
         "debian_package_db", "source", "migration_stage", "notes",

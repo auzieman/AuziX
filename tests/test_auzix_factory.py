@@ -279,8 +279,10 @@ mkdir -p /usr/local/lib/python3.13
                 (root / "Programs/Example/current").readlink(),
                 Path("/Programs/Example/1"),
             )
-            self.assertFalse((package_root / "Metadata/debian-control-dir").exists())
-            self.assertFalse((package_root / "Metadata/debian-control.txt").exists())
+            self.assertTrue((package_root / "Metadata/debian-control-dir").exists())
+            self.assertEqual((package_root / "Metadata/debian-control.txt").read_text(), "donor\n")
+            provenance = json.loads((package_root / "Package/donor-provenance.json").read_text())
+            self.assertEqual(provenance["source"], {"type": "debian-binary-package"})
             promoted_receipt = json.loads(receipt_path.read_text())
             self.assertNotIn("source", promoted_receipt)
             self.assertNotIn("direct_depends", promoted_receipt)

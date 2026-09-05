@@ -65,6 +65,7 @@ def _automatic_library_definition(record: dict[str, Any]) -> dict[str, Any]:
         "dependencies": {"runtime": list(record.get("depends", []))},
         "intake_adapter": {
             "format": "auzix-lifecycle-adapter-v1",
+            "mode": "augment",
             "template_dir": "packaging/packages/_auto-library/lifecycle",
             "configuration": [],
             "scripts": {},
@@ -364,7 +365,7 @@ def convert_archive_profile(
                 item["status"] = "static" if item["intake"]["status"] == "static" else "passed"
                 item["output"] = str(output)
                 item["adapted_archive"] = str(adapted_archive)
-                print(f"PACKAGE-PASS {item['name']} status={item['status']}", flush=True)
+                print(f"APK-ARCHIVE-VERIFIED {item['name']} lifecycle={item['status']} install=not-tested", flush=True)
         except (ContractError, OSError, subprocess.SubprocessError) as exc:
             item["status"] = "intake-failed"
             item["error"] = str(exc)
@@ -386,5 +387,5 @@ def convert_archive_profile(
         "proof": str(proof),
     }
     proof.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print(f"WAVE-COMPLETE repository={output_dir} summary={counts} proof={proof}", flush=True)
+    print(f"CONVERSION-RESULT status={overall} repository={output_dir} summary={counts} install=not-tested proof={proof}", flush=True)
     return result
