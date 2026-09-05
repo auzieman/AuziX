@@ -1,5 +1,9 @@
 # Alpha candidate: package inputs to image and boot
 
+**Read first:** [issue/fix ledger](alpha-release-issues-2026-09-05.md).
+Record what/how/why/when, target, rollback and acceptance BEFORE every mutation;
+update results afterward. See repository AGENTS.md. Chat is not the ledger.
+
 Current operator direction (September 5): VM143/144/145 are reusable test slots;
 target VM145, preserving its previous disk for rollback. No public promotion.
 
