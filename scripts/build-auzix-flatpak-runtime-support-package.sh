@@ -56,6 +56,22 @@ done
 
 "${BB}" ln -sfn "${STATE}/flatpak" "${STATE}/lib/flatpak"
 
+# Flatpak's bundled OpenSSL expects the Fedora-style trust location. Publish a
+# compatibility view of AUZiX's package-owned CA bundle, then seed the standard
+# system remote as part of the package lifecycle rather than HDD postprocessing.
+if [ -s /System/Compatibility/etc/ssl/certs/ca-certificates.crt ]; then
+  "${BB}" mkdir -p /System/Settings/pki/tls/certs
+  "${BB}" ln -sfn /System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+    /System/Settings/pki/tls/certs/ca-bundle.crt
+  [ -e /etc/pki ] || "${BB}" ln -s /System/Settings/pki /etc/pki
+fi
+if [ -x /Programs/Flatpak/current/Commands/flatpak ]; then
+  SSL_CERT_FILE=/System/Compatibility/etc/ssl/certs/ca-certificates.crt \
+    /Programs/Flatpak/current/Commands/flatpak remote-add --system \
+      --if-not-exists flathub \
+      https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
 echo "FlatpakRuntimeSupport: /var is a real alias directory for ${STATE}"
 EOF
 chmod 0755 "${PROGRAM}/Commands/repair-var-alias"

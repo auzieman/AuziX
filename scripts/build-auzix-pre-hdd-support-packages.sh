@@ -6,6 +6,9 @@ VERSION=1.0.0
 DEBUG_STAGE="$OUTPUT/AUZiXDebugTools"
 USER_STAGE="$OUTPUT/WorkstationUserPolicy"
 PYTHON_STAGE="$OUTPUT/AUZiXPythonFrontDoors"
+SERVICE_STAGE="$OUTPUT/AuzixServiceRuntime"
+DESKTOP_STAGE="$OUTPUT/AuzixDesktopIntegration"
+FLATPAK_STAGE="$OUTPUT/FlatpakRuntimeSupport"
 
 mkdir -p \
   "$DEBUG_STAGE/Programs/AUZiXDebugTools/$VERSION/Commands" \
@@ -14,6 +17,10 @@ mkdir -p \
   "$USER_STAGE/System/PackageDB" \
   "$PYTHON_STAGE/Programs/AUZiXPythonFrontDoors/$VERSION/Commands" \
   "$PYTHON_STAGE/System/Compatibility/bin" "$PYTHON_STAGE/System/PackageDB"
+
+"$ROOT_DIR/scripts/build-auzix-service-runtime-package.sh" "$SERVICE_STAGE" >/dev/null
+"$ROOT_DIR/scripts/build-auzix-desktop-integration-package.sh" "$DESKTOP_STAGE" >/dev/null
+"$ROOT_DIR/scripts/build-auzix-flatpak-runtime-support-package.sh" "$FLATPAK_STAGE" >/dev/null
 
 cat >"$DEBUG_STAGE/Programs/AUZiXDebugTools/$VERSION/Commands/ldd" <<'EOF'
 #!/Programs/BusyBox/current/Commands/busybox sh
@@ -117,4 +124,5 @@ test -x "$USER_STAGE/Programs/WorkstationUserPolicy/$VERSION/Package/Scripts/aft
 test -L "$PYTHON_STAGE/Programs/AUZiXPythonFrontDoors/$VERSION/Commands/python3"
 test ! -e "$DEBUG_STAGE/Programs/WorkstationUserPolicy"
 test ! -e "$USER_STAGE/Programs/AUZiXDebugTools"
-printf '%s\n' "$DEBUG_STAGE" "$USER_STAGE" "$PYTHON_STAGE"
+printf '%s\n' "$DEBUG_STAGE" "$USER_STAGE" "$PYTHON_STAGE" \
+  "$SERVICE_STAGE" "$DESKTOP_STAGE" "$FLATPAK_STAGE"

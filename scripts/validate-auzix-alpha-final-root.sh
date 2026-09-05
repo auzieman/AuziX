@@ -16,6 +16,9 @@ path /Programs/Midori/current/Commands/midori
 path /Programs/ApkTools/current/Commands/apk
 path /Programs/Sudo/current/Commands/sudo
 path /Programs/Podman/current/Commands/podman
+path /Programs/AuzixServiceRuntime/current/Commands/ensure-runtime-mounts
+path /Programs/AuzixDesktopIntegration/current/Commands/activate
+path /Programs/FlatpakRuntimeSupport/current/Commands/repair-var-alias
 file /System/Settings/install/apk-installer/10-alpha-minimal.list
 file /System/Compatibility/usr/share/applications/auzix-installer.desktop
 file /System/Compatibility/usr/share/applications/auzix-package-manager.desktop

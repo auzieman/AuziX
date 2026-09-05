@@ -1,0 +1,11 @@
+{
+  "format": "auzix-package-v1",
+  "name": "FlatpakRuntimeSupport",
+  "version": "0.1.0",
+  "source": {"kind": "existing-auzix-payload", "legacy_entrypoint": "scripts/build-auzix-flatpak-runtime-support-package.sh", "receipt_glob": "System/PackageDB/FlatpakRuntimeSupport-*.json"},
+  "layout": {"domain": "runtime-support", "prefix": "/Programs/FlatpakRuntimeSupport/${version}"},
+  "payload": {"surfaces": ["/Programs/FlatpakRuntimeSupport", "/System/PackageDB"]},
+  "dependencies": {"runtime": ["BusyBox", "Flatpak"]},
+  "lifecycle": {"before_install": null, "after_install": "/Programs/FlatpakRuntimeSupport/${version}/Commands/repair-var-alias", "before_remove": null, "after_remove": null},
+  "validation": {"commands": ["test -x /Programs/FlatpakRuntimeSupport/current/Commands/repair-var-alias"]}
+}

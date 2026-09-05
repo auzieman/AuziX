@@ -301,6 +301,10 @@ def convert_archive_profile(
             "--architecture", "x86_64",
             "--description", item["description"],
             "--provides", item["name"].casefold(),
+            # Native AUZiX packages historically depended on canonical
+            # AUZiX-prefixed identities. Preserve that transition alias while
+            # the public APK name follows the donor package name.
+            "--provides", apk_name(item["name"]),
             "--package", str(output),
         ]
         print(

@@ -35,6 +35,9 @@ executable /Programs/ApkTools/current/Commands/apk
 executable /System/Compatibility/bin/apk
 executable /System/Compatibility/bin/sudo
 executable /Programs/Podman/current/Commands/podman
+executable /Programs/AuzixServiceRuntime/current/Commands/ensure-runtime-mounts
+executable /Programs/AuzixDesktopIntegration/current/Commands/activate
+executable /Programs/FlatpakRuntimeSupport/current/Commands/repair-var-alias
 executable /Programs/Htop/current/Commands/htop
 executable /Programs/Glances/current/Commands/glances
 executable /Programs/Flatpak/current/Commands/flatpak

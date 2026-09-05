@@ -139,7 +139,8 @@ docker run --rm \
   -v "$WORK/support-stages/Sudo:/staging" \
   "$EFL_BUILDER_IMAGE" \
   /workspace/scripts/build-auzix-sudo-package.sh /staging
-for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy Sudo; do
+for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy \
+  AuzixServiceRuntime AuzixDesktopIntegration FlatpakRuntimeSupport Sudo; do
   package_name="$(basename "$package_stage")"
   docker run --rm \
     -v "$WORK/support-stages/$package_stage:/staging:ro" \
@@ -147,7 +148,7 @@ for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy
     "auzix/package-factory:pre-hdd-${RUN_ID}" \
     emit-package "$package_name" /staging /packages
 done
-test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 4
+test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 7
 
 # Re-emit only the receipt-proven alpha disk/container closure through the
 # current factory. These are immutable AUZiX payloads previously validated on
