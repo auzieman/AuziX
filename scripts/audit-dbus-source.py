@@ -40,8 +40,9 @@ with archive.open('rb') as handle:
     assert hashlib.file_digest(handle, 'sha256').hexdigest() == record['sha256']
 stage = out / 'intake-stage'
 stage.mkdir()
-with tarfile.open(archive) as archive_file:
-    archive_file.extractall(stage, filter='data')
+# Match the existing intake extraction path for this hash-verified internal
+# archive, including AuziX absolute compatibility symlinks. Isolated container.
+subprocess.run(['tar', '-xzf', str(archive), '-C', str(stage)], check=True)
 receipt_file, = (stage / 'System/PackageDB').glob('*.json')
 receipt = json.loads(receipt_file.read_text())
 program = stage / receipt['prefix'].lstrip('/')
