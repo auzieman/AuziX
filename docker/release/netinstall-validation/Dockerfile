@@ -8,6 +8,7 @@ ENV LD_LIBRARY_PATH=/Libraries:/System/Libraries/Runtime/glibc
 ENV SSL_CERT_FILE=/System/Compatibility/etc/ssl/certs/ca-certificates.crt
 ENV SSL_CERT_DIR=/System/Compatibility/etc/ssl/certs
 COPY --chmod=0755 docker/release/common/runtime-entrypoint.sh /Services/Container/runtime-entrypoint
+COPY --chmod=0755 docker/release/pre-hdd/run /Services/Container/run
 
 COPY --from=auzix_repository_trust /ca.crt /System/Settings/apk/repository-ca.crt
 COPY --from=auzix_repository_trust /repository.rsa.pub /System/Settings/apk/keys/repository.rsa.pub

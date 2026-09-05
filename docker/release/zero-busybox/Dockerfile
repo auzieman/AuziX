@@ -12,6 +12,7 @@ RUN /factory/install-root
 FROM scratch
 COPY --from=apk-tooling /target /
 COPY --chmod=0755 docker/release/common/runtime-entrypoint.sh /Services/Container/runtime-entrypoint
+COPY --chmod=0755 docker/release/pre-hdd/run /Services/Container/run
 
 WORKDIR /Work
 # BusyBox already provides wget/stat/strings as Compatibility applets.
