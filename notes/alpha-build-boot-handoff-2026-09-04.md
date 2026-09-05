@@ -96,3 +96,14 @@ Native packages are regenerated. Log:
 `/var/lib/auzix-build/receipts/apk-alpha-20260904-alpha-bkc-r7.log`.
 At kickoff there is still no new HDD or VM: do not mistake these proofs for boot
 or installer validation. Existing VM145 and healthy service containers untouched.
+
+### Connectivity interruption after kickoff
+
+R730 (10.20.0.130) and BKC swarm manager (10.20.0.230) became unreachable
+through ns1: SSH forwarding reports `No route to host`; ns1 itself is reachable,
+with neighbor resolution INCOMPLETE/FAILED for those two hosts. PVE remains
+reachable and confirms VM145 running and VM146 absent. r7's terminal status is
+unknown, not passed. No HDD/boot trigger was sent. Commit b742173's notes push
+failed due this interruption; implementation 5ad6818 and BKC 4e00b1d were already
+pushed before the interruption. Resume by checking r7 and its existing log first,
+not launching another run or replacing the known-good VM.
