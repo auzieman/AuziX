@@ -16,6 +16,8 @@ BOOTSTRAP_VOLUME="${AUZIX_BOOTSTRAP_VOLUME:-auzix-lifecycle-bootstrap-repo-20260
 PACKAGE_VOLUME="${AUZIX_PACKAGE_VOLUME:-auzix-workstation-layered-r18-20260830}"
 DELTA_SPOOL="${AUZIX_DELTA_SPOOL:-/var/lib/auzix-build/factory-delta/pre-hdd-missing-r2/spool}"
 DELTA_PROFILE="${AUZIX_DELTA_PROFILE:-${ROOT_DIR}/packaging/archive-profiles/pre-hdd-missing.json}"
+RUNTIME_SPOOL="${AUZIX_RUNTIME_SPOOL:-/var/lib/auzix-build/factory-delta/20260904-alpha-runtime-closure-r1/spool}"
+REPOSITORY_PORT="${AUZIX_REPOSITORY_PORT:-18443}"
 REFERENCE_SQUASHFS="${AUZIX_REFERENCE_SQUASHFS:-/var/lib/auzix-build/pre-hdd-reference/20260831-known-good-small-moon-ca/auzix-root.squashfs}"
 RETAINED_ALPHA_ARCHIVES="${AUZIX_RETAINED_ALPHA_ARCHIVES:-/var/lib/auzix-build/pre-hdd-apk/20260830-r46-source/artifacts/auzix/extended-repo/packages}"
 ZERO_IMAGE="${AUZIX_ZERO_IMAGE:-auzix/service:zero-busybox-apk-${RUN_ID}}"
@@ -51,6 +53,7 @@ docker image inspect "$EFL_BUILDER_IMAGE" >/dev/null \
 test -d "$DELTA_SPOOL/packages" || fail "delta package spool is absent: $DELTA_SPOOL/packages"
 test -d "$DELTA_SPOOL/entries" || fail "delta entry spool is absent: $DELTA_SPOOL/entries"
 test -s "$DELTA_PROFILE" || fail "delta profile is absent: $DELTA_PROFILE"
+test -d "$RUNTIME_SPOOL/entries" || fail "runtime spool is absent: $RUNTIME_SPOOL"
 test -s "$REFERENCE_SQUASHFS" || fail "reference root is absent: $REFERENCE_SQUASHFS"
 for retained_package in Podman Conmon Crun Netavark AardvarkDNS ContainersCommon E2fsprogs Dosfstools; do
   compgen -G "$RETAINED_ALPHA_ARCHIVES/${retained_package}-*.auzix.tar.gz" >/dev/null \
@@ -74,10 +77,12 @@ test -d "$DELTA_SPOOL/packages"
 test -d "$DELTA_SPOOL/entries"
 test -s "$DELTA_PROFILE"
 test -s "$REFERENCE_SQUASHFS"
-cp -a "$DELTA_SPOOL/packages"/. "$WORK/delta-repo/packages/"
-cp -a "$DELTA_SPOOL/entries"/. "$WORK/delta-repo/entries/"
-jq -s '{format:"auzix-repo-v1", packages:.}' \
-  "$WORK"/delta-repo/entries/*.json >"$WORK/delta-repo/index.json"
+python3 "$ROOT_DIR/scripts/prepare-auzix-alpha-archives.py" \
+  "$DELTA_SPOOL" "$RUNTIME_SPOOL" "$DELTA_PROFILE" \
+  "$ROOT_DIR/packaging/archive-profiles/alpha-runtime-closure.json" "$WORK/selected-repo"
+DELTA_PROFILE="$WORK/selected-repo/profile.json"
+(cd "$ROOT_DIR" && python3 -m auzix preflight-archive-profile \
+  "$WORK/selected-repo" "$DELTA_PROFILE") >"$WORK/receipts/archive-preflight.json"
 
 # Reproduce the declared Nginx payload and emit it through the current factory.
 docker build --pull=false -t "auzix/extended-builder:pre-hdd-${RUN_ID}" \
@@ -113,7 +118,7 @@ docker run --rm -v "$WORK/bootstrap:/bootstrap:ro" -v "$WORK/apk-tool:/output" \
     chmod 0755 /output/apk
   '
 docker run --rm \
-  -v "$WORK/delta-repo:/delta-repo:ro" \
+  -v "$WORK/selected-repo:/delta-repo:ro" \
   -v "$WORK/delta-apks:/delta-output" \
   -v "$WORK/apk-tool/apk:/tools/apk:ro" \
   -v "$DELTA_PROFILE:/delta-profile.json:ro" \
@@ -149,6 +154,15 @@ for package_stage in AUZiXDebugTools AUZiXPythonFrontDoors WorkstationUserPolicy
     emit-package "$package_name" /staging /packages
 done
 test "$(find "$WORK/support-packages" -type f -name '*.apk' | wc -l)" -eq 7
+
+# Reuse R730's pinned Trixie GRUB producer; the installer needs the tools as
+# well as an image whose boot sector was prepared by the external builder.
+test "$(grub-install --version | awk '{print $NF}')" = 2.12-9+deb13u2 \
+  || fail "GRUB producer does not match the pinned package definition"
+bash "$ROOT_DIR/scripts/build-auzix-grub-package.sh" "$WORK/support-stages/GRUB"
+docker run --rm -v "$WORK/support-stages/GRUB:/staging:ro" \
+  -v "$WORK/support-packages:/packages" "auzix/package-factory:pre-hdd-${RUN_ID}" \
+  emit-package GRUB /staging /packages
 
 # Re-emit only the receipt-proven alpha disk/container closure through the
 # current factory. These are immutable AUZiX payloads previously validated on
@@ -207,6 +221,9 @@ cp "$WORK/reference-root/System/Compatibility/usr/share/applications/auzix-insta
   "$WORK/reference-stages/AuzixInstaller/System/Compatibility/usr/share/applications/"
 cp "$WORK/reference-root/System/PackageDB/AuzixInstaller-0.2.auzix.json" \
   "$WORK/reference-stages/AuzixInstaller/System/PackageDB/"
+docker run --rm -v "$ROOT_DIR:/workspace:ro" \
+  -v "$WORK/reference-stages/AuzixInstaller:/staging" "$EFL_BUILDER_IMAGE" \
+  bash /workspace/scripts/stage-auzix-installer-runtime.sh /staging
 
 cp -a "$WORK/reference-root/Programs/AuzixInstallerEfl" \
   "$WORK/reference-stages/AuzixInstallerEfl/Programs/"
@@ -294,24 +311,24 @@ docker build --pull=false --build-arg "BASE_IMAGE=$ZERO_IMAGE" \
   --build-context "auzix_repository_tls=$WORK/tls" \
   -f "$ROOT_DIR/docker/release/one-nginx/Dockerfile" -t "$NGINX_IMAGE" \
   "$ROOT_DIR/docker/release/one-nginx"
-docker rm -f auzix-one-nginx >/dev/null 2>&1 || true
-docker run -d --name auzix-one-nginx --restart unless-stopped \
-  -p 127.0.0.1:8443:8443 "$NGINX_IMAGE" >/dev/null
+repository_container="$(docker run -d --name "auzix-repo-${RUN_ID}" \
+  -p "127.0.0.1:${REPOSITORY_PORT}:8443" "$NGINX_IMAGE")"
+trap 'docker rm -f "$repository_container" >/dev/null' EXIT
 for attempt in 1 2 3 4 5 6; do
-  [[ "$(docker inspect --format '{{.State.Health.Status}}' auzix-one-nginx)" == healthy ]] && break
+  [[ "$(docker inspect --format '{{.State.Health.Status}}' "$repository_container")" == healthy ]] && break
   sleep 5
 done
-[[ "$(docker inspect --format '{{.State.Health.Status}}' auzix-one-nginx)" == healthy ]] \
+[[ "$(docker inspect --format '{{.State.Health.Status}}' "$repository_container")" == healthy ]] \
   || fail "one-nginx did not become healthy"
 curl --fail --silent --show-error \
   --cacert "$WORK/trust/ca.crt" \
-  --resolve auzix-repo.test:8443:127.0.0.1 \
-  https://auzix-repo.test:8443/x86_64/APKINDEX.tar.gz \
+  --resolve "auzix-repo.test:${REPOSITORY_PORT}:127.0.0.1" \
+  "https://auzix-repo.test:${REPOSITORY_PORT}/x86_64/APKINDEX.tar.gz" \
   -o "$WORK/receipts/APKINDEX.tar.gz"
 docker build --pull=false --network host \
   --add-host auzix-repo.test:127.0.0.1 \
   --build-arg "BASE_IMAGE=$ZERO_IMAGE" \
-  --build-arg AUZIX_APK_REPOSITORY=https://auzix-repo.test:8443 \
+  --build-arg "AUZIX_APK_REPOSITORY=https://auzix-repo.test:${REPOSITORY_PORT}" \
   --build-context "auzix_repository_trust=$WORK/trust" \
   -f "$ROOT_DIR/docker/release/netinstall-validation/Dockerfile" \
   -t "$VALIDATION_IMAGE" "$ROOT_DIR"
@@ -332,7 +349,7 @@ sed -i 's#COPY scripts/validate-auzix-pre-hdd-root.sh /Work/validate-root#COPY s
 docker build --pull=false --network host --add-host auzix-repo.test:127.0.0.1 \
   --build-context "auzix_bootstrap=$WORK/bootstrap" \
   --build-context "auzix_repository_trust=$WORK/trust" \
-  --build-arg AUZIX_APK_REPOSITORY=https://auzix-repo.test:8443 \
+  --build-arg "AUZIX_APK_REPOSITORY=https://auzix-repo.test:${REPOSITORY_PORT}" \
   -f "$WORK/build-context/Dockerfile" -t "$PRE_HDD_IMAGE" "$WORK/build-context"
 docker run --rm "$PRE_HDD_IMAGE" /Programs/BusyBox/current/Commands/busybox sh -ec '
   test -s /System/State/apk/db/installed

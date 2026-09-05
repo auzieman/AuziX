@@ -373,6 +373,8 @@ if [[ "${AUZIX_SKIP_INSTALLER_SELFTEST:-0}" != "1" ]]; then
     validate "${INSTALLER_PROGRAM}/Resources/plans/default.json" >/dev/null
 fi
 
+bash "${ROOT_DIR}/scripts/stage-auzix-installer-runtime.sh" "${AUZIX_ROOT}"
+
 log "Lua installed at ${LUA_PROGRAM}"
 log "Dialog installed at ${DIALOG_PROGRAM}"
 log "Installer installed at ${INSTALLER_PROGRAM}"

@@ -620,7 +620,6 @@ install_plan_groups() {
   log_msg "PLAN_GROUPS_DONE ${install_plan}"
 }
 
-[ -x "${JQ}" ] || fail "jq missing: ${JQ}"
 [ -b "${target}" ] || fail "target block device missing: ${target}"
 PARTED="$(find_cmd /Programs/Parted/current/Commands/parted /System/Compatibility/usr/sbin/parted /System/Compatibility/sbin/parted /System/Compatibility/usr/bin/parted /System/Compatibility/bin/parted parted)" || fail "parted missing"
 MKFS="$(find_cmd /Programs/E2fsprogs/current/Commands/mkfs.ext4 /System/Compatibility/sbin/mkfs.ext4 mkfs.ext4)" || fail "mkfs.ext4 missing"
@@ -688,8 +687,8 @@ case "${AUZIX_INSTALL_COPY_SEED_RUNTIME:-0}" in
     log_msg "PACKAGE_ONLY seed runtime copy disabled; installed packages own runtime and service surfaces"
     ;;
 esac
-ensure_target_package_state >>"${log}" 2>&1 || fail "target package state initialization failed"
-seed_target_provided_state >>"${log}" 2>&1 || fail "bootstrap substrate inventory failed"
+# APK owns the target inventory. Legacy receipt scanning is not an install
+# prerequisite and must not pull AuzixPackageTools/jq into this path.
 
 install_stage 6 "${INSTALL_TOTAL_STAGES}" "installing ordered APK package groups"
 install_apk_groups
@@ -713,26 +712,10 @@ cp "${installed_state}" "${target_root}/System/State/install/package-installed.n
 cp "${missing_state}" "${target_root}/System/State/install/package-missing.names"
 find "${target_root}/System/PackageDB" -maxdepth 1 -type f -name '*.json' | sort >"${target_root}/System/State/install/package-receipts.txt" 2>/dev/null || true
 
-live_tools=""
-for candidate in \
-  /workspace/scripts/add-auzix-live-tools.sh \
-  /mnt/ns1/AuziX/src/scripts/add-auzix-live-tools.sh \
-  /System/Tools/add-auzix-live-tools.sh \
-  ./scripts/add-auzix-live-tools.sh
-do
-  if [ -x "${candidate}" ]; then
-    live_tools="${candidate}"
-    break
-  fi
-done
-if [ -z "${live_tools}" ]; then
-  fail "add-auzix-live-tools.sh not found; disk install must reuse ISO root-prep contract"
-fi
-log_msg "ROOT_PREP source=${live_tools} target=${target_root}"
-"${live_tools}" "${target_root}" >>"${log}" 2>&1 || fail "root prep failed via ${live_tools}"
-log_msg "COMPAT_REPAIR_START name=runtime-and-service-contract source=bootstrap-seed"
-sync_live_runtime_contract >>"${log}" 2>&1 || fail "runtime and service compatibility repair failed"
-log_msg "COMPAT_REPAIR_DONE name=runtime-and-service-contract source=bootstrap-seed"
+root_template=/Programs/AuzixInstaller/current/Resources/installed-root
+[ -x "${root_template}/System/Boot/InstalledInit" ] || fail "packaged installed-root template missing"
+log_msg "ROOT_PREP source=${root_template} target=${target_root}"
+cp -a "${root_template}/." "${target_root}/" >>"${log}" 2>&1 || fail "packaged root preparation failed"
 [ -x "${target_root}/System/Boot/StartSequence" ] || fail "root prep did not create StartSequence"
 [ -x "${target_root}/System/Boot/InstalledInit" ] || fail "root prep did not create InstalledInit"
 cp "${target_root}/System/Boot/InstalledInit" "${target_root}/init"
