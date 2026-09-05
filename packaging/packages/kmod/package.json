@@ -8,7 +8,7 @@
   "intake_adapter": {
     "format": "auzix-lifecycle-adapter-v1",
     "template_dir": "packaging/packages/kmod/lifecycle",
-    "configuration": ["${AUZIX_SETTINGS}/modules"],
+    "configuration": [],
     "scripts": {"after_install": "after-install"},
     "operations": [
       {"type": "ensure-configuration", "path": "${AUZIX_SETTINGS}/modules", "policy": "preserve-existing"},
