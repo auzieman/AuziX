@@ -1,0 +1,53 @@
+{
+  "format": "auzix-archive-profile-v1",
+  "name": "alpha-runtime-closure",
+  "receipt_policy": {
+    "dependencies": "auzix-package-json",
+    "lifecycle": "intake-normalize-v1",
+    "continue_on_error": true
+  },
+  "package_names": {
+    "Kmod": "kmod",
+    "Libeet1": "libeet1",
+    "Libeeze1": "libeeze1",
+    "Libscim8v5": "libscim8v5",
+    "Libunibreak6": "libunibreak6",
+    "Libwebpdemux2": "libwebpdemux2",
+    "LibxkbcommonX110": "libxkbcommon-x11-0",
+    "Libxss1": "libxss1",
+    "MateDesktopCommon": "mate-desktop-common",
+    "PlumaCommon": "pluma-common",
+    "Liblua510": "liblua5.1-0",
+    "Liblz41": "liblz4-1",
+    "Libgif7": "libgif7",
+    "Libjxl011": "libjxl0.11",
+    "Libgles2": "libgles2",
+    "Gir12Peas10": "gir1.2-peas-1.0",
+    "Gir12Pluma10": "gir1.2-pluma-1.0",
+    "Libgirepository101": "libgirepository-1.0-1",
+    "Libgtksourceview40": "libgtksourceview-4-0",
+    "Libpeas100": "libpeas-1.0-0"
+  },
+  "packages": [
+    "Kmod",
+    "Libeet1",
+    "Libeeze1",
+    "Libscim8v5",
+    "Libunibreak6",
+    "Libwebpdemux2",
+    "LibxkbcommonX110",
+    "Libxss1",
+    "MateDesktopCommon",
+    "PlumaCommon",
+    "Liblua510",
+    "Liblz41",
+    "Libgif7",
+    "Libjxl011",
+    "Libgles2",
+    "Gir12Peas10",
+    "Gir12Pluma10",
+    "Libgirepository101",
+    "Libgtksourceview40",
+    "Libpeas100"
+  ]
+}
