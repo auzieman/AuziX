@@ -6,6 +6,7 @@ AUZIX_ROOT="${1:-${ROOT_DIR}/out/auzix-strict/AuzixRoot}"
 VERSION="${AUZIX_DESKTOP_INTEGRATION_VERSION:-2026.08.09}"
 PROGRAM="${AUZIX_ROOT}/Programs/AuzixDesktopIntegration/${VERSION}"
 RECEIPT="${AUZIX_ROOT}/System/PackageDB/AuzixDesktopIntegration-${VERSION}.auzix.json"
+bash "$ROOT_DIR/scripts/stage-auzix-terminal-launcher.sh" "$AUZIX_ROOT"
 
 mkdir -p \
   "${PROGRAM}/Commands" \
@@ -378,6 +379,7 @@ cat >"${RECEIPT}" <<EOF
     "desktop_sync": "/Programs/AuzixDesktopIntegration/${VERSION}/Commands/e-launcher-sync"
   },
   "compatibility_exports": [
+    "/System/Tools/launch-auzix-terminal",
     "/etc/xdg/menus/e-applications.menu",
     "/System/Compatibility/usr/share/desktop-directories/auzix-productivity.directory",
     "/System/Compatibility/usr/share/desktop-directories/auzix-office.directory",

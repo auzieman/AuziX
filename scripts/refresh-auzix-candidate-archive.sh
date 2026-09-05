@@ -4,12 +4,21 @@ set -euo pipefail
 source_root="$(cd "$(dirname "$0")/.." && pwd)"
 work=${1:?candidate work directory}
 name=${2:?canonical archive identity}
-spool=${3:?corrected intake spool}
+spool=${3:?corrected intake spool or native stage}
+mode=${4:-archive}
 [[ "$name" =~ ^[A-Za-z0-9]+$ ]]
 repair="$work/repairs/$name"
 test ! -e "$work/receipts/pre-hdd.receipt"
 test ! -e "$repair"
 mkdir -p "$repair/input/packages" "$repair/previous"
+if [[ "$mode" == native ]]; then
+  mkdir -p "$repair/output/x86_64"
+  docker run --rm -v "$source_root/auzix:/workspace/auzix:ro" \
+    -v "$source_root/packaging:/workspace/packaging:ro" \
+    -v "$spool:/staging:ro" -v "$repair/output/x86_64:/packages" \
+    "auzix/package-factory:pre-hdd-$(basename "$work")" emit-package "$name" /staging /packages
+else
+  [[ "$mode" == archive ]]
 jq --arg name "$name" '.packages=[$name]' "$work/selected-repo/profile.json" >"$repair/profile.json"
 jq -s --arg name "$name" '[.[] | select(.name == $name)] | if length == 1 then {format:"auzix-repo-v1",packages:.} else error("expected one corrected identity") end' \
   "$spool"/entries/*.json >"$repair/input/index.json"
@@ -22,6 +31,7 @@ docker run --rm -v "$source_root/auzix:/workspace/auzix:ro" \
   "auzix/package-factory:pre-hdd-$(basename "$work")" \
   convert-archive-profile /repair/input /repair/profile.json /repair/output --apk-command /tools/apk
 jq -e '.status == "passed" and (.packages | length) == 1' "$repair/output/conversion-proof.json" >/dev/null
+fi
 apk_file=$(find "$repair/output/x86_64" -name '*.apk' -type f)
 test "$(printf '%s\n' "$apk_file" | wc -l)" -eq 1
 filename=$(basename "$apk_file")
