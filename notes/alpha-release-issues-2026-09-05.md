@@ -1,5 +1,9 @@
 # Alpha release issue / fix ledger
 
+Current scoped plans: [September5 reconciliation](alpha-scoped-reconciliation-2026-09-05.md).
+Read that index and ticket comments for current next actions; older action
+entries below are historical, including superseded Planning-on-failure rules.
+
 Created September 5, 2026. This is the durable current work list. Read before
 acting; add a timestamped action entry BEFORE mutations. Kanboard can mirror
 these IDs, but no Kanboard tickets have been created by this entry.
