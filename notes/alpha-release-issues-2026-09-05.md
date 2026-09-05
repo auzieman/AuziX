@@ -6,6 +6,20 @@ these IDs, but no Kanboard tickets have been created by this entry.
 
 ## Action record template
 
+September 5 — AX-001/task54 and AX-012/task65, before action: operator
+requires failed validation to enter a negative state, not Planning. Supersedes
+earlier return-to-Planning instructions. Use existing Blocked column41 for
+recoverable validation/dependency failures; retain precise reason and exit
+criteria in comments. Change helper failure transition, move task54 to Blocked,
+and comment on tasks54/65. Preserve descriptions, attachments and other cards.
+Rollback: explicit recorded transition, not silent history edits. Acceptance:
+API readback task54 in column41/top lane3, deduplicated explanatory comments.
+
+Outcome: comments verified on tasks54/65; task54 confirmed in Blocked41/lane3.
+Transition helper initially asserted on the API return despite the destination
+being correct. Make transition retries idempotent and judge success by task
+readback, not a move call's no-op return. No description or attachment changes.
+
 September 5 — AX-012/task65 tracking correction, before action: user requires
 updates as comments and relevant evidence as attachments, not description
 rewrites. Change sync to preserve existing titles/descriptions and add explicit,

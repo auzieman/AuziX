@@ -40,8 +40,10 @@ disk is the reference; preserve it unless explicitly authorized otherwise.
   starting evidence, action plan, rollback and test. No anonymous work.
 - Move the selected task to Work in progress only when work actually starts.
 - Move to Validating only after an identified fix/commit/artifact exists.
-- Failed validation returns to Planning with the exact failure and next bounded
-  check; use Blocked only for an actual external dependency. Do not hide failure.
+- Failed validation moves to Blocked with the exact failure, next bounded check
+  and unblock criteria in a comment. Planning is not a failure state. Rejected
+  is for an explicitly rejected approach/artifact, not a recoverable dependency
+  gap. Do not hide failures or create new board columns without agreement.
 - Done/Accepted requires the issue's acceptance evidence, including fresh-image
   and reboot proof where specified. A live patch or green unit test alone is not
   acceptance. Record deferred checks explicitly; never manufacture PASS.

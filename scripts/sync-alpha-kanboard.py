@@ -13,7 +13,7 @@ parser.add_argument('--issue', choices=['AX-%03d' % n for n in range(1, 13)])
 parser.add_argument('--order-columns', action='store_true', help='Only reorder project3 columns; preserve cards')
 parser.add_argument('--start-ax001', action='store_true', help='Pick up task54 in the top active lane')
 parser.add_argument('--validate-ax001', action='store_true', help='Move fixed task54 to validation; not Done')
-parser.add_argument('--plan-ax001', action='store_true', help='Return failed task54 validation to Planning')
+parser.add_argument('--block-ax001', action='store_true', help='Mark failed task54 validation Blocked')
 args = parser.parse_args()
 ledger = Path(__file__).resolve().parents[1] / 'notes/alpha-release-issues-2026-09-05.md'
 text = ledger.read_text()
@@ -56,11 +56,12 @@ def rpc(method,params):
     return result['result']
 project=rpc('getProjectById',{'project_id':3})
 assert project['name']=='AUZiX Package Factory'
-if sys.argv[2] in ('start-ax001','validate-ax001','plan-ax001'):
+if sys.argv[2] in ('start-ax001','validate-ax001','block-ax001'):
     task=rpc('getTask',{'task_id':54})
     assert 'ai_worker_ref:auzix-alpha-20260905:AX-001' in task['description']
-    column={'validate-ax001':35, 'start-ax001':11, 'plan-ax001':21}[sys.argv[2]]
-    assert rpc('moveTaskPosition',{'project_id':3,'task_id':54,'column_id':column,'position':1,'swimlane_id':3})
+    column={'validate-ax001':35, 'start-ax001':11, 'block-ax001':41}[sys.argv[2]]
+    if int(task['column_id']) != column or int(task['swimlane_id']) != 3:
+        rpc('moveTaskPosition',{'project_id':3,'task_id':54,'column_id':column,'position':1,'swimlane_id':3})
     task=rpc('getTask',{'task_id':54})
     assert int(task['column_id'])==column and int(task['swimlane_id'])==3
     print(json.dumps({'status':'verified','task_id':54,'column_id':column,'swimlane':'Default / active now'}))
@@ -114,7 +115,7 @@ import shlex
 import base64
 encoded = base64.b64encode(remote.encode()).decode()
 bootstrap = "import base64;exec(base64.b64decode(" + repr(encoded) + "))"
-mode = 'plan-ax001' if args.plan_ax001 else ('validate-ax001' if args.validate_ax001 else ('start-ax001' if args.start_ax001 else ('order' if args.order_columns else 'sync')))
+mode = 'block-ax001' if args.block_ax001 else ('validate-ax001' if args.validate_ax001 else ('start-ax001' if args.start_ax001 else ('order' if args.order_columns else 'sync')))
 command = 'qm guest exec 138 -- python3 -c ' + shlex.quote(bootstrap) + ' ' + shlex.quote(json.dumps(issues)) + ' ' + mode
 result = subprocess.run(['ssh', 'root@192.168.1.9', command], check=True,
                         capture_output=True, text=True)
@@ -122,7 +123,7 @@ guest = json.loads(result.stdout)
 if not guest.get('exited') or guest.get('exitcode') != 0:
     raise SystemExit('Guest sync failed: ' + guest.get('err-data', 'no result').splitlines()[-1])
 receipts = [json.loads(line) for line in guest.get('out-data', '').splitlines() if line]
-if args.order_columns or args.start_ax001 or args.validate_ax001 or args.plan_ax001:
+if args.order_columns or args.start_ax001 or args.validate_ax001 or args.block_ax001:
     assert len(receipts)==1 and receipts[0]['status']=='verified'
 else:
     assert len(receipts) == len(issues), 'Missing API readback receipts; do not claim sync success'
