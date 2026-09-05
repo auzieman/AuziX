@@ -146,3 +146,18 @@ signed index SHA256 as a build argument to both remote-APK consumer stages.
 This is a consumer cache correction, not another package rebuild. BKC run
 `c0555d38-6325-4d0d-a580-859d4a0cdf39` resumes with that correction; the package
 transaction and replay again passed, final validation pending at this note.
+
+That run passed the Terminology colorscheme check, then identified the absent
+`/System/Tools/launch-auzix-terminal`. The launcher existed in the older host
+Terminology producer, not the package-derived integration payload. `44dcdad`
+stages that launcher in AuzixDesktopIntegration, using BusyBox/current and the
+documented interactive shell contract. It does not alter X/E startup or libraries.
+The package and old index are retained under `repairs/AuzixDesktopIntegration`.
+BKC run `2ef083f8-f44a-4c30-8aee-c3c34dd1391b` refreshed that one native package
+and resumed consumers. Producer baseline for this explicit repair is its source
+snapshot `20260905-alpha-bkc-r8-resume-44dcdadf2b44-20260905T154907Z`, not the
+original pre-repair snapshot. A later consumer resume must honor this recorded
+baseline rather than silently comparing against a different package producer.
+
+Implementation commits are pushed only to internal alpha branches. No public
+publication, new HDD, or VM145 disk change has occurred as of this checkpoint.
