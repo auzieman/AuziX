@@ -22,3 +22,9 @@ AX-012 proof directory. No compilation, repository refresh or image deployment.
 Add a named BKC conversion-only lane and a generic issue state option to the
 existing Kanboard helper; task65 moves to WIP, then validation or Blocked based
 on recorded results. Local regression suite: 68 tests passed before lane setup.
+
+Pilot r1 / BKC bf59fcdb-70c5-48c0-acc6-93a429f2991d failed before conversion:
+the pipeline exports source with git archive; proof script incorrectly expected
+a .git checkout for provenance. Correct only provenance capture to use required
+AUZIX_SOURCE_REF already supplied by BKC. Preserve the r1 proof directory; rerun
+with the new commit/output. No package conversion occurred in r1.

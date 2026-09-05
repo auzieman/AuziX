@@ -8,7 +8,7 @@ test ! -e "$output"
 test -s "$prior/selected-repo/profile.json"
 test -x "$prior/apk-tool/apk"
 mkdir -p "$output"
-git -C "$ROOT_DIR" rev-parse HEAD >"$output/source-commit.txt"
+printf '%s\n' "${AUZIX_SOURCE_REF:?immutable source ref required}" >"$output/source-commit.txt"
 cp "$prior/selected-repo/profile.json" "$output/profile.json"
 docker image inspect auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
   --format '{{.Id}}' >"$output/factory-image.txt"
