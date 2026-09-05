@@ -3,10 +3,11 @@
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 
-def prepare(primary, supplement, base_profile, extra_profile, destination):
+def prepare(primary, supplement, base_profile, extra_profile, destination, base_apks=None):
     records = {}
     owners = {}
     for spool in (supplement, primary):
@@ -25,6 +26,28 @@ def prepare(primary, supplement, base_profile, extra_profile, destination):
     profile["packages"] = list(dict.fromkeys(profile["packages"] + extra["packages"]))
     for field in ("package_names", "external_providers", "dependency_additions"):
         profile.setdefault(field, {}).update(extra.get(field, {}))
+    if base_apks is not None:
+        # Older base APKs do not carry the donor source record. Recover their
+        # canonical identity using the SAME name function as donor intake,
+        # not a punctuation-stripping guess or another hand-maintained list.
+        name_tool = Path(__file__).with_name("build-auzix-debian-intake-package.sh")
+        providers = {}
+        for archive in sorted(base_apks.glob("*.apk")):
+            donor = archive.name.removesuffix(".apk").rsplit("-", 2)[0]
+            if donor.startswith("auzix-"):
+                continue
+            canonical = subprocess.check_output(
+                ["bash", str(name_tool), "--print-native-name", donor], text=True).strip()
+            key = canonical.casefold()
+            if key in providers and providers[key] != donor:
+                raise ValueError(f"ambiguous base provider: {canonical}")
+            providers[key] = donor
+        identities = set(records)
+        for record in records.values():
+            identities.update(record.get("depends", []))
+        for name in identities:
+            if name.casefold() in providers:
+                profile["external_providers"].setdefault(name, providers[name.casefold()])
     destination.mkdir(parents=True, exist_ok=False)
     (destination / "packages").mkdir()
     for name in profile["packages"]:
@@ -42,6 +65,6 @@ def prepare(primary, supplement, base_profile, extra_profile, destination):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
-        raise SystemExit("usage: prepare-auzix-alpha-archives.py PRIMARY SUPPLEMENT BASE_PROFILE EXTRA_PROFILE DEST")
+    if len(sys.argv) not in (6, 7):
+        raise SystemExit("usage: prepare-auzix-alpha-archives.py PRIMARY SUPPLEMENT BASE_PROFILE EXTRA_PROFILE DEST [BASE_APKS]")
     prepare(*(Path(argument) for argument in sys.argv[1:]))

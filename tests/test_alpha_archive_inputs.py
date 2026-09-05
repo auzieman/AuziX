@@ -57,7 +57,7 @@ class AlphaArchiveInputsTests(unittest.TestCase):
                 for name in names:
                     filename = name + ".tar.gz"
                     (spool / "entries" / (name + ".json")).write_text(json.dumps(
-                        {"name": name, "package": filename}))
+                        {"name": name, "package": filename, "depends": ["Libgtk3Common"]}))
                     (spool / "packages" / filename).write_text(spool.name)
             base, extra = root / "base.json", root / "extra.json"
             base.write_text(json.dumps({"packages": ["App"], "external_providers": {"Core": "runtime"}}))
@@ -72,3 +72,10 @@ class AlphaArchiveInputsTests(unittest.TestCase):
             self.assertEqual(profile["external_providers"], {"Core": "runtime"})
             with self.assertRaises(FileExistsError):
                 module.prepare(primary, supplement, base, extra, output)
+            apks = root / "apks"
+            apks.mkdir()
+            (apks / "libgtk-3-common-0.123-r0.apk").touch()
+            mapped = root / "mapped"
+            module.prepare(primary, supplement, base, extra, mapped, apks)
+            mapped_profile = json.loads((mapped / "profile.json").read_text())
+            self.assertEqual(mapped_profile["external_providers"]["Libgtk3Common"], "libgtk-3-common")

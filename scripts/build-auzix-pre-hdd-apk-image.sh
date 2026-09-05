@@ -79,7 +79,8 @@ test -s "$DELTA_PROFILE"
 test -s "$REFERENCE_SQUASHFS"
 python3 "$ROOT_DIR/scripts/prepare-auzix-alpha-archives.py" \
   "$DELTA_SPOOL" "$RUNTIME_SPOOL" "$DELTA_PROFILE" \
-  "$ROOT_DIR/packaging/archive-profiles/alpha-runtime-closure.json" "$WORK/selected-repo"
+  "$ROOT_DIR/packaging/archive-profiles/alpha-runtime-closure.json" "$WORK/selected-repo" \
+  "$WORK/layer/packages"
 DELTA_PROFILE="$WORK/selected-repo/profile.json"
 (cd "$ROOT_DIR" && python3 -m auzix preflight-archive-profile \
   "$WORK/selected-repo" "$DELTA_PROFILE") >"$WORK/receipts/archive-preflight.json"
@@ -304,6 +305,7 @@ missing_packages="$(comm -23 "$WORK/packages.list" "$WORK/repository-packages.li
 # Resolve the complete requested transaction before building any image. An
 # index containing each requested name can still have missing dependencies.
 docker run --rm -v "$WORK:/work:ro" alpine:3.22 sh -ec '
+  mkdir -p /solver
   set -- $(cat /work/packages.list)
   apk --root /solver --initdb --no-scripts --allow-untrusted \
     --repositories-file /dev/null --repository /work/repository \
