@@ -194,3 +194,23 @@ This is staged-root proof, not yet real-disk installation proof. Docker runtime
 account writes through leaf symlinks remain a known limitation, not silently
 declared fixed. Fontconfig emitted a missing-default-config warning; retain it
 as a separate runtime observation for desktop verification.
+
+## Netinstall runtime comparison, September 5
+
+Sudo refresh run `f0fa0b97-6491-42b9-a2df-e70543b0c4d4` installed the new
+APK but failed inside the cached staging chroot with a libc loader lookup error.
+This does not establish an absent libc package or a failure in the running
+image. Do not recompile libc based on this result. Sudo is not yet proven.
+
+At the user's request, compare the actual netinstall runtime before further
+package changes. `a04cbfb` aligns netinstall's environment and build validation
+entrypoint with the installed-image contract and requests auzix-sudo. The BKC
+`apk-alpha-netinstall` lane builds the existing Dockerfiles from an immutable
+checkout and retains a uniquely named review container and loopback HTTPS
+repository for interactive inspection. It does not promote an alpha, rebuild
+pre-HDD, or change a VM disk. Existing netinstall proof containers are preserved.
+Local checks: 62 unit tests passed; BKC wrapper shell syntax passed.
+
+Release intent: validated zero/one/netinstall/pre-HDD packages and containers,
+then two HDD outputs (netinstall and workstation), each requiring boot and disk
+installation validation before publication through the existing pipelines.
