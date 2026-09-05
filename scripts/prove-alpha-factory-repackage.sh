@@ -9,14 +9,16 @@ test -s "$prior/selected-repo/profile.json"
 test -x "$prior/apk-tool/apk"
 mkdir -p "$output"
 baseline=/var/lib/auzix-build/package-proof/AX-012-376e00389e32
+latest=/var/lib/auzix-build/package-proof/AX-012-dcbcdda180fb
 test -s "$baseline/repository/conversion-proof.json"
+test -s "$latest/repository/conversion-proof.json"
 docker image inspect auzix/trixie-builder:lab --format '{{.Id}}' >"$output/trixie-builder-image.txt"
 docker run --rm --network none --read-only --tmpfs /tmp \
   -e PYTHONDONTWRITEBYTECODE=1 -v "$ROOT_DIR:/workspace:ro" -w /workspace \
   auzix/trixie-builder:lab python3 -m unittest discover -s tests \
   2>&1 | tee "$output/trixie-tests.log"
 printf '%s\n' "${AUZIX_SOURCE_REF:?immutable source ref required}" >"$output/source-commit.txt"
-jq --slurpfile proof "$baseline/repository/conversion-proof.json" \
+jq --slurpfile proof "$latest/repository/conversion-proof.json" \
   '.name="alpha-held-bml" | .packages=[$proof[0].packages[] | select(.status=="needs-review") | .name]' \
   "$baseline/inputs/profile.json" >"$output/profile.json"
 docker image inspect auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
@@ -31,7 +33,10 @@ docker run --rm \
   convert-archive-profile /delta-repo /proof/profile.json /proof/repository \
     --apk-command /tools/apk --workers 8 2>&1 | tee "$output/proof.log"
 python3 "$ROOT_DIR/scripts/compare-repackage-findings.py" \
-  "$baseline/repository/conversion-proof.json" "$output/repository/conversion-proof.json" \
+  "$latest/repository/conversion-proof.json" "$output/repository/conversion-proof.json" \
   | tee "$output/comparison.json"
+python3 "$ROOT_DIR/scripts/test-held-package-effects.py" \
+  "$output/repository/conversion-proof.json" "$output/effects" --source "$ROOT_DIR" \
+  2>&1 | tee "$output/effects.log"
 jq -e '.status == "passed"' "$output/repository/conversion-proof.json" >/dev/null
 echo 'Conversion verified; installation and VM acceptance NOT tested.'
