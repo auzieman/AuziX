@@ -36,3 +36,15 @@ the valid HDD module guard; reconcile selected package contents first.
 Terminology Default.eet is present in both images. User-specific EET profile
 provisioning remains in image staging; do not assume every historical fix is
 already packaged merely because a package name exists.
+
+Xterm follow-up: NcursesBase is a link into /Libraries/Packages; xterm and
+xterm-256color terminfo files exist below current/RootFS/usr/share/terminfo.
+The shared terminal producer omitted this search directory; corrected it,
+retaining compatibility fallbacks. Package re-emission remains pending.
+Xterm initially failed with open ttydev: Permission denied because /dev/tty
+was also 0660 root:root. Applied the existing ServiceRuntime intended mode
+0666 to that device, then launched as auzix with explicit terminfo and sh -i.
+Shell PID26442 remained alive on /dev/pts/4. Locale/input-method warnings remain;
+operator interaction/color confirmation is pending. Log:
+/Users/auzix/.cache/launch-probes/xterm-tty-recovery-20260905.log.
+Do not change library packaging to address these device modes.
