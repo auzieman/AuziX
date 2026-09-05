@@ -34,6 +34,23 @@ record first. No further VM or build mutation is authorized by this ledger alone
 
 ## AX-001 — Enlightenment payload selection [OPEN, blocks HDD]
 
+September 5 18:55 UTC — task54 validation failed in BKC
+`c600f1ea-bf10-42d5-8683-a6744b88953c`: archive conversion emitted an APK but
+returned needs-review for Debian update-alternatives install/remove and its
+x-window-manager/manpage paths. Install proof did not run. Original donor
+postinst/prerm contain only that alternatives registration/removal. Existing
+AuziX start-e helpers select enlightenment_start directly (add-auzix-live-tools.sh),
+so Debian's default-window-manager selection is not the session startup owner.
+Before action: return task54 to Planning; add an explicit Enlightenment intake
+adapter preserving both conffiles and documenting the inapplicable alternatives
+protocol, without rewriting startup or launchers. Test adapter/config retention,
+then rerun the isolated package/install proof with a new source-specific output.
+Extend the tracking helper with a Planning transition and readback. Rollback:
+revert only these scoped source edits; preserve R8, VM145 and failed proof files.
+Acceptance remains complete payload plus actual APK installation; graphical
+acceptance is still separate. Proof evidence is under
+`/var/lib/auzix-build/package-proof/AX-001-24f6eaf7e0c5/output`.
+
 September5 validation action, before execution: BKC bounded proof will select
 the pinned Moon archive using current helper, convert only Enlightenment with
 the existing R8 factory, and install the resulting APK into an ephemeral copy

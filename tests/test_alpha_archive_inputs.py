@@ -15,6 +15,28 @@ spec.loader.exec_module(module)
 
 
 class AlphaArchiveInputsTests(unittest.TestCase):
+    def test_enlightenment_adapter_retains_configuration_not_dpkg_selection(self):
+        package = json.loads((Path(__file__).parents[1] /
+            "packaging/packages/enlightenment/package.json").read_text())
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "root"
+            prefix = "/Programs/Enlightenment/0.27.1-1"
+            control = root / prefix.lstrip("/") / "Metadata/debian-control-dir"
+            control.mkdir(parents=True)
+            (control / "postinst").write_text('#!/bin/sh\nwm=enlightenment_start\n'
+                'update-alternatives --install /usr/bin/x-window-manager x-window-manager /usr/bin/$wm 80\n')
+            (control / "prerm").write_text('#!/bin/sh\nupdate-alternatives --remove x-window-manager /usr/bin/enlightenment_start\n')
+            (control / "conffiles").write_text('/etc/enlightenment/sysactions.conf\n/etc/enlightenment/system.conf\n')
+            receipt = {"name": "Enlightenment", "version": "0.27.1-1", "prefix": prefix,
+                "maintainer_surfaces": [prefix + "/Metadata/debian-control-dir/" + name
+                                        for name in ("postinst", "prerm", "conffiles")]}
+            result = normalize_lifecycle(root, receipt, Path(temporary) / "review", package)
+            self.assertEqual(result["findings"], [])
+            self.assertEqual(result["scripts"], [])
+            self.assertEqual(set(result["configuration"]), {
+                "${AUZIX_SETTINGS}/enlightenment/sysactions.conf",
+                "${AUZIX_SETTINGS}/enlightenment/system.conf"})
+
     def test_reviewed_archive_is_selected_and_hash_checked(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

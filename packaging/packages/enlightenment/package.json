@@ -6,5 +6,16 @@
   "layout": {"domain": "program", "prefix": "/Programs/Enlightenment/${version}"},
   "dependencies": {"runtime": ["RuntimeGlibc", "Xorg"], "provides": ["desktop-session"]},
   "fragments": ["program.versioned-prefix", "desktop.session", "desktop.menu", "libraries.private-first"],
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/enlightenment/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/enlightenment/sysactions.conf", "${AUZIX_SETTINGS}/enlightenment/system.conf"],
+    "scripts": {},
+    "operations": [{
+      "type": "discard-donor-maintainer-protocol",
+      "disposition": "auzix-session-selects-enlightenment-start-directly",
+      "donor_effect": "register/remove x-window-manager and its manpage slave using update-alternatives"
+    }]
+  },
   "validation": {"commands": ["enlightenment -version"], "forbidden_paths": ["wayland-default-session"]}
 }
