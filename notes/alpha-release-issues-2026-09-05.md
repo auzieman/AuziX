@@ -34,6 +34,24 @@ record first. No further VM or build mutation is authorized by this ledger alone
 
 ## AX-001 — Enlightenment payload selection [OPEN, blocks HDD]
 
+September 5 follow-up outcome: BKC7d0ceebd-f4e0-44e7-a3e8-983a1d7ea9e4,
+source6c9d8cb, passed conversion and runtime entrypoint, then APK correctly
+rejected missing dependencies. Exact list: enlightenment-data, libasound2t64,
+libasound2-data, libbluetooth3, libexif12, libpulse0, libasyncns0, libsndfile1,
+libflac14, libogg0, libmp3lame0, libmpg1230t64, libopus0, libvorbis0a,
+libvorbisenc2. This is 15 identities (the live commentary's 16 was a miscount).
+None have APK filenames in R8 repository/x86_64. The retained runtime-closure-r2
+spool already has Libpulse0, Libsndfile1, Libvorbis0a and Libvorbisenc2 archives;
+their payload hashes/dependency closure still need checking. Do not conclude
+the rest require compilation. A broader read-only filename scan was stopped
+after ~30 seconds without results; no files were altered by that scan.
+Return task54 to Planning with this precise closure gap. Next bounded action:
+locate the remaining donor/archive records from existing inventories, verify
+their metadata, then emit only that closure and rerun exact APK installation.
+Do not use --no-deps or count the emitted E APK as an installation success.
+Install log: /var/lib/auzix-build/package-proof/AX-001-6c9d8cb209dd/install.log.
+VM145, R8 image and its repository remain unchanged; no new HDD was built.
+
 September 5 18:58 UTC: ce8d663 passed all64 local tests and actual Enlightenment
 conversion in BKC48395464-4510-4bbd-a84d-8d1b9d88339f (zero review findings).
 Install probe stopped BEFORE apk: normal image entrypoint initializes Flathub,
