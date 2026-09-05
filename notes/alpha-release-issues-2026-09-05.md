@@ -64,6 +64,16 @@ normal environment; colors/htop/Glances usable. Live keyboard proof pending.
 
 ## AX-004 — Efreet/menu/session reboot behavior [OPEN]
 
+September5 evidence update (documentation only): Kanboard task57 comment5
+requires strict team Kanboard use because of repeated regressions. Attachments
+1/2 are shot-2026-09-04_13-30-27.jpg and shot-2026-09-05_10-48-34.jpg.
+Inspected local copies: September4 shows Calc execution-error dialog, Midori
+setup wizard, rescue terminal without rendered htop UI, and a separate Glances
+display; September5 shows populated category/Office menus and Foggy Trees.
+These are partial-state references, not blanket success evidence. Cross-link
+terminal behavior to AX-002/003, first-boot browser to AX-005, Calc to AX-008.
+Do not replace user comment or attachments when syncing descriptions.
+
 Evidence: reference menu populated; SO_REUSEPORT warning also appears while
 Terminology stays alive. Warning alone is not crash proof. Preserve shared
 XDG-first paths and known Efreet prestart hooks. Inspect actual session/cache
