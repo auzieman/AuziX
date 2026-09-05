@@ -1,6 +1,7 @@
 # Alpha candidate: package inputs to image and boot
 
-VM145 remains the protected workstation reference. No public promotion.
+Current operator direction (September 5): VM143/144/145 are reusable test slots;
+target VM145, preserving its previous disk for rollback. No public promotion.
 
 Runtime intake run `a300b9b1-5a9a-44ce-9570-fe565fb80abc` completed.
 Its spool retains 485 identities; this is not a 485-package install request.
@@ -107,3 +108,32 @@ unknown, not passed. No HDD/boot trigger was sent. Commit b742173's notes push
 failed due this interruption; implementation 5ad6818 and BKC 4e00b1d were already
 pushed before the interruption. Resume by checking r7 and its existing log first,
 not launching another run or replacing the known-good VM.
+
+## September 5: bounded recovery in progress
+
+R7 was marked interrupted after power-off. R8
+`c0eb2688-f5c8-4116-842b-84860f56640d` reused the verified factory outputs and
+installed 544 packages, then exposed a checksum call outside the target chroot.
+Commit `39ffce3` fixes only those calls. Resume
+`ae524ada-7649-40a6-8cb9-1f971ec83881` passed installation and no-op replay,
+then stopped at the missing Terminology colorscheme publication.
+
+The existing intake fix is `32e7aa2`, not new desktop logic. The selected old
+TerminologyData archive contains Default.eet but lacks its compatibility links.
+Re-intake of Trixie 1.14.0-1 on R730 with that existing script passed, producing
+254 files and five compatibility links. Initial attempt lacked APT indexes;
+running apt-get update in the disposable builder resolved that prerequisite.
+No source compilation, X/E rewrites, or live VM changes were involved.
+Corrected spool: `/var/lib/auzix-build/package-proof/terminology-r8/spool`.
+
+Commit `a290e18` adds a bounded one-archive refresh that retains the old APK and
+signed index, converts the corrected archive through the factory, and resigns
+the candidate repository. BKC run `6b646a52-ea4f-45f1-9655-283124933a40` invokes
+it and resumes R8 consumers. Its package conversion passed; image validation
+remains pending. Prior evidence remains under R8 `repairs/TerminologyData`.
+
+Commit `a282583` changes the boot helper to reuse slots 143–145 only when stopped,
+allocate a new disk in a free SCSI slot, verify the streamed disk SHA256, then
+change boot order. Existing disks stay attached for rollback; VM143/144 are not
+targets for this run. PVE VM145 was stopped with scsi0=local-lvm:vm-145-disk-0.
+The historical HDD helper deleted unused disks; do not invoke that deletion path.
