@@ -6,6 +6,10 @@ output=${1:?new audit directory}
 test ! -e "$output"
 mkdir -p "$output"
 docker image inspect auzix/trixie-builder:lab --format '{{.Id}}' >"$output/builder-image.txt"
+docker image inspect debian:trixie-slim --format '{{.Id}}' >"$output/debian-image.txt"
+docker run --rm -v "$ROOT_DIR:/workspace:ro" -v "$output:/audit" \
+  debian:trixie-slim sh /workspace/scripts/trace-debian-dbus-install.sh \
+  2>&1 | tee "$output/debian-trace.log"
 docker run --rm --network none \
   -e PYTHONDONTWRITEBYTECODE=1 -v "$ROOT_DIR:/workspace:ro" -w /workspace \
   auzix/trixie-builder:lab python3 scripts/test-dbus-helper-permissions.py \
