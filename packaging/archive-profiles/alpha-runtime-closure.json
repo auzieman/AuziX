@@ -1,6 +1,13 @@
 {
   "format": "auzix-archive-profile-v1",
   "name": "alpha-runtime-closure",
+  "reviewed_archives": {
+    "Enlightenment": {
+      "spool": "/var/lib/auzix-build/factory-delta/moon-hdd-20260904T150105Z-r5/spool",
+      "version": "0.27.1-1",
+      "sha256": "967d98217ec4d2b64ca5dbe89b22866a95b1af1f8f1c2e46e9e245166e9da671"
+    }
+  },
   "receipt_policy": {
     "dependencies": "auzix-package-json",
     "lifecycle": "intake-normalize-v1",
@@ -56,6 +63,7 @@
     "Libpeas100": "libpeas-1.0-0"
   },
   "packages": [
+    "Enlightenment",
     "Gir12Atk10",
     "Gir12Freedesktop",
     "Gir12Gdkpixbuf20",

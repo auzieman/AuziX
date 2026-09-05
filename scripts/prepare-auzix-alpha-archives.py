@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Merge reviewed archive inputs, retaining primary repairs over older intake."""
 import json
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,8 +23,26 @@ def prepare(primary, supplement, base_profile, extra_profile, destination, base_
             owners[name] = spool
     profile = json.loads(base_profile.read_text())
     extra = json.loads(extra_profile.read_text())
+    # Explicit reviewed repairs override retained inputs only after verifying
+    # their identity. Never infer a working replacement from a package name.
+    for name, reviewed in extra.get("reviewed_archives", {}).items():
+        spool = Path(reviewed["spool"])
+        matches = [json.loads(p.read_text()) for p in (spool / "entries").glob("*.json")]
+        matches = [record for record in matches if record["name"] == name]
+        if len(matches) != 1:
+            raise ValueError(f"expected one reviewed archive record: {name}")
+        record = matches[0]
+        filename = record["package"]
+        if Path(filename).name != filename or record.get("version") != reviewed["version"]:
+            raise ValueError(f"reviewed archive identity mismatch: {name}")
+        digest = hashlib.sha256((spool / "packages" / filename).read_bytes()).hexdigest()
+        if digest != reviewed["sha256"] or digest != record.get("sha256"):
+            raise ValueError(f"reviewed archive hash mismatch: {name}")
+        records[name], owners[name] = record, spool
     profile["name"] = "alpha-selected-runtime"
     profile["packages"] = list(dict.fromkeys(profile["packages"] + extra["packages"]))
+    if not set(extra.get("reviewed_archives", {})).issubset(profile["packages"]):
+        raise ValueError("reviewed archive is not requested by profile")
     for field in ("package_names", "external_providers", "dependency_additions"):
         profile.setdefault(field, {}).update(extra.get(field, {}))
     if base_apks is not None:

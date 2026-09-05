@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,6 +15,28 @@ spec.loader.exec_module(module)
 
 
 class AlphaArchiveInputsTests(unittest.TestCase):
+    def test_reviewed_archive_is_selected_and_hash_checked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            spool = root / "reviewed"
+            (spool / "entries").mkdir(parents=True)
+            (spool / "packages").mkdir()
+            digest = hashlib.sha256(b"complete payload").hexdigest()
+            (spool / "packages/E.tar.gz").write_bytes(b"complete payload")
+            (spool / "entries/E.json").write_text(json.dumps({"name": "E",
+                "package": "E.tar.gz", "version": "2", "sha256": digest}))
+            empty = root / "empty"
+            empty.mkdir()
+            base, extra = root / "base.json", root / "extra.json"
+            base.write_text('{"packages": []}')
+            extra.write_text(json.dumps({"packages": ["E"], "reviewed_archives": {
+                "E": {"spool": str(spool), "version": "2", "sha256": digest}}}))
+            module.prepare(empty, empty, base, extra, root / "good")
+            self.assertEqual((root / "good/packages/E.tar.gz").read_bytes(), b"complete payload")
+            (spool / "packages/E.tar.gz").write_bytes(b"stale payload")
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                module.prepare(empty, empty, base, extra, root / "bad")
+
     def test_kmod_adapter_accounts_for_donor_protocol(self):
         package = json.loads((Path(__file__).parents[1] /
             "packaging/packages/kmod/package.json").read_text())

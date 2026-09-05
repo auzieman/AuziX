@@ -206,3 +206,24 @@ Scope is project3 only; no other boards or automation triggers are changed.
 Outcome: scripts/sync-alpha-kanboard.py --apply --order-columns succeeded.
 API readback verified all12 positions, original titles/IDs, and unchanged
 active/closed task-column assignments. No columns or cards renamed/deleted.
+
+## September 5 — AX-001/task54 active pickup (before action)
+
+Target: task54, project3; move to Work in progress/Default swimlane3 (top,
+active-now window), preserving title and history. Then inspect existing Moon
+spool `/var/lib/auzix-build/factory-delta/moon-hdd-20260904T150105Z-r5/spool`.
+Found exact Enlightenment0.27.1-1 archive and metadata there; no compilation is
+planned. Verify archive hash, owned helper/module paths and dependencies before
+adding it to replacement selection. Do not mutate completed R8 candidate or
+VM145. Rollback: task returns to Planning with findings; code changes remain
+separate commits. Acceptance for this step: verified source record and explicit
+replacement-selection fix/test; graphical acceptance remains open.
+
+Action refinement before code change: add a single reviewed archive override
+to alpha-runtime-closure profile: Enlightenment0.27.1-1 from the Moon r5 spool,
+SHA256967d98217ec4d2b64ca5dbe89b22866a95b1af1f8f1c2e46e9e245166e9da671.
+Selection helper must verify version and content hash before copying, and
+explicitly request this identity. Tests cover override selection and hash
+rejection. This doesn't execute or alter the completed R8 build; next build
+will require a fresh run ID. Task54 transition readback confirmed top lane3,
+Work in progress11. Package emission/boot remain later validation steps.
