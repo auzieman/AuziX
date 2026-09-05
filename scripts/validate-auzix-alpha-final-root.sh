@@ -64,8 +64,6 @@ run '
   flatpak remotes --system --columns=name | grep -qx flathub
   id auzix | grep -q "groups=.*sudo"
   id auzix | grep -q "wheel"
-  sudo -n busybox id | grep -q "uid=0(root)"
-  sudo -n apk --version >/dev/null
   podman --version >/dev/null
   test "$(readlink /System/Tools/launch-auzix-installer)" = \
     /Programs/AuzixInstallerEfl/current/Commands/launch-auzix-installer
@@ -94,6 +92,19 @@ run '
     /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
   ! grep -q "^NoDisplay=true$" \
     /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
+'
+
+# A root caller does not prove the workstation user's sudo policy. Drop to
+# the actual numeric identity and supplementary groups before invoking sudo.
+run '
+  export HOME=/Users/auzix USER=auzix LOGNAME=auzix
+  groups=$(id -G auzix | tr " " ",")
+  /System/Tools/auzix-run-as-uid "$(id -u auzix)" "$(id -g auzix)" "$groups" \
+    /Programs/Sudo/current/Commands/sudo -n \
+    /Programs/BusyBox/current/Commands/busybox id -u | grep -qx 0
+  /System/Tools/auzix-run-as-uid "$(id -u auzix)" "$(id -g auzix)" "$groups" \
+    /Programs/Sudo/current/Commands/sudo -n \
+    /Programs/ApkTools/current/Commands/apk --version >/dev/null
 '
 
 # Exercise a complete Flatpak transaction without pulling a graphical runtime:
