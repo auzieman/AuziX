@@ -2,6 +2,9 @@
   "format": "auzix-archive-profile-v1",
   "name": "alpha-runtime-closure",
   "reviewed_archives": {
+    "EnlightenmentData": {"spool": "/var/lib/auzix-build/factory-delta/20260905-alpha-e-closure-r1/spool", "version": "0.27.1-1", "sha256": "57cd63bef15c5ec10abdddf298c3da2e14bb59ea6abb5df8b36921cc6e3bd08d"},
+    "Libasound2Data": {"spool": "/var/lib/auzix-build/factory-delta/20260905-alpha-e-closure-r1/spool", "version": "1.2.14-1", "sha256": "14918e2628a4174977fd3768b49d08a82dc555de0314b2196ba40aae8b9e803e"},
+    "Libasound2t64": {"spool": "/var/lib/auzix-build/factory-delta/20260905-alpha-e-closure-r1/spool", "version": "1.2.14-1", "sha256": "c983999bbb1e51d827d120b2a740de6104887e7bd8dd2372b569c2721624f7d0"},
     "Passwd": {"spool": "/var/lib/auzix-build/package-proof/passwd-r8/spool", "version": "1-4.17.4-2", "sha256": "e9dcf9022f1ba5f8578dadcea51321c9e166ce58bbce726b5f205a910ba24a78"},
     "TerminologyData": {"spool": "/var/lib/auzix-build/package-proof/terminology-r8/spool", "version": "1.14.0-1", "sha256": "c72d2ae489b4dbd3c80587e9d5348892ef45838cbcfaf575debef15c1d02a0d4"},
     "Libbluetooth3": {"spool":"/var/lib/auzix-build/factory-delta/r28-adjacent-clean2/spool","version":"5.82-1.1","sha256":"ef78d87a09604f292659bc961e1554f01019b15d22d745181c7d193da7d4aad7"},
@@ -37,6 +40,9 @@
     "Libpangoft2100": "libpangoft2-1.0-0"
   },
   "package_names": {
+    "EnlightenmentData": "enlightenment-data",
+    "Libasound2Data": "libasound2-data",
+    "Libasound2t64": "libasound2t64",
     "Gir12Atk10": "gir1.2-atk-1.0",
     "Gir12Freedesktop": "gir1.2-freedesktop",
     "Gir12Gdkpixbuf20": "gir1.2-gdkpixbuf-2.0",
@@ -77,6 +83,10 @@
     "Libpeas100": "libpeas-1.0-0"
   },
   "packages": [
+    "Passwd",
+    "EnlightenmentData",
+    "Libasound2Data",
+    "Libasound2t64",
     "Libbluetooth3",
     "Libexif12",
     "Libasyncns0",
