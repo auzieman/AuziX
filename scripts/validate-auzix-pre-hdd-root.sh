@@ -107,7 +107,8 @@ chroot "$root" /Programs/BusyBox/current/Commands/busybox sh -ec '
     id auzix-validation >/dev/null
     deluser auzix-validation >/dev/null
     ! grep -q "^auzix-validation:" /System/Settings/passwd
-    ldd /Programs/BusyBox/current/Commands/busybox | grep -q libc.so
+    # The bootstrap BusyBox is static; use a real dynamically linked ELF.
+    ldd /Programs/OpensshServer/current/RootFS/usr/sbin/sshd | grep -q libc.so
     python3 -c "import encodings, json, os, site, ssl, subprocess"
     for tool in strings stat netstat tail vi; do command -v "$tool" >/dev/null; done
     id auzix | grep -q "groups=.*sudo"
@@ -115,8 +116,10 @@ chroot "$root" /Programs/BusyBox/current/Commands/busybox sh -ec '
     sudo -n busybox id | grep -q "uid=0(root)"
     sudo -n apk --version >/dev/null
     podman --version >/dev/null
+    repository=$(sed -n "1p" /System/Settings/apk/repositories)
+    test -n "$repository"
     /System/Tools/auzix-install-root-from-repo-profile --preflight \
-      --repo https://auzix-repo.test:8443 >/dev/null
+      --repo "$repository" >/dev/null
 '
 
 echo "pre-hdd validation: package-installed root passed"
