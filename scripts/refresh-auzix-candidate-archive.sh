@@ -23,6 +23,10 @@ jq --arg name "$name" '.packages=[$name]' "$work/selected-repo/profile.json" >"$
 jq -s --arg name "$name" '[.[] | select(.name == $name)] | if length == 1 then {format:"auzix-repo-v1",packages:.} else error("expected one corrected identity") end' \
   "$spool"/entries/*.json >"$repair/input/index.json"
 archive=$(jq -r '.packages[0].package' "$repair/input/index.json")
+jq --slurpfile corrected "$repair/input/index.json" --arg name "$name" \
+  '.packages = ([.packages[] | select(.name != $name)] + $corrected[0].packages)' \
+  "$work/selected-repo/index.json" >"$repair/input/with-dependency-identities.json"
+mv "$repair/input/with-dependency-identities.json" "$repair/input/index.json"
 [[ "$archive" == "$(basename "$archive")" ]]
 cp "$spool/packages/$archive" "$repair/input/packages/"
 docker run --rm -v "$source_root/auzix:/workspace/auzix:ro" \
