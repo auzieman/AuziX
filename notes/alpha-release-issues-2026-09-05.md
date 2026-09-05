@@ -144,3 +144,20 @@ cleanup while recovering these features.
 3. AX-003: plan and record corrected package emission after producer audit.
 Before each mutation, complete the action template above with exact targets,
 rollback and acceptance; then record the actual outcome.
+
+## September 5 — AX-001/AX-012 tracking and investigation action
+
+Before action: create a private bkc-channel review packet linking this ledger,
+requesting advisory-only ai-worker/Ollama review and Kanboard tracking. User
+explicitly requested this integration. Method: existing channel outbox; later
+dispatch through ai_worker workflow_relay upsert-ticket when its execution
+endpoint is confirmed. No infrastructure or image authority delegated.
+Rollback: remove only this new packet if superseded; retain original evidence.
+Acceptance: packet exists; actual task IDs/worker receipt required before
+claiming dispatch or review complete. No credentials in the packet.
+
+Read-only finding: candidate selected-repo index has no Enlightenment record;
+the retained layer contains enlightenment-0.97193867-r0.apk. The replacement
+archive profiles omit Enlightenment. This narrows AX-001 to retained-base
+selection, not a newly emitted wrong version. Correct source archive location
+still needs identification. No E package or startup modifications made.
