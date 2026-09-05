@@ -301,6 +301,18 @@ test -s "$WORK/packages.list"
 missing_packages="$(comm -23 "$WORK/packages.list" "$WORK/repository-packages.list")"
 [[ -z "$missing_packages" ]] || fail "requested packages absent from signed repository: $missing_packages"
 
+# Resolve the complete requested transaction before building any image. An
+# index containing each requested name can still have missing dependencies.
+docker run --rm -v "$WORK:/work:ro" alpine:3.22 sh -ec '
+  set -- $(cat /work/packages.list)
+  apk --root /solver --initdb --no-scripts --allow-untrusted \
+    --repositories-file /dev/null --repository /work/repository \
+    add --simulate "$@"
+' >"$WORK/receipts/apk-solver.log" 2>&1 || {
+  cat "$WORK/receipts/apk-solver.log"
+  fail "selected APK dependency closure does not resolve"
+}
+
 docker build --pull=false --build-context "auzix_bootstrap=$WORK/bootstrap" \
   -f "$ROOT_DIR/docker/release/zero-busybox/Dockerfile" -t "$ZERO_IMAGE" "$ROOT_DIR"
 docker run --rm "$ZERO_IMAGE" /Programs/BusyBox/current/Commands/busybox sh -ec \

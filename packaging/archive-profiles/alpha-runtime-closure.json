@@ -6,7 +6,25 @@
     "lifecycle": "intake-normalize-v1",
     "continue_on_error": true
   },
+  "external_providers": {
+    "Libatk100t64": "libatk1.0-0t64",
+    "Libenchant22": "libenchant-2-2",
+    "LibgdkPixbuf200": "libgdk-pixbuf-2.0-0",
+    "Libgtk30t64": "libgtk-3-0t64",
+    "Libpango100": "libpango-1.0-0",
+    "Libpangocairo100": "libpangocairo-1.0-0"
+  },
   "package_names": {
+    "Gir12Girepository20": "gir1.2-girepository-2.0",
+    "Gir12GTK30": "gir1.2-gtk-3.0",
+    "Gir12Gtksource4": "gir1.2-gtksource-4",
+    "Libgtksourceview4Common": "libgtksourceview-4-common",
+    "Libhwy1t64": "libhwy1t64",
+    "Libkmod2": "libkmod2",
+    "LibpeasCommon": "libpeas-common",
+    "Libpython313": "libpython3.13",
+    "LibxcbXkb1": "libxcb-xkb1",
+    "Libxxhash0": "libxxhash0",
     "Kmod": "kmod",
     "Libeet1": "libeet1",
     "Libeeze1": "libeeze1",
@@ -29,6 +47,16 @@
     "Libpeas100": "libpeas-1.0-0"
   },
   "packages": [
+    "Gir12Girepository20",
+    "Gir12GTK30",
+    "Gir12Gtksource4",
+    "Libgtksourceview4Common",
+    "Libhwy1t64",
+    "Libkmod2",
+    "LibpeasCommon",
+    "Libpython313",
+    "LibxcbXkb1",
+    "Libxxhash0",
     "Kmod",
     "Libeet1",
     "Libeeze1",

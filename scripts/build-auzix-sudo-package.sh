@@ -25,6 +25,12 @@ copy_runtime_deps() {
   ldd "${binary}" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' | sort -u |
   while IFS= read -r dep; do
     [[ -e "${dep}" ]] || continue
+    case "$(basename "${dep}")" in
+      ld-linux-x86-64.so.2|libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1)
+        # RuntimeGlibc owns the core ABI, including the secure loader path.
+        continue
+        ;;
+    esac
     case "${dep}" in
       /lib64/*)
         install -D -m 0755 "${dep}" "${RUNTIME_LIB64}/$(basename "${dep}")"
