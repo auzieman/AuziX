@@ -59,10 +59,20 @@ after=$(chroot /target /Programs/BusyBox/current/Commands/busybox sha256sum \
 after=${after%% *}
 test "$before" = "$after"
 
+# Exercise account writes in the installed-root layout. Shadow rejects leaf
+# symlinks; Docker's runtime /etc shim is not the HDD's directory alias.
+chroot /target /Programs/BusyBox/current/Commands/busybox sh -ec '
+  adduser --system --no-create-home auzix-validation >/dev/null
+  id auzix-validation >/dev/null
+  deluser auzix-validation >/dev/null
+  ! grep -q "^auzix-validation:" /System/Settings/passwd
+'
+
 mkdir -p /target/System/State/packages
 cat >/target/System/State/packages/pre-hdd-transaction.receipt <<EOF
 format=auzix-pre-hdd-transaction-v1
 repository=$AUZIX_APK_REPOSITORY
 installed_db_sha256=$after
 replay=no-op
+account_roundtrip=pass
 EOF

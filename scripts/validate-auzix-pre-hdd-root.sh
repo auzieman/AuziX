@@ -12,6 +12,8 @@ executable() {
 
 # APK registration and package lifecycle evidence.
 nonempty /System/State/apk/db/installed
+grep -qx 'account_roundtrip=pass' "$root/System/State/packages/pre-hdd-transaction.receipt" \
+    || fail "staged-root account creation/deletion proof is absent"
 grep -q '^P:openssh-server$' "$root/System/State/apk/db/installed" \
     || fail "openssh-server is not registered by apk"
 grep -q '^P:openssh-client$' "$root/System/State/apk/db/installed" \
@@ -103,9 +105,6 @@ chroot "$root" /Programs/BusyBox/current/Commands/busybox sh -ec '
     abiword --version >/dev/null
     lowriter --help >/dev/null
     adduser --version >/dev/null
-    adduser --system --no-create-home auzix-validation >/dev/null
-    id auzix-validation >/dev/null
-    deluser auzix-validation >/dev/null
     ! grep -q "^auzix-validation:" /System/Settings/passwd
     # The bootstrap BusyBox is static; use a real dynamically linked ELF.
     ldd /Programs/OpensshServer/current/RootFS/usr/sbin/sshd | grep -q libc.so
