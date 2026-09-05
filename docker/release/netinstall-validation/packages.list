@@ -9,3 +9,5 @@ iproute2
 openssh-client
 libgssapi-krb5-2
 parted
+# Elevation belongs in the non-graphical installer environment too.
+auzix-sudo
