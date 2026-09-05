@@ -20,7 +20,9 @@ docker run --rm \
   auzix/package-factory:pre-hdd-20260905-alpha-bkc-r8 \
   convert-archive-profile /proof/selected /proof/profile.json /proof/output --apk-command /tools/apk
 jq -e '.status=="passed" and (.packages|length)==1' "$proof/output/conversion-proof.json"
-docker run --rm --network none -v "$proof/output/x86_64:/Proof:ro" \
+# Normal entrypoint initializes Flathub; allow its HTTPS prerequisite.
+# APK itself remains offline through --repositories-file /dev/null below.
+docker run --rm -v "$proof/output/x86_64:/Proof:ro" \
   auzix/validation:pre-hdd-apk-20260905-alpha-bkc-r8 \
   /Programs/BusyBox/current/Commands/busybox sh -ec '
     apk add --allow-untrusted --repositories-file /dev/null /Proof/enlightenment-*.apk

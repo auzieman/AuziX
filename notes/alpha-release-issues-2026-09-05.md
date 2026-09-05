@@ -34,6 +34,16 @@ record first. No further VM or build mutation is authorized by this ledger alone
 
 ## AX-001 — Enlightenment payload selection [OPEN, blocks HDD]
 
+September 5 18:58 UTC: ce8d663 passed all64 local tests and actual Enlightenment
+conversion in BKC48395464-4510-4bbd-a84d-8d1b9d88339f (zero review findings).
+Install probe stopped BEFORE apk: normal image entrypoint initializes Flathub,
+but the proof used --network none. This is a test prerequisite error, not an
+Enlightenment failure. Before action: return task54 to Planning, remove only
+that network isolation flag so the unchanged runtime entrypoint can initialize;
+APK still uses /dev/null repositories and exact local artifact. Rerun isolated
+proof, retaining previous logs. No Flatpak/startup behavior changes. Rollback:
+restore flag; VM and completed candidate remain untouched.
+
 September 5 18:55 UTC — task54 validation failed in BKC
 `c600f1ea-bf10-42d5-8683-a6744b88953c`: archive conversion emitted an APK but
 returned needs-review for Debian update-alternatives install/remove and its
