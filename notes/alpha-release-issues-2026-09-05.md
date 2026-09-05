@@ -189,3 +189,20 @@ Work in progress → Validating → Done/Accepted only with acceptance evidence.
 Failure returns to Planning; external blockers are explicit. Remote transitions
 require readback and linked repository evidence. Current cards remain Planning;
 next implementation pickup is AX-001/task54 after action plan is recorded.
+
+## September 5 — Board column-order correction (before action)
+
+User requested cleanup of project3's mixed workflow order. Stored order by ID:
+9,10,11,12,21,25,30,32,35,38,41,43 (Done is fourth; Planning fifth).
+Cause: ai-worker ensure_columns appends missing columns but doesn't reorder
+existing ones. No rename is needed. Use existing JSON-RPC changeColumnPosition,
+verified in installed ColumnProcedure.php, to order existing IDs as
+9,21,10,25,30,11,32,38,41,35,43,12. Blocked sits beside active review work.
+Preserve all column IDs/titles and task column assignments; capture before/after
+assignments and assert unchanged. Rollback: same API with recorded original
+order. Acceptance: API readback exact desired order and unchanged task map.
+Scope is project3 only; no other boards or automation triggers are changed.
+
+Outcome: scripts/sync-alpha-kanboard.py --apply --order-columns succeeded.
+API readback verified all12 positions, original titles/IDs, and unchanged
+active/closed task-column assignments. No columns or cards renamed/deleted.

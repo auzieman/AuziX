@@ -8,6 +8,7 @@ import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--apply', action='store_true')
+parser.add_argument('--order-columns', action='store_true', help='Only reorder project3 columns; preserve cards')
 args = parser.parse_args()
 ledger = Path(__file__).resolve().parents[1] / 'notes/alpha-release-issues-2026-09-05.md'
 text = ledger.read_text()
@@ -40,6 +41,22 @@ def rpc(method,params):
     return result['result']
 project=rpc('getProjectById',{'project_id':3})
 assert project['name']=='AUZiX Package Factory'
+if sys.argv[2]=='order':
+    desired=[9,21,10,25,30,11,32,38,41,35,43,12]
+    before=rpc('getColumns',{'project_id':3})
+    assert {int(c['id']) for c in before}==set(desired)
+    def assignments():
+        return sorted((int(t['id']),int(t['column_id'])) for status in (0,1)
+            for t in rpc('getAllTasks',{'project_id':3,'status_id':status}))
+    cards=assignments()
+    for position,cid in enumerate(desired,1):
+        assert rpc('changeColumnPosition',{'project_id':3,'column_id':cid,'position':position})
+    after=rpc('getColumns',{'project_id':3})
+    assert [int(c['id']) for c in sorted(after,key=lambda c:int(c['position']))]==desired
+    assert assignments()==cards
+    assert {(c['id'],c['title']) for c in before}=={(c['id'],c['title']) for c in after}
+    print(json.dumps({'status':'verified','columns':[(c['id'],c['title'],c['position']) for c in after], 'task_assignments':'unchanged'}))
+    raise SystemExit()
 tasks=rpc('getAllTasks',{'project_id':3,'status_id':1})
 for item in items:
     marker='<!-- ai_worker_ref:'+item['reference']+' -->'
@@ -60,13 +77,16 @@ import shlex
 import base64
 encoded = base64.b64encode(remote.encode()).decode()
 bootstrap = "import base64;exec(base64.b64decode(" + repr(encoded) + "))"
-command = 'qm guest exec 138 -- python3 -c ' + shlex.quote(bootstrap) + ' ' + shlex.quote(json.dumps(issues))
+command = 'qm guest exec 138 -- python3 -c ' + shlex.quote(bootstrap) + ' ' + shlex.quote(json.dumps(issues)) + ' ' + ('order' if args.order_columns else 'sync')
 result = subprocess.run(['ssh', 'root@192.168.1.9', command], check=True,
                         capture_output=True, text=True)
 guest = json.loads(result.stdout)
 if not guest.get('exited') or guest.get('exitcode') != 0:
     raise SystemExit('Guest sync failed: ' + guest.get('err-data', 'no result'))
 receipts = [json.loads(line) for line in guest.get('out-data', '').splitlines() if line]
-assert len(receipts) == 12, 'Missing API readback receipts; do not claim sync success'
-assert {r['reference'] for r in receipts} == {i['reference'] for i in issues}
+if args.order_columns:
+    assert len(receipts)==1 and receipts[0]['status']=='verified'
+else:
+    assert len(receipts) == 12, 'Missing API readback receipts; do not claim sync success'
+    assert {r['reference'] for r in receipts} == {i['reference'] for i in issues}
 print(json.dumps(receipts, indent=2))
