@@ -3,9 +3,16 @@ set -eu
 
 root=${1:-/}
 fail() { echo "alpha-final validation: $*" >&2; exit 1; }
-path() { test -e "$root$1" || test -L "$root$1" || fail "missing $1"; }
-file() { test -s "$root$1" || fail "missing or empty $1"; }
-run() { chroot "$root" /Programs/BusyBox/current/Commands/busybox sh -ec "$1"; }
+bb=/Programs/BusyBox/current/Commands/busybox
+# Resolve AUZiX's absolute links inside the target, never against the host.
+path() { chroot "$root" "$bb" test -e "$1" || fail "missing or dangling $1"; }
+file() { chroot "$root" "$bb" test -s "$1" || fail "missing or empty $1"; }
+run() {
+  chroot "$root" "$bb" sh -ec '
+    . /System/Settings/auzix-runtime-env
+    eval "$1"
+  ' sh "$1"
+}
 
 path /Programs/Enlightenment/current
 path /Programs/Terminology/current

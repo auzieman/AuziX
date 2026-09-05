@@ -773,6 +773,8 @@ if command -v grub-install >/dev/null 2>&1; then
   grub-install --boot-directory="${target_root}/boot" "${target}" >>"${log}" 2>&1 || fail "grub-install failed"
 elif [ -x /System/Compatibility/usr/sbin/grub-install ]; then
   /System/Compatibility/usr/sbin/grub-install --boot-directory="${target_root}/boot" "${target}" >>"${log}" 2>&1 || fail "grub-install failed"
+else
+  fail "grub-install missing; target is not bootable and installation is incomplete"
 fi
 
 log_msg "PACKAGE_PROFILE_INSTALL_DONE root=${root_part} boot_spec=${root_boot_spec} installed=$("${BB}" wc -l <"${installed_state}") missing=$("${BB}" wc -l <"${missing_state}")"

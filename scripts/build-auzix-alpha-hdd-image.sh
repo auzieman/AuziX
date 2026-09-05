@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_ID="${1:?usage: build-auzix-alpha-hdd-image.sh RUN_ID}"
-IMAGE="${AUZIX_ALPHA_IMAGE:-auzix/alpha:pre-hdd-salvage-20260831-r8}"
+IMAGE="${AUZIX_ALPHA_IMAGE:?set AUZIX_ALPHA_IMAGE to the validated pre-HDD image}"
 ANCHOR_ISO="${AUZIX_ALPHA_ANCHOR_ISO:?set AUZIX_ALPHA_ANCHOR_ISO to the known-good ISO}"
 BUILD_ROOT="${AUZIX_BUILD_ROOT_DIR:-/var/lib/auzix-build}"
 WORK="${BUILD_ROOT}/alpha-hdd/${RUN_ID}"
@@ -27,14 +27,12 @@ trap finish EXIT
 "${ROOT_DIR}/scripts/stage-auzix-alpha-hdd-root.sh" \
   "${IMAGE}" "${ANCHOR_ISO}" "${ROOT}"
 
-# Refuse to write media unless the staged filesystem retains every contract
-# proven during the alpha live-repair cycle.
-"${ROOT_DIR}/scripts/validate-auzix-alpha-final-root.sh" "${ROOT}"
-
 # /run is intentionally an empty mountpoint in the installed image. Materialize
 # sshd's volatile directory only for the offline configuration preflight.
 mkdir -p "${ROOT}/run/sshd"
 chmod 0755 "${ROOT}/run/sshd"
+# Invoke the checked-in shell script explicitly; it is not executable.
+sh "${ROOT_DIR}/scripts/validate-auzix-alpha-final-root.sh" "${ROOT}"
 chroot "${ROOT}" /Programs/BusyBox/current/Commands/busybox sh -c '
   set -e
   . /System/Settings/auzix-runtime-env
