@@ -227,3 +227,9 @@ explicitly request this identity. Tests cover override selection and hash
 rejection. This doesn't execute or alter the completed R8 build; next build
 will require a fresh run ID. Task54 transition readback confirmed top lane3,
 Work in progress11. Package emission/boot remain later validation steps.
+
+Outcome:90799fe explicitly selects the complete pinned archive and verifies
+record version/hash against archive bytes. 63 unit tests passed, including
+reviewed override and stale-byte rejection. No image/VM mutated. Planned next
+transition: task54 to Validating35, still top lane3, because source fix exists;
+APK emission/installation and graphical boot remain required before Done.
