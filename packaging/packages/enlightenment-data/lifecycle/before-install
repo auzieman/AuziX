@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+old="$settings/xdg/menus/enlightenment-applications.menu"
+new="$settings/xdg/menus/e-applications.menu"
+# Adapt the retained Debian mv_conffile effect, not its dpkg transaction API.
+if [ -L "$old" ] || [ -L "$new" ]; then
+  echo 'EnlightenmentData: menu migration requires review of symlink configuration' >&2
+  exit 1
+fi
+if [ -e "$old" ]; then
+  if [ -e "$new" ]; then
+    cmp -s "$old" "$new" || {
+      echo 'EnlightenmentData: conflicting old/new menus; both preserved' >&2
+      exit 1
+    }
+  else
+    mv "$old" "$new"
+  fi
+fi

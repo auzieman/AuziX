@@ -1,0 +1,16 @@
+{
+  "format": "auzix-package-v1",
+  "name": "EnlightenmentData",
+  "version": "0.27.1-1",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/EnlightenmentData-*.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/EnlightenmentData/${version}"},
+  "dependencies": {"runtime": []},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/enlightenment-data/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/xdg/menus/e-applications.menu"],
+    "scripts": {"before_install": "before-install"},
+    "operations": [{"type": "move-conffile", "from": "${AUZIX_SETTINGS}/xdg/menus/enlightenment-applications.menu", "to": "${AUZIX_SETTINGS}/xdg/menus/e-applications.menu", "donor_prior_version": "0.21.2-2~", "conflict_policy": "fail-without-overwrite"}]
+  },
+  "validation": {"commands": ["test -s /System/Settings/xdg/menus/e-applications.menu"]}
+}
