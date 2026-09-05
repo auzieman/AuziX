@@ -65,3 +65,34 @@ blindly importing Debian's systemd, dpkg and base-files scaffolding.
 The follow-up intake reuses the completed 485-entry spool. Before any further
 container construction, the builder now requires an APK solver pass for the
 full requested groups. A passing per-package conversion is not a solver pass.
+
+## r6 actual installation and r7 native repair
+
+Runtime intake follow-up `27e6c152-7df6-4ac5-84da-96074d66fcd2` passed;
+499 spool entries, 14 newly ingested binaries, no source compilation.
+r6 converted all 100 selected archives and indexed 595 packages without missing
+provider warnings. The real APK solver selected 543 packages. Its empty database
+must be initialized before simulation (`cb85f74`); simulation alone does not do it.
+
+Consumer resume `424f771d-1a62-4c47-928c-36bc2326974b` installed through the
+applications block but failed three packages: GRUB duplicated sudo's libpcre2
+and libselinux; the imported core installer carried an EFL-owned frontend link;
+Flatpak's hook attempted OSTree initialization without proc available.
+`5ad6818` puts GRUB dependencies in its private Libraries with command wrappers,
+leaves the frontend link to its owning package, and defers Flatpak remote setup
+until runtime proc is available. It uses the actual package-owned CA bundle at
+`/System/Settings/ssl/certs/ca-certificates.crt` and declares that dependency.
+
+Focused R730 proof using r6 netinstall + APK-installed flatpak, ca-certificates,
+gnupg and the corrected support script passed both boundaries: no-proc deferral,
+then normal-proc `flatpak remotes` reported `flathub system`. An earlier smaller
+proof without gnupg correctly failed its GPG engine; the workstation already
+requests gnupg. No weakened TLS or signature checks were used.
+
+r7 pipeline `a6fee89f-2da4-46f2-b49c-f7467ea2ed19`, source
+`5ad6818875b03fe8e7cc47b5bd4314c3dc059eb7`, reuses the r6 archive outputs only
+after checking factory sources, selected identities/dependencies and APK hashes.
+Native packages are regenerated. Log:
+`/var/lib/auzix-build/receipts/apk-alpha-20260904-alpha-bkc-r7.log`.
+At kickoff there is still no new HDD or VM: do not mistake these proofs for boot
+or installer validation. Existing VM145 and healthy service containers untouched.
