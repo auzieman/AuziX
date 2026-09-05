@@ -27,3 +27,21 @@ payloads and live reference repairs before changing layout assumptions.
 Live repairs do not close an issue: fold accepted fixes into their owner and
 prove fresh-image behavior, including reboot where applicable. VM145's original
 disk is the reference; preserve it unless explicitly authorized otherwise.
+
+## Mandatory issue lifecycle
+
+- Before implementation, select one AX issue and record its Kanboard task ID,
+  starting evidence, action plan, rollback and test. No anonymous work.
+- Move the selected task to Work in progress only when work actually starts.
+- Move to Validating only after an identified fix/commit/artifact exists.
+- Failed validation returns to Planning with the exact failure and next bounded
+  check; use Blocked only for an actual external dependency. Do not hide failure.
+- Done/Accepted requires the issue's acceptance evidence, including fresh-image
+  and reboot proof where specified. A live patch or green unit test alone is not
+  acceptance. Record deferred checks explicitly; never manufacture PASS.
+- Keep repository action history and Kanboard comments linked by issue ID,
+  commit and BKC run. Read back remote state after every transition.
+- If Kanboard is unreachable, record the transition locally and mark remote
+  sync pending before proceeding. Reconcile it when service returns.
+- At handoff, state active issue, lifecycle state, evidence and next action.
+  Review/Planning columns must not trigger infrastructure runs automatically.

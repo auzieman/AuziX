@@ -161,3 +161,31 @@ the retained layer contains enlightenment-0.97193867-r0.apk. The replacement
 archive profiles omit Enlightenment. This narrows AX-001 to retained-base
 selection, not a newly emitted wrong version. Correct source archive location
 still needs identification. No E package or startup modifications made.
+
+## September 5 — Kanboard sync action (planned before execution)
+
+Target: VM138 Kanboard project3, AUZiX Package Factory. Create/update only
+AX-001..AX-012 using stable references and this ledger's text. Place in Planning,
+not Ready/Triggered, to avoid accidental execution. Method: JSON-RPC on the
+guest via QEMU guest execution; read existing API credential locally without
+printing it. No direct database writes. Leave old cards and columns untouched.
+Rollback: new cards can be closed by recorded IDs; existing descriptions must
+not be overwritten unless they carry our exact stable reference.
+Acceptance: API readback shows twelve referenced cards; retain ID mapping here.
+Old receipt pairs23/24,25/26,27/28,29/30 and legacy auzix-pkg card49 are review
+candidates, not automatically deleted or moved. ai-worker/Ollama dispatch is
+separate and must not be claimed from ticket creation alone.
+
+Sync outcome: Kanboard JSON-RPC created and read back tasks54..65 in project3
+Planning. Mapping AX-001=54, AX-002=55, AX-003=56, AX-004=57, AX-005=58,
+AX-006=59, AX-007=60, AX-008=61, AX-009=62, AX-010=63, AX-011=64,
+AX-012=65. Old cards were not moved/deleted. Initial multiline guest invocation
+returned exit0 but no receipts and readback showed no cards; corrected transport
+to preserve code arguments. Script now requires twelve API receipts, not host
+SSH exit status. Advisory worker dispatch remains pending.
+
+Agent lifecycle is now mandatory in AGENTS.md: selected issue/action record →
+Work in progress → Validating → Done/Accepted only with acceptance evidence.
+Failure returns to Planning; external blockers are explicit. Remote transitions
+require readback and linked repository evidence. Current cards remain Planning;
+next implementation pickup is AX-001/task54 after action plan is recorded.
