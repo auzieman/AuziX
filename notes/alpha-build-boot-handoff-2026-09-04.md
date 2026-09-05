@@ -225,3 +225,14 @@ untouched: libc there resolves through /Libraries/Packages/Libc6, not the absent
 /System/Libraries/Runtime/glibc/libc.so.6 path. Do not confuse loader lookup
 failure with a missing libc package. A startup TLS reset required only bounded
 retry/resume of the same repository; certificate verification remains enabled.
+
+Runtime gate follow-up: AuziX `4bf3848` and BKC `8ae1d3c` replace the sudo
+tooling-chroot probe with `docker run --user auzix` against the final image,
+checking the starting UID is nonzero and sudo can run id and apk. Existing sudo
+repair APK/index hashes must verify before reuse. BKC run
+`316ea68c-00e2-49d9-8bea-aa8017b752b4` resumed R8 consumers on repository port
+18444, preserving the interactive netinstall/repository on 18443. Startup
+advanced through zero and nginx package installation; final runtime proof is
+pending. Log: `/var/lib/auzix-build/receipts/apk-alpha-20260905-alpha-bkc-r8-resume-4bf3848fa2f0.log`.
+Operator preference: observe initial progress, then hand off tail -F for longer
+runs instead of continuously polling. No HDD/VM promotion before runtime pass.
