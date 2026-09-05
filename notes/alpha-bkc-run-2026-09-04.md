@@ -30,6 +30,15 @@ Internal source branches are `alpha-apk-release-20260904` (AuziX) and
 - `dda4d27` removes boot mounts from the ServiceRuntime APK install hook and
   retains the known devpts/ptmx fix in the existing boot service producer.
 
+The Nginx boundary subsequently passed in BKC run
+`8c06db50-b4ff-4be6-93a2-4690eabf3ea1`: package installation, Curl, the
+configuration used by `/Services/Nginx/run`, and an HTTPS index fetch compared
+byte-for-byte with the packaged index. The earlier targeted probe
+`5270615c-d75e-4a70-9685-532f85bc6fce` used plain `nginx -t` and incorrectly
+looked under `/etc/nginx`; BKC `6321ebe` corrects the probe to the existing
+AUZiX config and prefix. No Nginx implementation repair was needed, and the
+existing healthy repository container was preserved.
+
 Remaining closure/installer/runtime acceptance is tracked in
 `alpha-release-readiness-2026-09-04.md`. Do not infer a working root from
 package emission. No unattended full retry until the failing boundary and
