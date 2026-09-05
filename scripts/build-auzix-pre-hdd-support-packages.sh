@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT="${1:?output directory required}"
 VERSION=1.0.0
 DEBUG_STAGE="$OUTPUT/AUZiXDebugTools"
