@@ -34,6 +34,6 @@ device=$("${ssh_command[@]}" "pvesm path $volume")
 "${ssh_command[@]}" "dd of=$device bs=4M iflag=fullblock conv=fsync status=progress" <"$image"
 actual=$("${ssh_command[@]}" "sha256sum $device" | awk '{print $1}')
 test "$actual" = "$digest"
-"${ssh_command[@]}" "qm start $vmid; qm status $vmid; qm config $vmid"
+"${ssh_command[@]}" "set -e; qm start $vmid; qm status $vmid | grep -qx 'status: running'; qm config $vmid"
 printf 'format=auzix-alpha-vm-start-v1\nvmid=%s\nimage_sha256=%s\nstatus=started-not-validated\n' \
   "$vmid" "$digest" >"$image.vm-start.receipt"
