@@ -23,7 +23,8 @@ done </System/Settings/apk/one-nginx.packages
 # Factory signs the index, not individual artifacts. Edge builds install by
 # filename until a signed APKINDEX exists for netinstall. Keep maintainer
 # scripts (pre/inst/post). Do not COPY program trees into /Programs.
-/Programs/ApkTools/current/Commands/apk add --allow-untrusted --no-network "$@"
+/Programs/ApkTools/current/Commands/apk add --allow-untrusted --no-network \
+  --repository /Repository/x86_64 "$@"
 
 test -s /System/State/apk/db/installed
 
