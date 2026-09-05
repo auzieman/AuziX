@@ -21,6 +21,8 @@ file /System/Compatibility/usr/share/applications/auzix-installer.desktop
 file /System/Compatibility/usr/share/applications/auzix-package-manager.desktop
 file /System/Compatibility/usr/share/applications/auzix-midori.desktop
 file /System/Compatibility/usr/share/applications/auzix-LibreOfficeWriter-libreoffice-writer.desktop
+file /Users/auzix/.config/autostart/auzix-installer.desktop
+file /Users/auzix/.config/autostart/auzix-browser.desktop
 file /System/Compatibility/usr/share/elementary/themes/default.edj
 file /System/Compatibility/usr/share/enlightenment/data/backgrounds/Foggy-Trees.edj
 file /System/Compatibility/usr/share/icons/hicolor/index.theme
@@ -42,6 +44,7 @@ run '
   midori --version >/dev/null
   command -v abiword >/dev/null
   command -v lowriter >/dev/null
+  lowriter --help >/dev/null
   command -v ldd >/dev/null
   command -v strings >/dev/null
   command -v stat >/dev/null
@@ -60,8 +63,18 @@ run '
   test -x /System/Tools/auzix-package-manager
   grep -q "/Programs/ApkTools/current/Commands/apk update" \
     /Programs/AuzixPackageManagerEfl/current/Resources/auzix-package-manager-efl.c
+  grep -q "Search package names and descriptions" \
+    /Programs/AuzixPackageManagerEfl/current/Resources/auzix-package-manager-efl.c
   ! grep -q "/System/Tools/auzix-pkg" \
     /Programs/AuzixPackageManagerEfl/current/Resources/auzix-package-manager-efl.c
+  grep -q "/Programs/ApkTools/current/Commands/apk" \
+    /Programs/AuzixInstallerEfl/current/Resources/auzix-installer-efl.c
+  ! grep -q "/System/Tools/auzix-pkg" \
+    /Programs/AuzixInstallerEfl/current/Resources/auzix-installer-efl.c
+  grep -q "^Exec=/System/Tools/launch-auzix-installer --autostart" \
+    /Users/auzix/.config/autostart/auzix-installer.desktop
+  grep -q "^Exec=/System/Tools/launch-auzix-browser" \
+    /Users/auzix/.config/autostart/auzix-browser.desktop
   grep -q "^Exec=/System/Tools/launch-auzix-terminal" \
     /System/Compatibility/usr/share/applications/terminology.desktop
   grep -q "AUZIX_PRESTART_EFREETD:-1" \
