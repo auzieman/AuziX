@@ -59,6 +59,10 @@ copy_binary() {
   local target="$2"
   install -D -m 0755 "${source}" "${target}"
   copy_runtime_deps "${source}"
+  # setuid programs cannot depend on LD_LIBRARY_PATH from a user session.
+  patchelf --force-rpath --set-rpath \
+    /System/Libraries/Runtime/glibc:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/libexec/sudo \
+    "${target}"
 }
 
 if [[ ! -d "${AUZIX_ROOT}/System" ]]; then
@@ -69,6 +73,7 @@ fi
 require_cmd sudo
 require_cmd ldd
 require_cmd install
+require_cmd patchelf
 
 VISUDO_PATH="$(command -v visudo || true)"
 if [[ -z "${VISUDO_PATH}" && -x /usr/sbin/visudo ]]; then
@@ -161,9 +166,9 @@ chmod 0440 "${AUZIX_ROOT}/System/Settings/sudoers.d/README.md"
 mkdir -p "${AUZIX_ROOT}/System/Settings/pam.d"
 cat > "${AUZIX_ROOT}/System/Settings/pam.d/sudo" <<'EOF'
 #%PAM-1.0
-auth sufficient pam_permit.so
-account sufficient pam_permit.so
-session optional pam_permit.so
+auth sufficient /System/Compatibility/lib/x86_64-linux-gnu/security/pam_permit.so
+account sufficient /System/Compatibility/lib/x86_64-linux-gnu/security/pam_permit.so
+session optional /System/Compatibility/lib/x86_64-linux-gnu/security/pam_permit.so
 EOF
 cp -f "${AUZIX_ROOT}/System/Settings/pam.d/sudo" "${AUZIX_ROOT}/System/Settings/pam.d/sudo-i"
 chmod 0644 "${AUZIX_ROOT}/System/Settings/pam.d/sudo" "${AUZIX_ROOT}/System/Settings/pam.d/sudo-i"
