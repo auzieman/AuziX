@@ -44,16 +44,19 @@ for group in /factory/groups/*.list; do
 done
 
 test -s /target/System/State/apk/db/installed
-before=$(/target/Programs/BusyBox/current/Commands/busybox sha256sum \
-  /target/System/State/apk/db/installed | /target/Programs/BusyBox/current/Commands/busybox awk '{print $1}')
+# Package current links are absolute within the target, not the tooling root.
+before=$(chroot /target /Programs/BusyBox/current/Commands/busybox sha256sum \
+  /System/State/apk/db/installed)
+before=${before%% *}
 
 # A package-composed root must be replay-safe. Reapply the same declared blocks
 # and prove APK did not rewrite its installed-state database.
 for group in /factory/groups/*.list; do
   install_group "$group"
 done
-after=$(/target/Programs/BusyBox/current/Commands/busybox sha256sum \
-  /target/System/State/apk/db/installed | /target/Programs/BusyBox/current/Commands/busybox awk '{print $1}')
+after=$(chroot /target /Programs/BusyBox/current/Commands/busybox sha256sum \
+  /System/State/apk/db/installed)
+after=${after%% *}
 test "$before" = "$after"
 
 mkdir -p /target/System/State/packages
