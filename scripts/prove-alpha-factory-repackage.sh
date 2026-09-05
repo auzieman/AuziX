@@ -8,14 +8,19 @@ test ! -e "$output"
 test -s "$prior/selected-repo/profile.json"
 test -x "$prior/apk-tool/apk"
 mkdir -p "$output"
+python3 "$ROOT_DIR/scripts/prepare-full-repackage.py" \
+  "$prior/selected-repo" "$output/inputs" \
+  /var/lib/auzix-build/pre-hdd-apk/20260904-alpha-complete-spool \
+  /var/lib/auzix-build/factory-delta/20260904-alpha-runtime-closure-r2/spool \
+  /var/lib/auzix-build/factory-delta/20260905-alpha-e-closure-r1/spool
 printf '%s\n' "${AUZIX_SOURCE_REF:?immutable source ref required}" >"$output/source-commit.txt"
-cp "$prior/selected-repo/profile.json" "$output/profile.json"
+cp "$output/inputs/profile.json" "$output/profile.json"
 docker image inspect auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
   --format '{{.Id}}' >"$output/factory-image.txt"
 docker run --rm \
   -v "$ROOT_DIR/auzix:/workspace/auzix:ro" \
   -v "$ROOT_DIR/packaging:/workspace/packaging:ro" \
-  -v "$prior/selected-repo:/delta-repo:ro" \
+  -v "$output/inputs:/delta-repo:ro" \
   -v "$prior/apk-tool/apk:/tools/apk:ro" \
   -v "$output:/proof" \
   auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
