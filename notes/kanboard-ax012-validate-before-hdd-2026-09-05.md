@@ -19,3 +19,18 @@ bkc-cli prove-factory. HDD still locked.
 
 16:17 PDT: operator agreed. Implementing the split so the mapper history
 stays repeatable. Local units first; no BKC in this cut.
+
+16:19 PDT: stepping to prove-factory r2 on `016a920` through bkc-cli.
+Run `20260905-intake-validate-r2`. HDD still locked.
+
+Result: BKC `05461cd9` conversion completed-with-review. Findings 181→179
+on D-Bus pair only. 35 still needs-review. validation-boundary written.
+Install/HDD not tested.
+
+16:30 PDT: walked four smallest holds vs Debian originals. The 35 are
+leftover `DPKG_ROOT` / `dpkg --compare-versions` / `invoke-rc.d` /
+`sysctl` after we already imported the effect. Not 35 adapters.
+`notes/alpha-held-five-unpack-2026-09-05.md`.
+
+16:33 PDT: recovering those four shapes as AuziX helpers on the APK
+hook. Local units first. HDD still locked.

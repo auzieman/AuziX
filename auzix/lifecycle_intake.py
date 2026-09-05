@@ -56,6 +56,29 @@ auzix_apply_statoverride() {
 	chown "$user:$group" "$path"
 	chmod "$mode" "$path"
 }
+auzix_upgrade_cmp() {
+	previous=$1
+	_operator=$2
+	_than=$3
+	[ -n "$previous" ] || return 1
+	return 1
+}
+auzix_reload_service() {
+	name=$1
+	if command -v rc-service >/dev/null 2>&1; then
+		rc-service "$name" restart >/dev/null 2>&1 || true
+		return 0
+	fi
+	if [ -x "/Services/$name/run" ]; then
+		return 0
+	fi
+	return 0
+}
+auzix_apply_sysctl() {
+	pattern=$1
+	command -v sysctl >/dev/null 2>&1 || return 0
+	sysctl --quiet --pattern "$pattern" --system || true
+}
 """
 
 UNSUPPORTED_PATTERNS = {
@@ -149,6 +172,32 @@ SYSTEM_ACCOUNT_SYSUSERS_BLOCK = re.compile(
 
 SYSTEM_ACCOUNT_ADDUSER_LINE = re.compile(
     r'(?P<indent>[ \t]*)(?:in_sysroot )?adduser --system --quiet --group (?P<account>\S+)\n'
+)
+
+IN_SYSROOT_FUNCTION = re.compile(
+    r"in_sysroot\s*\(\)\s*\{\n"
+    r"(?:[ \t]+[^\n]*\n)*"
+    r"\}\n"
+)
+
+DPKG_COMPARE_VERSIONS = re.compile(
+    r"dpkg --compare-versions (?P<left>\S+) (?P<op>'?[a-z]{2}'?) (?P<right>\S+)"
+)
+
+INVOKE_RC_LINE = re.compile(
+    r"(?P<indent>[ \t]*)invoke-rc\.d\s+(?P<name>\S+)\s+"
+    r"(?P<action>restart|reload|try-restart|force-reload|start)\b[^\n]*\n"
+)
+
+DEB_SYSTEMD_INVOKE_LINE = re.compile(
+    r"(?P<indent>[ \t]*)deb-systemd-invoke\s+"
+    r"(?P<action>restart|reload|try-restart|start)\s+(?P<name>\S+)[^\n]*\n"
+)
+
+SYSCTL_SYSTEM_BLOCK = re.compile(
+    r"(?P<indent>[ \t]*)if command -v sysctl > /dev/null; then\n"
+    r"(?P=indent)[ \t]*sysctl --quiet --pattern (?P<pattern>\S+) --system \|\| :\n"
+    r"(?P=indent)fi\n"
 )
 
 UCF_OBSOLETE_REGISTRY_BLOCK = re.compile(
@@ -404,6 +453,60 @@ fi"""
     text, extra = SYSTEM_ACCOUNT_ADDUSER_LINE.subn(replace_system_account, text)
     if extra:
         rules.append("debian-system-account")
+
+    def replace_compare_versions(match: re.Match[str]) -> str:
+        operator = match.group("op").strip("'\"")
+        operations.append({
+            "type": "upgrade-compare",
+            "left": match.group("left"),
+            "operator": operator,
+            "right": match.group("right").strip("'\""),
+        })
+        return (
+            f'auzix_upgrade_cmp {match.group("left")} {operator} '
+            f'{match.group("right")}'
+        )
+
+    text, count = DPKG_COMPARE_VERSIONS.subn(replace_compare_versions, text)
+    if count:
+        rules.append("debian-upgrade-compare")
+
+    if "in_sysroot" in text and IN_SYSROOT_FUNCTION.search(text):
+        dropped = IN_SYSROOT_FUNCTION.sub("", text)
+        if "in_sysroot" not in dropped:
+            text = dropped
+            rules.append("debian-in-sysroot-unused")
+
+    def replace_service_reload(match: re.Match[str]) -> str:
+        name = match.group("name").strip("'\"")
+        action = match.group("action")
+        operations.append({
+            "type": "reload-service" if action != "start" else "start-service",
+            "name": name,
+            "action": action,
+        })
+        helper = "auzix_reload_service" if action != "start" else "auzix_reload_service"
+        return f'{match.group("indent")}{helper} {match.group("name")} || true\n'
+
+    text, count = INVOKE_RC_LINE.subn(replace_service_reload, text)
+    if count:
+        rules.append("debian-service-reload")
+    text, extra = DEB_SYSTEMD_INVOKE_LINE.subn(replace_service_reload, text)
+    if extra:
+        rules.append("debian-service-reload")
+
+    def replace_sysctl(match: re.Match[str]) -> str:
+        operations.append({
+            "type": "apply-sysctl",
+            "pattern": match.group("pattern").strip("'\""),
+        })
+        return (
+            f'{match.group("indent")}auzix_apply_sysctl {match.group("pattern")}\n'
+        )
+
+    text, count = SYSCTL_SYSTEM_BLOCK.subn(replace_sysctl, text)
+    if count:
+        rules.append("debian-sysctl-apply")
     return text, rules, operations
 
 

@@ -2,8 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import json
+
 from auzix.archive_fpm import _automatic_library_definition
-from auzix.lifecycle_intake import normalize_lifecycle
+from auzix.lifecycle_intake import normalize_lifecycle, promote_auzix_package
 
 
 class LifecyclePreservationTests(unittest.TestCase):
@@ -143,3 +145,110 @@ class LifecyclePreservationTests(unittest.TestCase):
                 for finding in result["findings"]
             )
         )
+
+    def test_imports_in_sysroot_account_and_drops_dpkg_root(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            "MESSAGEUSER=examplebus\n"
+            "in_sysroot () {\n"
+            '    if [ -z "${DPKG_ROOT:-}" ]; then\n'
+            '        "$@"\n'
+            "    else\n"
+            '        chroot "${DPKG_ROOT}" "$@"\n'
+            "    fi\n"
+            "}\n"
+            "if command -v systemd-sysusers >/dev/null; then\n"
+            '    systemd-sysusers ${DPKG_ROOT:+--root="$DPKG_ROOT"} example.conf\n'
+            "else\n"
+            '    in_sysroot adduser --system --quiet --group "$MESSAGEUSER"\n'
+            "fi\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_ensure_system_account", rendered)
+        self.assertNotIn("in_sysroot", rendered)
+        self.assertNotIn("DPKG_ROOT", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "donor-root-variable" for finding in result["findings"])
+        )
+
+    def test_compare_versions_is_upgrade_protocol(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            'if [ "$1" = configure -a -n "$2" ]; then\n'
+            '    if dpkg --compare-versions "$2" lt "2012.1"; then\n'
+            "        :\n"
+            "    fi\n"
+            "fi\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_upgrade_cmp", rendered)
+        self.assertNotIn("dpkg --compare-versions \"$2\"", rendered)
+        self.assertTrue(
+            any(item.get("type") == "upgrade-compare" for item in result["operations"])
+        )
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+        )
+
+    def test_invoke_rc_restart_becomes_reload_service(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            "case \"$1\" in\n"
+            "        configure)\n"
+            "                invoke-rc.d acpid restart >/dev/null || true\n"
+            "                ;;\n"
+            "esac\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_reload_service acpid", rendered)
+        self.assertNotIn("invoke-rc.d", rendered)
+        self.assertTrue(
+            any(item.get("type") == "reload-service" for item in result["operations"])
+        )
+        self.assertFalse(
+            any(finding.get("kind") == "debian-service-helper" for finding in result["findings"])
+        )
+
+    def test_sysctl_system_becomes_apply_sysctl(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            "if command -v sysctl > /dev/null; then\n"
+            "    sysctl --quiet --pattern '^kernel.unprivileged_userns_clone$' --system || :\n"
+            "fi\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_apply_sysctl", rendered)
+        self.assertNotIn("if command -v sysctl", rendered.split("auzix_maintainer_main", 1)[-1])
+        self.assertTrue(
+            any(item.get("type") == "apply-sysctl" for item in result["operations"])
+        )
+        self.assertFalse(
+            any(finding.get("kind") == "package-trigger-helper" for finding in result["findings"])
+        )
+
+    def test_recovered_hook_attaches_to_apk_script_slot(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name) / "root"
+        prefix = root / "Programs/LibExample/1"
+        control = prefix / "Metadata/debian-control-dir"
+        control.mkdir(parents=True)
+        (control / "postinst").write_text(
+            "#!/bin/sh\ninvoke-rc.d acpid restart >/dev/null || true\n"
+        )
+        receipt_path = root / "System/PackageDB/LibExample-1.json"
+        receipt_path.parent.mkdir(parents=True)
+        receipt = {
+            "name": "LibExample",
+            "version": "1",
+            "prefix": "/Programs/LibExample/1",
+            "maintainer_surfaces": [],
+        }
+        receipt_path.write_text(json.dumps(receipt))
+        intake = normalize_lifecycle(root, receipt, Path(temporary.name) / "review")
+        package_json, scripts = promote_auzix_package(root, receipt_path, intake, None)
+        self.assertEqual(package_json["lifecycle"]["after_install"], "/Programs/LibExample/1/Package/Scripts/after-install")
+        self.assertTrue(any(flag == "--after-install" for flag, _ in scripts))
+        hook = root / "Programs/LibExample/1/Package/Scripts/after-install"
+        self.assertTrue(hook.is_file())
+        self.assertIn("auzix_reload_service acpid", hook.read_text())

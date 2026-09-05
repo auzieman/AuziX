@@ -94,6 +94,18 @@ No BKC, HDD, or VM145 in this step. Rollback: revert the split commit.
 Acceptance: the three factory fixtures that failed on `95000cc` pass; D-Bus
 `/var/run` still rewrites; owned RootFS still wins.
 
+Outcome: `016a920` local `unittest discover` 81 OK. Runtime table no longer
+rewrites unowned `/usr*`. Pushed to r730 `cursor-auzix`. No BKC this cut.
+
+September 5 16:33 PDT — AX-012/task65, before action: recover the four
+Debian protocol shapes in AuziX helpers and keep them on the APK hook
+(`Package/Scripts` + FPM `--after-install`). Drop dead `in_sysroot`/
+`DPKG_ROOT` after account import; treat `dpkg --compare-versions` as
+upgrade protocol; `invoke-rc.d` restart as optional reload; `sysctl
+--system` as a command trigger. Unnamed fixtures. No HDD or VM145.
+Rollback: revert this intake commit. Acceptance: the four unpacked
+scripts lose those leftover findings; hooks still attach to APK.
+
 
 ## Reference evidence
 
