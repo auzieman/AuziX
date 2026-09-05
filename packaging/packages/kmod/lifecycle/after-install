@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+settings=${AUZIX_SETTINGS:-/System/Settings}
+mkdir -p "$settings/modules-load.d" "$settings/modprobe.d"
+# Trixie's postinst creates this compatibility notice. Unlike a Debian
+# upgrade, there is no dpkg predecessor or SysV runlevel state to migrate.
+# Preserve operator settings, including the old modules file when present.
+if [ ! -e "$settings/modules" ] && [ ! -L "$settings/modules" ]; then
+  printf '%s\n' \
+    '# /etc/modules is obsolete and has been replaced by /etc/modules-load.d/.' \
+    '# Please see modules-load.d(5) and modprobe.d(5) for details.' \
+    >"$settings/modules"
+  chmod 644 "$settings/modules"
+fi

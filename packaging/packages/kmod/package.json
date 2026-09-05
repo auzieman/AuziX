@@ -1,0 +1,22 @@
+{
+  "format": "auzix-package-v1",
+  "name": "Kmod",
+  "version": "34.2-2",
+  "source": {"kind": "existing-auzix-payload", "receipt_glob": "System/PackageDB/Kmod-*.auzix.json"},
+  "layout": {"domain": "program", "prefix": "/Programs/Kmod/${version}"},
+  "dependencies": {"runtime": []},
+  "intake_adapter": {
+    "format": "auzix-lifecycle-adapter-v1",
+    "template_dir": "packaging/packages/kmod/lifecycle",
+    "configuration": ["${AUZIX_SETTINGS}/modules"],
+    "scripts": {"after_install": "after-install"},
+    "operations": [
+      {"type": "ensure-configuration", "path": "${AUZIX_SETTINGS}/modules", "policy": "preserve-existing"},
+      {"type": "donor-versioned-migration", "paths": ["/etc/init.d/kmod", "/etc/rc*.d/*kmod"], "disposition": "not-applicable-no-dpkg-or-sysvinit-predecessor"},
+      {"type": "initramfs-generation", "disposition": "owned-by-auzix-boot-media-builder-not-debian-update-initramfs"},
+      {"type": "donor-purge", "path": "${AUZIX_SETTINGS}/modules", "disposition": "retain-user-configuration-on-apk-remove"}
+    ],
+    "retained_state": ["${AUZIX_SETTINGS}/modules", "${AUZIX_SETTINGS}/modules-load.d", "${AUZIX_SETTINGS}/modprobe.d"]
+  },
+  "validation": {"commands": ["kmod --version"]}
+}
