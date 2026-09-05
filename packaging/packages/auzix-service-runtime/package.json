@@ -6,7 +6,7 @@
   "layout": {"domain": "service", "prefix": "/Programs/AuzixServiceRuntime/${version}"},
   "payload": {"surfaces": ["/Programs/AuzixServiceRuntime", "/Services/runtime-mounts", "/System/PackageDB/AuzixServiceRuntime-0.1.0.auzix.json"]},
   "dependencies": {"runtime": ["BusyBox"], "provides": ["runtime-mount-service", "service-runner"]},
-  "lifecycle": {"before_install": null, "after_install": "/Programs/AuzixServiceRuntime/${version}/Commands/ensure-runtime-mounts", "before_remove": null, "after_remove": null},
+  "lifecycle": {"before_install": null, "after_install": null, "before_remove": null, "after_remove": null},
   "fragments": ["service.runtime-mounts", "service.runner"],
   "validation": {"commands": ["test -x /Services/runtime-mounts/run"]}
 }

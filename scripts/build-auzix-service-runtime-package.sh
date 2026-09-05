@@ -69,6 +69,12 @@ mount_if_needed "${run_path}" tmpfs tmpfs "mode=0755,nosuid,nodev" || echo "Auzi
 mount_if_needed "${cgroup_path}" cgroup2 cgroup2 || echo "AuzixServiceRuntime: cgroup2 mount unavailable: ${cgroup_path}" >&2
 
 if [ "${ROOT}" = "/" ]; then
+  # Match the proven StartSequence PTY contract after devpts is mounted.
+  # Runtime setup belongs to /Services/runtime-mounts, never an APK hook.
+  if [ -c /dev/pts/ptmx ] && [ ! -L /dev/ptmx ]; then
+    "${BB}" rm -f /dev/ptmx
+    "${BB}" ln -s pts/ptmx /dev/ptmx
+  fi
   "${BB}" chgrp tty /dev/ptmx /dev/tty /dev/tty[0-9]* 2>/dev/null || true
   "${BB}" chmod 0666 /dev/ptmx /dev/pts/ptmx /dev/tty 2>/dev/null || true
 fi
@@ -111,7 +117,7 @@ cat >"${PACKAGE_DB}/AuzixServiceRuntime-${VERSION}.auzix.json" <<EOF
   "prefix": "/Programs/AuzixServiceRuntime/${VERSION}",
   "commands": ["/Programs/AuzixServiceRuntime/${VERSION}/Commands/ensure-runtime-mounts"],
   "service": "/Services/runtime-mounts",
-  "hooks": {"post_install": "/Programs/AuzixServiceRuntime/${VERSION}/Commands/ensure-runtime-mounts /"},
+  "hooks": {},
   "paths": {"current": "/Programs/AuzixServiceRuntime/current"},
   "runtime_contract": {
     "mounts": [
