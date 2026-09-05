@@ -14,6 +14,7 @@ typedef struct {
   Evas_Object *list;
   Evas_Object *status;
   Evas_Object *repo_entry;
+  Evas_Object *search_entry;
   Evas_Object *install_button;
   Ecore_Exe *runner;
   Ecore_Event_Handler *data_handler;
@@ -141,13 +142,20 @@ static void list_populate(Package_Manager *ui) {
     status_set(ui, "<color=#ffb86c>No packages were returned by APK.</color>");
     return;
   }
+  const char *query = elm_entry_entry_get(ui->search_entry);
+  char *catalog = strdup(ui->output);
+  if (!catalog) {
+    status_set(ui, "<color=#ff6b6b>Could not allocate the package catalog.</color>");
+    return;
+  }
   char *save = NULL;
-  for (char *line = strtok_r(ui->output, "\n", &save);
+  for (char *line = strtok_r(catalog, "\n", &save);
        line; line = strtok_r(NULL, "\n", &save)) {
     char *tab = strchr(line, '\t');
     if (!tab) continue;
     *tab = '\0';
     if (!package_name_safe(line)) continue;
+    if (query && query[0] && !strcasestr(line, query) && !strcasestr(tab + 1, query)) continue;
     Package_Row *row = calloc(1, sizeof(*row));
     if (!row) continue;
     row->manager = ui;
@@ -162,10 +170,18 @@ static void list_populate(Package_Manager *ui) {
     ui->rows = eina_list_append(ui->rows, row);
     count++;
   }
+  free(catalog);
   elm_list_go(ui->list);
   char message[256];
-  snprintf(message, sizeof(message), "<color=#82d4bb>%u packages available.</color>", count);
+  snprintf(message, sizeof(message), "<color=#82d4bb>%u matching package%s.</color>",
+           count, count == 1 ? "" : "s");
   status_set(ui, message);
+}
+
+static void search_changed_cb(void *data, Evas_Object *obj, void *event_info) {
+  (void)obj; (void)event_info;
+  Package_Manager *ui = data;
+  if (!ui->runner && ui->output && ui->output[0]) list_populate(ui);
 }
 
 static Eina_Bool output_cb(void *data, int type, void *event_info) {
@@ -316,6 +332,15 @@ EAPI_MAIN int elm_main(int argc, char **argv) {
   evas_object_show(pub);
   evas_object_show(repo_box);
   evas_object_show(repo_frame);
+
+  ui.search_entry = elm_entry_add(box);
+  elm_entry_single_line_set(ui.search_entry, EINA_TRUE);
+  elm_object_part_text_set(ui.search_entry, "guide", "Search package names and descriptions");
+  evas_object_size_hint_weight_set(ui.search_entry, EVAS_HINT_EXPAND, 0.0);
+  evas_object_size_hint_align_set(ui.search_entry, EVAS_HINT_FILL, 0.5);
+  evas_object_smart_callback_add(ui.search_entry, "changed,user", search_changed_cb, &ui);
+  elm_box_pack_end(box, ui.search_entry);
+  evas_object_show(ui.search_entry);
 
   Evas_Object *frame = elm_frame_add(box);
   elm_object_text_set(frame, "01 // AVAILABLE PACKAGES");

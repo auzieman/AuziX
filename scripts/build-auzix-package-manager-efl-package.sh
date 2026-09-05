@@ -9,11 +9,12 @@ BIN="${AUZIX_EFL_PACKAGE_MANAGER_BINARY:-${BUILD_DIR}/auzix-package-manager-efl}
 PROGRAM="${AUZIX_ROOT}/Programs/AuzixPackageManagerEfl/0.1"
 
 [[ -d "${AUZIX_ROOT}/System" ]] || { echo "Missing AuziX root: ${AUZIX_ROOT}" >&2; exit 1; }
-mkdir -p "${BUILD_DIR}" "${PROGRAM}/Commands" "${PROGRAM}/Resources" \
+mkdir -p "${PROGRAM}/Commands" "${PROGRAM}/Resources" \
   "${AUZIX_ROOT}/System/Compatibility/usr/share/applications" \
   "${AUZIX_ROOT}/System/PackageDB" "${AUZIX_ROOT}/System/Tools"
 
 if [[ ! -x "${BIN}" || "${SOURCE}" -nt "${BIN}" ]]; then
+  mkdir -p "${BUILD_DIR}"
   command -v gcc >/dev/null || { echo "Build in the disposable EFL builder (gcc missing)." >&2; exit 1; }
   pkg-config --exists elementary || { echo "Build in the disposable EFL builder (Elementary headers missing)." >&2; exit 1; }
   gcc -D_GNU_SOURCE -O2 -Wall -Wextra -Werror -o "${BIN}" "${SOURCE}" \

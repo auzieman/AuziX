@@ -11,9 +11,10 @@ PROGRAM="${AUZIX_ROOT}/Programs/AuzixInstallerEfl/0.1"
 INSTALLER_FRONTENDS="${AUZIX_ROOT}/Programs/AuzixInstaller/0.2/Frontends"
 
 [[ -d "${AUZIX_ROOT}/System" ]] || { echo "Missing AuziX root: ${AUZIX_ROOT}" >&2; exit 1; }
-mkdir -p "${BUILD_DIR}" "${PROGRAM}/Commands" "${PROGRAM}/Resources" "${INSTALLER_FRONTENDS}" "${AUZIX_ROOT}/System/PackageDB"
+mkdir -p "${PROGRAM}/Commands" "${PROGRAM}/Resources" "${INSTALLER_FRONTENDS}" "${AUZIX_ROOT}/System/PackageDB"
 
 if [[ ! -x "${BIN}" || "${SOURCE}" -nt "${BIN}" ]]; then
+  mkdir -p "${BUILD_DIR}"
   command -v gcc >/dev/null || { echo "Build this package in the disposable EFL builder (gcc missing)." >&2; exit 1; }
   command -v pkg-config >/dev/null || { echo "Build this package in the disposable EFL builder (pkg-config missing)." >&2; exit 1; }
   pkg-config --exists elementary || { echo "Build this package in the disposable EFL builder (elementary headers missing)." >&2; exit 1; }
