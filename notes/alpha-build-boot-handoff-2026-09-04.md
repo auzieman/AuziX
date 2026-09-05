@@ -236,3 +236,20 @@ advanced through zero and nginx package installation; final runtime proof is
 pending. Log: `/var/lib/auzix-build/receipts/apk-alpha-20260905-alpha-bkc-r8-resume-4bf3848fa2f0.log`.
 Operator preference: observe initial progress, then hand off tail -F for longer
 runs instead of continuously polling. No HDD/VM promotion before runtime pass.
+
+## Validated container and HDD handoff
+
+BKC `97c17981-e37a-4af8-b03a-038ebdfcbc0a` completed successfully with source
+`6c8892608ec773c713b97b5b21860ca522789343`. All 544 packages, replay, root
+validation, SSH configuration, and actual auzix login/sudo id/ls/APK checks
+passed. Pre-HDD digest:
+`sha256:114085ed8fbcf78811200e52ace7ef05002bf0b4463162085148edf5a54d0657`.
+Fontconfig missing-default-config warning remains for graphical verification.
+
+User requested boot. HDD pipeline `e2810cd1-9fe0-4aeb-9c63-f6d55c073b9d`
+passed preflight and started `alpha-apk-20260905-alpha-bkc-r8` assembly on R730.
+VM145 was verified stopped with original scsi0 local-lvm:vm-145-disk-0 (8G).
+Existing helper allocates a new disk and verifies SHA256 before changing boot
+order; original disk is retained. No claim of boot success at this checkpoint.
+Build log: `/var/lib/auzix-build/hdd-runs/alpha-apk-20260905-alpha-bkc-r8/build.log`.
+Boot/transfer log in the same directory: `vm-start.log`.
