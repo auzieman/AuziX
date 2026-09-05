@@ -214,3 +214,14 @@ Local checks: 62 unit tests passed; BKC wrapper shell syntax passed.
 Release intent: validated zero/one/netinstall/pre-HDD packages and containers,
 then two HDD outputs (netinstall and workstation), each requiring boot and disk
 installation validation before publication through the existing pipelines.
+
+Netinstall follow-up: `99dae33` delivers the existing Container/run keepalive
+in zero and netinstall; first review built successfully but lacked that file.
+BKC `b14e1186-154f-4c9c-8cf8-b8f15ea0f8be` retained the running container
+`auzix-netinstall-review-99dae33621ab` and its dedicated repository. Runtime
+validate-netinstall and root-invoked sudo passed (hostname resolution warning).
+This is NOT yet a non-root sudo proof. The prior auzix-pre-hdd reference remains
+untouched: libc there resolves through /Libraries/Packages/Libc6, not the absent
+/System/Libraries/Runtime/glibc/libc.so.6 path. Do not confuse loader lookup
+failure with a missing libc package. A startup TLS reset required only bounded
+retry/resume of the same repository; certificate verification remains enabled.
