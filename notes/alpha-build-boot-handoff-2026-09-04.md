@@ -137,3 +137,12 @@ allocate a new disk in a free SCSI slot, verify the streamed disk SHA256, then
 change boot order. Existing disks stay attached for rollback; VM143/144 are not
 targets for this run. PVE VM145 was stopped with scsi0=local-lvm:vm-145-disk-0.
 The historical HDD helper deleted unused disks; do not invoke that deletion path.
+
+The one-package APK install proof passed against R8 netinstall:
+`/System/Compatibility/usr/share/terminology/colorschemes/Default.eet` is nonempty.
+The first image resume nevertheless reused a cached old installed root: remote
+repository changes were absent from Docker's cache inputs. `65ff83d` supplies the
+signed index SHA256 as a build argument to both remote-APK consumer stages.
+This is a consumer cache correction, not another package rebuild. BKC run
+`c0555d38-6325-4d0d-a580-859d4a0cdf39` resumes with that correction; the package
+transaction and replay again passed, final validation pending at this note.
