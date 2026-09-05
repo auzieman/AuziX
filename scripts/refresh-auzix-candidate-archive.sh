@@ -7,7 +7,9 @@ name=${2:?canonical archive identity}
 spool=${3:?corrected intake spool or native stage}
 mode=${4:-archive}
 [[ "$name" =~ ^[A-Za-z0-9]+$ ]]
-repair="$work/repairs/$name"
+repair_id=${5:-$name}
+[[ "$repair_id" =~ ^[A-Za-z0-9]+$ ]]
+repair="$work/repairs/$repair_id"
 test ! -e "$work/receipts/pre-hdd.receipt"
 test ! -e "$repair"
 mkdir -p "$repair/input/packages" "$repair/previous"

@@ -423,10 +423,11 @@ docker run --rm "$PRE_HDD_IMAGE" /Programs/BusyBox/current/Commands/busybox sh -
 docker run --rm "$PRE_HDD_IMAGE" \
   /Programs/BusyBox/current/Commands/busybox sh -ec '
     id auzix
-    busybox su auzix -s /System/Compatibility/bin/sh -c "
+    busybox su -l auzix -s /System/Compatibility/bin/sh -c "
       set -e
       test \"\$(id -u)\" -ne 0
       sudo -n busybox id | grep \"uid=0(root)\"
+      sudo -n ls /
       sudo -n apk --version
     "
     echo sudo-user-runtime-proof-pass

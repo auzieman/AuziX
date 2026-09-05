@@ -61,7 +61,7 @@ copy_binary() {
   copy_runtime_deps "${source}"
   # setuid programs cannot depend on LD_LIBRARY_PATH from a user session.
   patchelf --force-rpath --set-rpath \
-    /System/Libraries/Runtime/glibc:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/libexec/sudo \
+    /Libraries:/System/Libraries/Runtime/glibc:/System/Compatibility/lib/x86_64-linux-gnu:/System/Compatibility/usr/libexec/sudo \
     "${target}"
 }
 
