@@ -33,11 +33,14 @@ class LifecyclePreservationTests(unittest.TestCase):
         self.assertEqual(len(result["scripts"]), 1)
         self.assertIn("mkdir", Path(result["scripts"][0]["candidate"]).read_text())
 
-    def test_library_adapter_does_not_hide_unresolved_effect(self):
+    def test_dpkg_file_list_becomes_owned_rootfs(self):
         result = self.normalize("#!/bin/sh\nfiles=$(dpkg -L libpython)\n")
-        self.assertEqual(result["status"], "needs-review")
-        self.assertTrue(result["findings"])
-        self.assertEqual(len(result["scripts"]), 1)
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn("auzix_needed_step list", rendered)
+        self.assertNotIn("dpkg -L", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+        )
 
     def _stage_helper(self, script):
         temporary = tempfile.TemporaryDirectory()
@@ -273,6 +276,11 @@ class LifecyclePreservationTests(unittest.TestCase):
             "    invoke-rc.d --skip-systemd-native example start || exit 1\n"
             "fi\n"
             "deb-systemd-helper enable 'example.service' >/dev/null || true\n"
+            "if deb-systemd-helper --quiet was-enabled 'example.service'; then\n"
+            "    deb-systemd-helper update-state 'example.service' >/dev/null || true\n"
+            "else\n"
+            "    deb-systemd-helper enable 'example.service' >/dev/null || true\n"
+            "fi\n"
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertIn("/Services/example/run", rendered)
@@ -282,6 +290,11 @@ class LifecyclePreservationTests(unittest.TestCase):
         self.assertNotIn("invoke-rc.d", rendered)
         self.assertNotIn("deb-systemd-invoke", rendered)
         self.assertNotIn("deb-systemd-helper", rendered)
+        self.assertIn("if true; then", rendered)
+        self.assertNotIn("if true then", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "shell-syntax" for finding in result["findings"])
+        )
         self.assertTrue(
             any(
                 item.get("type") == "own-service" and item.get("path") == "/Services/example/run"
@@ -297,6 +310,46 @@ class LifecyclePreservationTests(unittest.TestCase):
                 }
                 for finding in result["findings"]
             )
+        )
+
+    def test_mv_conffile_is_owned_settings_rename(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            "dpkg-maintscript-helper mv_conffile "
+            "/etc/dbus-1/system.d/old.conf /etc/dbus-1/system.d/new.conf "
+            "3.7-1 example -- \"$@\"\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertNotIn("dpkg-maintscript-helper", rendered)
+        self.assertTrue(
+            any(item.get("operation") == "rename-configuration" for item in result["migrations"])
+        )
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+        )
+
+    def test_divert_truename_is_the_owned_path(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            'fn=$(dpkg-divert --truename /usr/sbin/halt)\n'
+            "ln -sf ../bin/systemctl \"$fn\"\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertNotIn("dpkg-divert", rendered)
+        self.assertIn("fn=/usr/sbin/halt", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+        )
+
+    def test_dpkg_bak_filename_does_not_fail_intake(self):
+        result = self._stage_helper(
+            "#!/bin/sh\n"
+            "if [ -e ${AUZIX_SETTINGS}/pam.d/polkit-1.dpkg-bak ]; then\n"
+            "    mv ${AUZIX_SETTINGS}/pam.d/polkit-1.dpkg-bak ${AUZIX_SETTINGS}/pam.d/polkit-1\n"
+            "fi\n"
+        )
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
         )
 
     def test_dpkg_root_etc_rewrites_to_settings(self):

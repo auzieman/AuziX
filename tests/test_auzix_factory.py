@@ -182,8 +182,10 @@ mkdir -p /usr/local/lib/python3.13
                 "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
                 "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/preinst"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
-            self.assertIn("dpkg-helper", {finding["kind"] for finding in result["findings"]})
+            self.assertNotIn("dpkg-maintscript-helper", Path(result["scripts"][0]["candidate"]).read_text())
+            self.assertFalse(
+                any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+            )
 
     def test_lifecycle_intake_wraps_donor_action_arguments(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -287,19 +289,25 @@ mkdir -p /usr/local/lib/python3.13
             self.assertNotIn("source", promoted_receipt)
             self.assertNotIn("direct_depends", promoted_receipt)
 
-    def test_non_script_maintainer_surface_enters_review_queue(self):
+    def test_named_trigger_wraps_needed_step_without_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
-            trigger = root / "Programs/Example/1/Metadata/control/triggers"
+            trigger = root / "Programs/Ntfs3g/1/Metadata/control/triggers"
             trigger.parent.mkdir(parents=True)
-            trigger.write_text("interest example-cache\n")
+            trigger.write_text(
+                "# Triggers added by dh_installinitramfs\n"
+                "activate-noawait update-initramfs\n"
+            )
             result = normalize_lifecycle(root, {
-                "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
-                "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/triggers"],
+                "name": "Ntfs3g", "version": "1", "prefix": "/Programs/Ntfs3g/1",
+                "maintainer_surfaces": ["/Programs/Ntfs3g/1/Metadata/control/triggers"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
-            self.assertEqual(result["findings"][0]["kind"], "maintainer-surface")
-            self.assertTrue((Path(directory) / "review/evidence/triggers").is_file())
+            self.assertEqual(result["status"], "ready")
+            self.assertFalse(
+                any(finding.get("kind") == "maintainer-surface" for finding in result["findings"])
+            )
+            rendered = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertIn("auzix_needed_step named update-initramfs", rendered)
 
     def test_debian_interest_paths_become_apk_trigger(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -757,9 +765,12 @@ find $dirs -name __pycache__ -type d -empty | xargs -r rmdir
                 "name": "Python", "version": "1", "prefix": "/Programs/Python/1",
                 "maintainer_surfaces": ["/Programs/Python/1/Metadata/control/prerm"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
             candidate = Path(result["scripts"][0]["candidate"]).read_text()
-            self.assertIn("dpkg -L libpython:amd64", candidate)
+            self.assertIn("auzix_needed_step list", candidate)
+            self.assertNotIn("dpkg -L", candidate)
+            self.assertFalse(
+                any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+            )
 
     def test_rm_conffile_helper_becomes_native_migration_metadata(self):
         with tempfile.TemporaryDirectory() as directory:

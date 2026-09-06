@@ -12,8 +12,18 @@ for package in after['packages']:
     rows.append({'name': package['name'], 'before': prior['status'], 'after': package['status'],
                  'findings_before': len(prior.get('intake', {}).get('findings', [])),
                  'findings_after': len(package.get('intake', {}).get('findings', []))})
-print(json.dumps({'rerun': len(rows), 'untouched': len(old) - len(rows),
-                  'newly_verified': [p['name'] for p in rows if p['before'] == 'needs-review' and p['after'] in ('passed', 'static')],
-                  'findings_before': sum(p['findings_before'] for p in rows),
-                  'findings_after': sum(p['findings_after'] for p in rows),
-                  'packages': rows}, indent=2))
+print(json.dumps({
+    'rerun': len(rows),
+    'untouched': len(old) - len(rows),
+    'newly_verified': [
+        p['name'] for p in rows
+        if p['before'] == 'needs-review' and p['after'] in ('passed', 'static')
+    ],
+    'newly_regressed': [
+        p['name'] for p in rows
+        if p['before'] in ('passed', 'static') and p['after'] == 'needs-review'
+    ],
+    'findings_before': sum(p['findings_before'] for p in rows),
+    'findings_after': sum(p['findings_after'] for p in rows),
+    'packages': rows,
+}, indent=2))

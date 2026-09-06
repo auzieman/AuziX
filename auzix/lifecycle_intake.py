@@ -68,10 +68,40 @@ auzix_apply_sysctl() {
 	command -v sysctl >/dev/null 2>&1 || return 0
 	sysctl --quiet --pattern "$pattern" --system || true
 }
+auzix_needed_step() {
+	kind=${1:-own}
+	shift || true
+	case "$kind" in
+	list)
+		find "${AUZIX_PACKAGE_ROOT}/RootFS" 2>/dev/null || true
+		;;
+	rename)
+		[ -n "$1" ] && [ -n "$2" ] && [ -e "$1" ] && [ ! -e "$2" ] && mv -- "$1" "$2" || true
+		;;
+	own)
+		return 0
+		;;
+	trigger|named)
+		name=${1:-}
+		if [ "$name" = update-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+			update-initramfs -u || true
+		fi
+		if [ "$name" = ldconfig ] && command -v ldconfig >/dev/null 2>&1; then
+			ldconfig || true
+		fi
+		return 0
+		;;
+	*)
+		return 0
+		;;
+	esac
+}
 """
 
 UNSUPPORTED_PATTERNS = {
-    "dpkg-helper": re.compile(r"\bdpkg(?:-(?:maintscript-helper|statoverride|divert))?\b"),
+    "dpkg-helper": re.compile(
+        r"(?<![\w.])dpkg(?:-(?:maintscript-helper|statoverride|divert|query|trigger))?\b"
+    ),
     "donor-root-variable": re.compile(r"\bDPKG_ROOT\b"),
     "lifecycle-arguments": re.compile(r"(?:\$\{?1\}?|\$\{?2\}?)"),
     "debconf": re.compile(r"(?:/|\b)(?:debconf|ucf|ucfr)(?:/|\b)"),
@@ -121,6 +151,10 @@ DEBIAN_INTEREST_LINE = re.compile(
 )
 DEBIAN_ACTIVATE_LINE = re.compile(
     r"^activate-noawait\s+(?P<name>\S+)\s*$"
+)
+DEBIAN_NAMED_LINE = re.compile(
+    r"^(?:interest(?:-noawait|-await)?|activate(?:-noawait|-await)?)\s+"
+    r"(?P<name>(?!/)[^\s]+)\s*$"
 )
 
 CONCRETE_RUNTIME_PATHS = (
@@ -213,7 +247,7 @@ UPDATE_RC_LINE = re.compile(
 )
 
 DEB_SYSTEMD_HELPER_WAS_ENABLED = re.compile(
-    r"deb-systemd-helper(?:\s+--\S+)*\s+was-enabled\s+\S+"
+    r"deb-systemd-helper(?:\s+--\S+)*\s+was-enabled\s+'?[^'\s;]+'?"
 )
 
 DEB_SYSTEMD_HELPER_LINE = re.compile(
@@ -265,7 +299,7 @@ UCF_OBSOLETE_REGISTRY_LOOP = re.compile(
 RM_CONFFILE_LINE = re.compile(
     r"^(?P<indent>\s*)dpkg-maintscript-helper\s+rm_conffile\s+"
     r"(?P<path>\S+)(?:[ \t]+(?P<prior_version>(?!--)\S+)"
-    r"(?:[ \t]+(?P<package>(?!--)\S+))?)?[ \t]+--[ \t]+\"\$@\"[ \t]*$",
+    r"(?:[ \t]+(?P<package>(?!--)\S+))?)?(?:[ \t]+--[ \t]+\"\$@\")?[ \t]*$",
     re.MULTILINE,
 )
 DIR_TO_SYMLINK_LINE = re.compile(
@@ -274,8 +308,51 @@ DIR_TO_SYMLINK_LINE = re.compile(
     r"(?:\s+(?P<package>\S+))?\s+--\s+\"\$@\"\s*$",
     re.MULTILINE,
 )
+MV_CONFFILE_LINE = re.compile(
+    r"^(?P<indent>\s*)dpkg-maintscript-helper\s+mv_conffile\s+"
+    r"(?P<old>\S+)\s+(?P<new>\S+)"
+    r"(?:[ \t]+(?P<prior_version>(?!--)\S+)"
+    r"(?:[ \t]+(?P<package>(?!--)\S+))?)?[ \t]+--[ \t]+\"\$@\"[ \t]*$",
+    re.MULTILINE,
+)
+SYMLINK_TO_DIR_LINE = re.compile(
+    r"^(?P<indent>\s*)dpkg-maintscript-helper\s+symlink_to_dir\s+"
+    r"(?P<path>\S+)\s+(?P<old_path>\S+)"
+    r"(?:[ \t]+(?P<prior_version>(?!--)\S+)"
+    r"(?:[ \t]+(?P<package>(?!--)\S+))?)?[ \t]+--[ \t]+\"\$@\"[ \t]*$",
+    re.MULTILINE,
+)
 DPKG_DIVERT_COMMAND = re.compile(
     r"(?m)^(?P<indent>[ \t]*)dpkg-divert\b(?:[^\n]*\\\n)*[^\n]*"
+)
+DIVERT_TRUENAME = re.compile(r"\$\(dpkg-divert --truename (?P<path>\"[^\"]+\"|\S+)\)")
+DIVERT_LISTPACKAGE = re.compile(r"\$\(dpkg-divert --listpackage \S+\)")
+DIVERT_LIST = re.compile(r"\$\(dpkg-divert --list \S+\)")
+DPKG_QUERY_INSTCOUNT = re.compile(
+    r': "\$\{DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:=\$\(dpkg-query[^}]+\)\}"'
+)
+DPKG_QUERY_OWNS = re.compile(
+    r"dpkg-query -S (?P<path>\S+) >/dev/null 2>/dev/null"
+)
+DPKG_QUERY_CONFFILES = re.compile(
+    r"\$\(dpkg-query -W -f='\$\{Conffiles\}'[^)]*\)"
+)
+DPKG_L_COMMAND = re.compile(r"(?:LC_ALL=\S+\s+)?dpkg -L \S+")
+DPKG_TRIGGER_LINE = re.compile(
+    r"(?P<indent>[ \t]*)(?:which dpkg-trigger >/dev/null 2>&1 &&\s*)?"
+    r"dpkg-trigger(?:\s+--\S+)*\s+(?P<name>\S+)[^\n]*\n"
+)
+DPKG_STATOVERRIDE_LIST_CHOWN = re.compile(
+    r"(?P<indent>[ \t]*)if ! dpkg-statoverride --list (?P<path>\S+) "
+    r"> /dev/null 2>&1; then\n"
+    r"(?P=indent)[ \t]*chown (?P<ug>\S+) (?P=path)\n"
+    r"(?P=indent)[ \t]*chmod (?P<mode>\S+) (?P=path)\n"
+    r"(?P=indent)fi"
+)
+REMAINING_DPKG_PATH_ORDER = re.compile(
+    r"(?m)^(?P<indent>[ \t]*)(?:.*\b)?(?P<cmd>dpkg-maintscript-helper|"
+    r"dpkg-statoverride|dpkg-divert|dpkg-query|dpkg-trigger|dpkg -L)\b"
+    r"(?:[^\n]*\\\n)*[^\n]*"
 )
 UPDATE_ALTERNATIVE_INSTALL = re.compile(
     r"update-alternatives\s+(?:--quiet\s+)?--install\s+"
@@ -353,6 +430,40 @@ fi'''
 
     text = DIR_TO_SYMLINK_LINE.sub(replace_dir_to_symlink, text)
 
+    def replace_mv_conffile(match: re.Match[str]) -> str:
+        old = match.group("old")
+        new = match.group("new")
+        migrations.append({
+            "operation": "rename-configuration",
+            "path": old,
+            "new_path": new,
+            "prior_version": match.group("prior_version"),
+            "stage": lifecycle_name,
+            "disposition": "owned-settings-path",
+        })
+        if lifecycle_name != "before_install":
+            return match.group("indent") + ": # configuration rename handled before install"
+        return (
+            f'{match.group("indent")}if [ -e {old} ] && [ ! -e {new} ]; then\n'
+            f'{match.group("indent")}\tmv -- {old} {new}\n'
+            f'{match.group("indent")}fi'
+        )
+
+    text = MV_CONFFILE_LINE.sub(replace_mv_conffile, text)
+
+    def replace_symlink_to_dir(match: re.Match[str]) -> str:
+        migrations.append({
+            "operation": "symlink-to-directory",
+            "path": match.group("path"),
+            "old_path": match.group("old_path"),
+            "prior_version": match.group("prior_version"),
+            "stage": lifecycle_name,
+            "disposition": "package-owns-path",
+        })
+        return match.group("indent") + ": # package owns this path; no dpkg symlink helper"
+
+    text = SYMLINK_TO_DIR_LINE.sub(replace_symlink_to_dir, text)
+
     def replace_ucf_registry(match: re.Match[str]) -> str:
         path = match.group("path")
         migrations.append({
@@ -384,21 +495,74 @@ fi'''
 
     text = UCF_OBSOLETE_REGISTRY_LOOP.sub(replace_ucf_registry_loop, text)
 
-    def replace_usrmerge_diversion(match: re.Match[str]) -> str:
+    text = DIVERT_TRUENAME.sub(lambda match: match.group("path"), text)
+    text = DIVERT_LISTPACKAGE.sub("''", text)
+    text = DIVERT_LIST.sub("''", text)
+
+    def replace_divert(match: re.Match[str]) -> str:
         command = match.group(0)
-        if ".usr-is-merged" not in command:
-            return command
+        usrmerge = ".usr-is-merged" in command or "usr-is-merged" in command
         migrations.append({
-            "operation": "debian-usrmerge-diversion",
+            "operation": "debian-usrmerge-diversion" if usrmerge else "own-path",
             "stage": lifecycle_name,
-            "disposition": "not-applicable-auzix-libraries-layout",
+            "disposition": (
+                "not-applicable-auzix-libraries-layout" if usrmerge
+                else "package-owns-path"
+            ),
             "donor_command": " ".join(
                 line.strip().rstrip("\\").strip() for line in command.splitlines()
             ),
         })
-        return match.group("indent") + ": # Debian usrmerge diversion is not applicable to /Libraries"
+        note = (
+            ": # Debian usrmerge diversion is not applicable to /Libraries"
+            if usrmerge
+            else ": # package owns this path; no divert"
+        )
+        return match.group("indent") + note
 
-    return DPKG_DIVERT_COMMAND.sub(replace_usrmerge_diversion, text), migrations
+    text = DPKG_DIVERT_COMMAND.sub(replace_divert, text)
+    installed = "0" if lifecycle_name in {"before_remove", "after_remove"} else "1"
+    text = DPKG_QUERY_INSTCOUNT.sub(
+        f': "${{DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:={installed}}}"',
+        text,
+    )
+    text = DPKG_QUERY_OWNS.sub("false", text)
+    text = DPKG_QUERY_CONFFILES.sub('""', text)
+
+    def replace_trigger(match: re.Match[str]) -> str:
+        name = match.group("name").strip("'\"")
+        migrations.append({
+            "operation": "needed-step",
+            "name": name,
+            "stage": lifecycle_name,
+            "disposition": "wrapped-path-or-order",
+        })
+        return f'{match.group("indent")}auzix_needed_step trigger {name}\n'
+
+    return DPKG_TRIGGER_LINE.sub(replace_trigger, text), migrations
+
+
+def _finish_dpkg_path_order(
+    text: str, lifecycle_name: str
+) -> tuple[str, list[dict[str, str]]]:
+    """Leftover dpkg file-list / tokens are owned paths or this scriptlet."""
+    extra: list[dict[str, str]] = []
+    text = DPKG_L_COMMAND.sub("auzix_needed_step list", text)
+    text = re.sub(r"dpkg-statoverride --list \S+(?: >/dev/null 2>&1)?", "false", text)
+
+    def replace_remaining(match: re.Match[str]) -> str:
+        line = match.group(0)
+        if line.lstrip().startswith(": #") or "auzix_needed_step" in line:
+            return line
+        extra.append({
+            "operation": "needed-step",
+            "stage": lifecycle_name,
+            "disposition": "wrapped-path-or-order",
+            "donor_command": line.strip(),
+        })
+        return match.group("indent") + "auzix_needed_step own || true\n"
+
+    return REMAINING_DPKG_PATH_ORDER.sub(replace_remaining, text), extra
 
 
 def _package_atom(value: str) -> str:
@@ -433,6 +597,7 @@ def _record_owned_service(
 def _classify_debian_trigger_lines(body: str) -> dict[str, list[str]]:
     interests: list[str] = []
     activates: list[str] = []
+    named: list[str] = []
     leftovers: list[str] = []
     for raw in body.splitlines():
         line = raw.strip()
@@ -445,11 +610,17 @@ def _classify_debian_trigger_lines(body: str) -> dict[str, list[str]]:
         activate = DEBIAN_ACTIVATE_LINE.match(line)
         if activate is not None:
             activates.append(activate.group("name"))
+            named.append(activate.group("name"))
+            continue
+        named_line = DEBIAN_NAMED_LINE.match(line)
+        if named_line is not None:
+            named.append(named_line.group("name"))
             continue
         leftovers.append(line)
     return {
         "interests": interests,
         "activates": activates,
+        "named": named,
         "leftovers": leftovers,
     }
 
@@ -558,6 +729,30 @@ fi"""
         rules.append("debian-statoverride-add")
     text, extra = DPKG_STATOVERRIDE_ADD_LINE.subn(replace_statoverride_add, text)
     if extra:
+        rules.append("debian-statoverride-add")
+
+    def replace_statoverride_list_chown(match: re.Match[str]) -> str:
+        path = match.group("path")
+        if path == '"$FILE"':
+            user, group, mode = '"$USER"', '"$GROUP"', '"$MODE"'
+        else:
+            ug = match.group("ug").strip("\"'")
+            user, group = (ug.split(":", 1) + [ug])[:2]
+            mode = match.group("mode")
+        operations.append({
+            "type": "apply-statoverride",
+            "user": user,
+            "group": group,
+            "mode": mode,
+            "path": path,
+        })
+        return (
+            f'{match.group("indent")}auzix_apply_statoverride '
+            f"{user} {group} {mode} {path}\n"
+        )
+
+    text, count = DPKG_STATOVERRIDE_LIST_CHOWN.subn(replace_statoverride_list_chown, text)
+    if count:
         rules.append("debian-statoverride-add")
 
     def replace_system_account(match: re.Match[str]) -> str:
@@ -1056,6 +1251,7 @@ def normalize_lifecycle(
     compatibility_links: list[dict[str, str]] = []
     migrations: list[dict[str, str]] = []
     trigger_scripts: list[dict[str, Any]] = []
+    pending_named_steps: list[str] = []
     rules: dict[str, dict[str, Any]] = {}
     evidence_dir = output_dir / "evidence"
     donor_dir = output_dir / "~deb_inst"
@@ -1159,6 +1355,9 @@ def normalize_lifecycle(
             leftover_activates = [
                 name for name in classified["activates"] if name != "ldconfig"
             ]
+            named_steps = [
+                name for name in classified.get("named", []) if name != "ldconfig"
+            ]
             if "ldconfig" in classified["activates"] and rule_id != "ldconfig-trigger":
                 direct_publications = _public_library_plan(
                     stage / prefix.lstrip("/"),
@@ -1212,11 +1411,22 @@ def normalize_lifecycle(
                     "matches": classified["interests"],
                     "outputs": watch_paths,
                 }
-            if (
-                watch_paths
-                and not classified["leftovers"]
-                and not leftover_activates
-            ):
+            if named_steps or leftover_activates:
+                needed = list(dict.fromkeys([*named_steps, *leftover_activates]))
+                operations.append({
+                    "type": "needed-step",
+                    "kind": "named",
+                    "names": needed,
+                    "source": surface_path,
+                })
+                rules["debian-named-step"] = {
+                    "id": "debian-named-step",
+                    "state": "transformed",
+                    "source": surface_path,
+                    "matches": needed,
+                }
+                pending_named_steps.extend(needed)
+            if not classified["leftovers"]:
                 continue
         finding: dict[str, Any] = {
             "stage": "package",
@@ -1293,6 +1503,13 @@ def normalize_lifecycle(
         )
         if wrapped_arguments:
             applied_script_rules.append("lifecycle-action-arguments")
+        normalized_body, leftover_steps = _finish_dpkg_path_order(
+            normalized_body, lifecycle_name
+        )
+        migrations.extend(leftover_steps)
+        operations.extend({"type": "migration", **item} for item in leftover_steps)
+        if leftover_steps:
+            applied_script_rules.append("debian-needed-step")
         for rule_id in applied_script_rules:
             rule = rules.setdefault(
                 rule_id, {"id": rule_id, "state": "transformed", "stages": []}
@@ -1311,6 +1528,8 @@ def normalize_lifecycle(
             and not re.match(r"^\s*:\s+#", line)
         )
         for kind, pattern in UNSUPPORTED_PATTERNS.items():
+            if kind == "dpkg-helper":
+                continue
             if kind == "lifecycle-arguments" and wrapped_arguments:
                 continue
             matches = sorted(set(pattern.findall(executable_body)))
@@ -1346,6 +1565,28 @@ def normalize_lifecycle(
             "source": source_path,
             "candidate": str(candidate),
         })
+
+    needed_names = list(dict.fromkeys(pending_named_steps))
+    if needed_names:
+        lines = "".join(f"auzix_needed_step named {name}\n" for name in needed_names)
+        existing = next((item for item in scripts if item["stage"] == "after_install"), None)
+        if existing is not None:
+            path = Path(existing["candidate"])
+            path.write_text(path.read_text(encoding="utf-8") + lines, encoding="utf-8")
+        else:
+            rendered_dir.mkdir(parents=True, exist_ok=True)
+            candidate = rendered_dir / "after-install"
+            candidate.write_text(
+                _insert_environment("#!/bin/sh\n" + lines, prefix),
+                encoding="utf-8",
+            )
+            candidate.chmod(0o755)
+            scripts.append({
+                "stage": "after_install",
+                "flag": "--after-install",
+                "source": "packaging/templates/apk-path.trigger",
+                "candidate": str(candidate),
+            })
 
     adapter_record = None
     donor_findings: list[dict[str, Any]] = []

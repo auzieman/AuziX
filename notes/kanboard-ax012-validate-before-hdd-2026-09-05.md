@@ -60,3 +60,12 @@ Local units first. Kanboard task65 sync pending.
 16:54 PDT: prove-factory r5 on that template. Same held-set lane, compare
 to r4 (30 holds / 100 findings). HDD still locked.
 `notes/alpha-intake-validate-r5-run-2026-09-05.md`.
+
+Result: BKC `c6ded1e7`. Holds 30→28, findings 100→95. Appstream and
+XdgDesktopPortal passed. Five new `if true then` syntax leftovers from
+`was-enabled`. HDD still locked.
+
+17:12 PDT: prove-factory r6 wraps leftover needed steps as
+`auzix_needed_step` so intake does not throw. Same held-set lane vs r5.
+Run `20260905-intake-validate-r6`. HDD still locked.
+`notes/alpha-intake-validate-r6-run-2026-09-05.md`.
