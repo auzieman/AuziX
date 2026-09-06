@@ -1,6 +1,6 @@
-# Layer 2: shared runtime leftovers after package-owned RootFS rewrite.
-# Lifecycle and debian-intake both apply this file.
-# /usr* payload Compatibility is packaging/rewrite-payload-paths.sed.
+# Classic Linux runtime prefixes → AuziX variables.
+# Lifecycle leftover scripts, grok path fields, and debian-intake text all apply
+# this file. /usr /bin /lib Compatibility is rewrite-payload-paths.sed.
 # Longest prefixes first so `sed -f` is safe. Text/metadata only. Do not run against ELF.
 
 s|/var/cache/|${AUZIX_CACHE}/|g

@@ -329,7 +329,13 @@ DIVERT_TRUENAME = re.compile(r"\$\(dpkg-divert --truename (?P<path>\"[^\"]+\"|\S
 DIVERT_LISTPACKAGE = re.compile(r"\$\(dpkg-divert --listpackage \S+\)")
 DIVERT_LIST = re.compile(r"\$\(dpkg-divert --list \S+\)")
 DPKG_QUERY_INSTCOUNT = re.compile(
-    r': "\$\{DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:=\$\(dpkg-query[^}]+\)\}"'
+    r': "\$\{DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:=\$\(dpkg-query[\s\S]*?\)\}"'
+)
+DEBCONF_SOURCE_LINE = re.compile(
+    r"(?m)^(?P<indent>\s*)\.\s+/usr/share/debconf/confmodule\s*$"
+)
+DEBCONF_DB_LINE = re.compile(
+    r"(?m)^(?P<indent>\s*)db_[A-Za-z0-9_]+(?:\s+[^\n]*)?$"
 )
 DPKG_QUERY_OWNS = re.compile(
     r"dpkg-query -S (?P<path>\S+) >/dev/null 2>/dev/null"
@@ -531,21 +537,48 @@ fi'''
 
     def replace_trigger(match: re.Match[str]) -> str:
         name = match.group("name").strip("'\"")
+        if name in {"update-initramfs", "ldconfig"}:
+            migrations.append({
+                "operation": "needed-step",
+                "name": name,
+                "stage": lifecycle_name,
+                "disposition": "converted-named-order",
+            })
+            return f'{match.group("indent")}auzix_needed_step named {name}\n'
         migrations.append({
             "operation": "needed-step",
             "name": name,
             "stage": lifecycle_name,
-            "disposition": "wrapped-path-or-order",
+            "disposition": "stripped-donor-dpkg-db",
         })
-        return f'{match.group("indent")}auzix_needed_step trigger {name}\n'
+        return f'{match.group("indent")}: # apk owns triggers; donor dpkg-trigger {name}\n'
 
     return DPKG_TRIGGER_LINE.sub(replace_trigger, text), migrations
+
+
+def _strip_donor_debconf_protocol(text: str) -> tuple[str, bool]:
+    """debconf is dpkg's question db. apk has none; strip the protocol."""
+    stripped = False
+
+    def drop_source(match: re.Match[str]) -> str:
+        nonlocal stripped
+        stripped = True
+        return f'{match.group("indent")}: # stripped donor debconf import\n'
+
+    def drop_db(match: re.Match[str]) -> str:
+        nonlocal stripped
+        stripped = True
+        return f'{match.group("indent")}: # stripped donor debconf\n'
+
+    text = DEBCONF_SOURCE_LINE.sub(drop_source, text)
+    text = DEBCONF_DB_LINE.sub(drop_db, text)
+    return text, stripped
 
 
 def _finish_dpkg_path_order(
     text: str, lifecycle_name: str
 ) -> tuple[str, list[dict[str, str]]]:
-    """Leftover dpkg file-list / tokens are owned paths or this scriptlet."""
+    """Convert dpkg -L to owned RootFS; strip leftover dpkg-db questions."""
     extra: list[dict[str, str]] = []
     text = DPKG_L_COMMAND.sub("auzix_needed_step list", text)
     text = re.sub(r"dpkg-statoverride --list \S+(?: >/dev/null 2>&1)?", "false", text)
@@ -557,10 +590,10 @@ def _finish_dpkg_path_order(
         extra.append({
             "operation": "needed-step",
             "stage": lifecycle_name,
-            "disposition": "wrapped-path-or-order",
+            "disposition": "stripped-donor-dpkg-db",
             "donor_command": line.strip(),
         })
-        return match.group("indent") + "auzix_needed_step own || true\n"
+        return match.group("indent") + ": # apk owns install state; donor dpkg db not used\n"
 
     return REMAINING_DPKG_PATH_ORDER.sub(replace_remaining, text), extra
 
@@ -1154,6 +1187,36 @@ def load_payload_rewrite_paths() -> tuple[tuple[str, str], ...]:
     return _load_sed_pairs("packaging/rewrite-payload-paths.sed")
 
 
+def _apply_sed_pairs(text: str, pairs: tuple[tuple[str, str], ...]) -> str:
+    for donor, replacement in pairs:
+        text = re.sub(
+            rf"(?<![A-Za-z0-9._${{}}]){re.escape(donor)}(?=/|[^A-Za-z0-9_]|$)",
+            lambda _match, value=replacement: value,
+            text,
+        )
+    return text
+
+
+def rewrite_classic_paths(text: str) -> str:
+    """Find/replace Linux classic prefixes with the AuziX layout from the sed tables."""
+    text = _apply_sed_pairs(text, load_payload_rewrite_paths())
+    # /usr/share/ maps first; debconf is not an AuziX Compatibility object.
+    text = text.replace(
+        "/System/Compatibility/usr/share/debconf", "/usr/share/debconf"
+    )
+    text = text.replace("../System/Compatibility/bin/", "../bin/")
+    text = text.replace("../System/Compatibility/sbin/", "../sbin/")
+    return _apply_rewrite_paths(text)
+
+
+def _apply_shared_layout_leftovers(text: str) -> str:
+    """Leftover donor /usr /bin /lib become Compatibility/Libraries via the sed map."""
+    lines = text.splitlines(keepends=True)
+    shebang = lines[0] if lines and lines[0].startswith("#!") else ""
+    body = "".join(lines[1:]) if shebang else text
+    return shebang + rewrite_classic_paths(body)
+
+
 def _apply_rewrite_paths(text: str) -> str:
     donor_root_forms = (
         r"\$\{DPKG_ROOT:-\}",
@@ -1169,7 +1232,7 @@ def _apply_rewrite_paths(text: str) -> str:
                 text,
             )
         text = re.sub(
-            rf"(?<![A-Za-z0-9_${{}}]){re.escape(donor)}(?=/|[^A-Za-z0-9_]|$)",
+            rf"(?<![A-Za-z0-9._${{}}]){re.escape(donor)}(?=/|[^A-Za-z0-9_]|$)",
             lambda _match, value=replacement: value,
             text,
         )
@@ -1506,6 +1569,12 @@ def normalize_lifecycle(
         normalized_body, leftover_steps = _finish_dpkg_path_order(
             normalized_body, lifecycle_name
         )
+        normalized_body, stripped_debconf = _strip_donor_debconf_protocol(
+            normalized_body
+        )
+        if stripped_debconf:
+            applied_script_rules.append("stripped-donor-debconf")
+        normalized_body = _apply_shared_layout_leftovers(normalized_body)
         migrations.extend(leftover_steps)
         operations.extend({"type": "migration", **item} for item in leftover_steps)
         if leftover_steps:
@@ -1530,6 +1599,8 @@ def normalize_lifecycle(
         for kind, pattern in UNSUPPORTED_PATTERNS.items():
             if kind == "dpkg-helper":
                 continue
+            if kind == "debconf" and stripped_debconf:
+                continue
             if kind == "lifecycle-arguments" and wrapped_arguments:
                 continue
             matches = sorted(set(pattern.findall(executable_body)))
@@ -1539,7 +1610,11 @@ def normalize_lifecycle(
                     "semantic_class": FINDING_SEMANTICS.get(kind, "unresolved"),
                     "matches": matches,
                 })
-        remaining_paths = sorted(set(ABSOLUTE_PATH.findall(executable_body)))
+        remaining_paths = sorted(
+            path
+            for path in set(ABSOLUTE_PATH.findall(executable_body))
+            if "/usr/share/debconf/" not in path and path != "/usr/share/debconf"
+        )
         if remaining_paths:
             script_findings.append({"kind": "unmapped-path", "matches": remaining_paths})
         syntax = subprocess.run(

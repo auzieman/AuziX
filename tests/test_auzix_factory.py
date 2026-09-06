@@ -218,15 +218,14 @@ mkdir -p /usr/local/lib/python3.13
                 "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
                 "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/postinst"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
+            self.assertEqual(result["status"], "ready")
             candidate = Path(result["scripts"][0]["candidate"]).read_text()
             self.assertIn("${AUZIX_PACKAGE_ROOT}/RootFS/usr/bin/example", candidate)
-            self.assertIn("/usr/bin/external-helper", candidate)
-            paths = [
-                match for finding in result["findings"] if finding["kind"] == "unmapped-path"
-                for match in finding["matches"]
-            ]
-            self.assertEqual(paths, ["/usr/bin/external-helper"])
+            self.assertIn("/System/Compatibility/bin/external-helper", candidate)
+            self.assertNotIn("/usr/bin/external-helper", candidate)
+            self.assertFalse(
+                any(finding.get("kind") == "unmapped-path" for finding in result["findings"])
+            )
 
     def test_python_runtime_cache_inherits_existing_payload_parent(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -254,11 +253,14 @@ mkdir -p /usr/local/lib/python3.13
             self.assertIn(
                 "${AUZIX_PACKAGE_ROOT}/RootFS/usr/share/python3/debpython/__pycache__", candidate
             )
-            self.assertIn("/usr/share/external/__pycache__", candidate)
-            self.assertEqual(result["status"], "needs-review")
-            self.assertEqual(result["findings"][0]["matches"], [
-                "/usr/share/external/__pycache__"
-            ])
+            self.assertIn(
+                "/System/Compatibility/usr/share/external/__pycache__", candidate
+            )
+            self.assertNotIn("rm -rf /usr/share/external/__pycache__", candidate)
+            self.assertEqual(result["status"], "ready")
+            self.assertFalse(
+                any(finding.get("kind") == "unmapped-path" for finding in result["findings"])
+            )
 
     def test_static_intake_promotes_native_package_contract(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -699,6 +701,30 @@ fi
             candidate = Path(result["scripts"][0]["candidate"]).read_text()
             self.assertNotIn("confmodule", candidate)
             self.assertNotIn("db_get", candidate)
+
+    def test_live_debconf_protocol_is_stripped_not_rewritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "root"
+            script = root / "Programs/Apparmor/1/Metadata/control/postinst"
+            script.parent.mkdir(parents=True)
+            script.write_text(
+                "#!/bin/sh\n"
+                ". /usr/share/debconf/confmodule\n"
+                "db_get apparmor/enable\n"
+            )
+            result = normalize_lifecycle(root, {
+                "name": "Apparmor", "version": "1", "prefix": "/Programs/Apparmor/1",
+                "maintainer_surfaces": ["/Programs/Apparmor/1/Metadata/control/postinst"],
+            }, Path(directory) / "review")
+            self.assertEqual(result["status"], "ready")
+            candidate = Path(result["scripts"][0]["candidate"]).read_text()
+            self.assertNotIn("/usr/share/debconf/confmodule", candidate)
+            self.assertNotIn("/System/Compatibility/usr/share/debconf", candidate)
+            self.assertNotIn("db_get", candidate)
+            self.assertIn("stripped donor debconf", candidate)
+            kinds = {finding["kind"] for finding in result["findings"]}
+            self.assertNotIn("debconf", kinds)
+            self.assertNotIn("unmapped-path", kinds)
 
     def test_alternative_library_becomes_payload_owned_publication(self):
         with tempfile.TemporaryDirectory() as directory:

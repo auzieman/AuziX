@@ -69,3 +69,21 @@ XdgDesktopPortal passed. Five new `if true then` syntax leftovers from
 `auzix_needed_step` so intake does not throw. Same held-set lane vs r5.
 Run `20260905-intake-validate-r6`. HDD still locked.
 `notes/alpha-intake-validate-r6-run-2026-09-05.md`.
+
+Result: BKC `48302007`. Holds 28→22, findings 95→61. Six newly ready
+including Ntfs3g and Udisks2. `dpkg-helper` gone. HDD still locked.
+
+17:16 PDT: those remaining unmapped `/usr` `/bin` rows are donor
+coordinates. We have the objects at Programs/Compatibility/PATH; they
+often fire at first-boot or trigger time. Not 22 missing AuziX items.
+
+17:39 PDT: Debian's script is dpkg logic. apk has its own db. Do not
+keep Dpkg/Debconf as runtime luggage. Adapted means apk terms.
+`notes/alpha-apk-owns-the-db-2026-09-05.md`.
+
+17:40 PDT: convert the real effect or strip the dpkg/debconf question.
+No `own` wrap. Local units first. HDD still locked.
+
+17:42 PDT: prove-factory r7 convert-or-strip vs r6. Run
+`20260905-intake-validate-r7`. HDD still locked.
+`notes/alpha-intake-validate-r7-run-2026-09-05.md`.

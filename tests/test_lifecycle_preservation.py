@@ -42,6 +42,25 @@ class LifecyclePreservationTests(unittest.TestCase):
             any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
         )
 
+    def test_leftover_dpkg_query_is_stripped_not_owned_helper(self):
+        result = self.normalize(
+            "#!/bin/sh\n"
+            ': "${DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:=$(dpkg-query '
+            "-f '${db:Status-Abbrev}\\n' -W \"$DPKG_MAINTSCRIPT_PACKAGE\" "
+            "| grep -c '^i')}\"\n"
+            "dpkg-trigger --no-await "
+            "${AUZIX_PACKAGE_ROOT}/RootFS/usr/lib/gdk-pixbuf/loaders\n"
+        )
+        rendered = Path(result["scripts"][0]["candidate"]).read_text()
+        self.assertIn('DPKG_MAINTSCRIPT_PACKAGE_INSTCOUNT:=1', rendered)
+        self.assertIn("apk owns triggers", rendered)
+        self.assertNotIn("dpkg-query", rendered)
+        self.assertNotRegex(rendered, r"(?m)^\s*dpkg-trigger\b")
+        self.assertNotIn("auzix_needed_step own", rendered)
+        self.assertFalse(
+            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+        )
+
     def _stage_helper(self, script):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -90,17 +109,16 @@ class LifecyclePreservationTests(unittest.TestCase):
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertIn("${AUZIX_PACKAGE_ROOT}/RootFS/usr/lib/example/helper", rendered)
-        self.assertIn("/usr/bin/dbus-daemon", rendered)
-        self.assertIn("/bin/dbus-daemon", rendered)
+        self.assertIn(
+            "pidof /System/Compatibility/bin/dbus-daemon /System/Compatibility/bin/dbus-daemon",
+            rendered,
+        )
+        self.assertNotIn("/usr/bin/dbus-daemon", rendered)
+        self.assertNotIn("pidof /bin/dbus-daemon", rendered)
         self.assertIn("${AUZIX_RUN}/dbus/system_bus_socket", rendered)
-        paths = [
-            match
-            for finding in result["findings"]
-            if finding.get("kind") == "unmapped-path"
-            for match in finding["matches"]
-        ]
-        self.assertIn("/usr/bin/dbus-daemon", paths)
-        self.assertIn("/bin/dbus-daemon", paths)
+        self.assertFalse(
+            any(finding.get("kind") == "unmapped-path" for finding in result["findings"])
+        )
 
     def test_conffiles_use_shared_rewrite_table(self):
         temporary = tempfile.TemporaryDirectory()
@@ -336,7 +354,8 @@ class LifecyclePreservationTests(unittest.TestCase):
         )
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertNotIn("dpkg-divert", rendered)
-        self.assertIn("fn=/usr/sbin/halt", rendered)
+        self.assertIn("fn=/System/Compatibility/sbin/halt", rendered)
+        self.assertIn('ln -sf ../bin/systemctl "$fn"', rendered)
         self.assertFalse(
             any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
         )

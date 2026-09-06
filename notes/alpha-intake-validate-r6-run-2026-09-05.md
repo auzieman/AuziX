@@ -21,3 +21,17 @@ Rollback: leave the new proof directory; do not reuse this run ID.
 Acceptance: conversion completes, `validation-boundary.json` exists,
 report hold/finding delta vs r5 and whether rendered hooks are path or
 order steps rather than leftover `dpkg-*`. Install/HDD remain untested.
+
+Outcome: BKC `48302007` completed-with-review. Proof
+`/var/lib/auzix-build/package-proof/AX-012-732a2d4b318e`.
+Log `apk-alpha-20260905-intake-validate-r6-resume-732a2d4b318e.log`.
+Vs r5: holds 28→22, findings 95→61, `dpkg-helper` 23→0, `shell-syntax`
+5→0. Newly ready: LibnssSystemd, Libopenni20, Librsvg2Common, Luit,
+Ntfs3g, Udisks2. No regressions. Kanboard task65 comment posted.
+
+Realistic this cut: Ntfs3g `named update-initramfs`; Udisks2
+`/Services/udisks2/run` and `if true; then`; Luit/Libopenni own-path
+or usrmerge-not-applicable. Weaker: LibnssSystemd `own` ate leftover
+`dpkg-query` INSTCOUNT lines; Librsvg `trigger` on a gdk-pixbuf path
+is a no-op. Remaining 22 holds are other families (`unmapped-path`,
+`DPKG_ROOT`, debconf, accounts). Install/HDD not tested.

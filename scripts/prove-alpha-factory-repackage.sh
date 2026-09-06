@@ -10,7 +10,7 @@ test -x "$prior/apk-tool/apk"
 mkdir -p "$output"
 baseline=/var/lib/auzix-build/package-proof/AX-012-376e00389e32
 held_source=/var/lib/auzix-build/package-proof/AX-012-dcbcdda180fb
-compare_from=/var/lib/auzix-build/package-proof/AX-012-3dee50cce1c6
+compare_from=/var/lib/auzix-build/package-proof/AX-012-732a2d4b318e
 test -s "$baseline/repository/conversion-proof.json"
 test -s "$held_source/repository/conversion-proof.json"
 test -s "$compare_from/repository/conversion-proof.json"
@@ -20,7 +20,7 @@ docker run --rm --network none --read-only --tmpfs /tmp \
   auzix/trixie-builder:lab python3 -m unittest discover -s tests \
   2>&1 | tee "$output/trixie-tests.log"
 printf '%s\n' "${AUZIX_SOURCE_REF:?immutable source ref required}" >"$output/source-commit.txt"
-# Same original held names as r2–r5. Score this cut against r5.
+# Same original held names as r2–r6. Score this cut against r6.
 jq --slurpfile proof "$held_source/repository/conversion-proof.json" \
   '.name="alpha-held-bml" | .packages=[$proof[0].packages[] | select(.status=="needs-review") | .name]' \
   "$baseline/inputs/profile.json" >"$output/profile.json"
@@ -52,7 +52,7 @@ if status not in {"passed", "completed-with-review"}:
     raise SystemExit(f"conversion did not complete: {status}")
 receipt = {
     "boundary": "intake-convert",
-    "scope": "held-needed-step-wrap",
+    "scope": "held-convert-or-strip",
     "status": status,
     "install_tested": False,
     "hdd_locked": True,
