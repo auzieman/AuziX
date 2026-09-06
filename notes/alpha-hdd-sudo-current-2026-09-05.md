@@ -23,3 +23,12 @@ Acceptance: validator gets past Sudo/current; existing sshd/passwd
 asserts still pass. Guest desktop remains later.
 
 Kanboard task65 comment sync pending.
+
+Started: commit `f302b84` on r730 `cursor-auzix`. Park receipt
+`/var/lib/auzix-build/receipts/park-hdd-alpha-apk-20260905-alpha-unlock-r11-a5eae325.receipt`.
+BKC `cce7464a-3b87-4d0f-b288-da5730f74722` queued.
+
+Monitor:
+```sh
+ssh r730-ai-01 'tail -F /var/lib/auzix-build/hdd-runs/alpha-apk-20260905-alpha-unlock-r11/build.log'
+```
