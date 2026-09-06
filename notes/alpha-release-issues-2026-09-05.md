@@ -397,3 +397,28 @@ record version/hash against archive bytes. 63 unit tests passed, including
 reviewed override and stale-byte rejection. No image/VM mutated. Planned next
 transition: task54 to Validating35, still top lane3, because source fix exists;
 APK emission/installation and graphical boot remain required before Done.
+
+September 5 18:35 PDT — AX-012/task65, after HDD start: BKC `a4e49aa4`
+`hdd_id=alpha-apk-20260905-alpha-unlock-r11` failed `rc=1` on host `cp`
+through exported absolute `/etc/passwd` -> `/System/Settings/passwd`.
+Unlock-r11 image is valid. VM145 untouched; VM146 not created. Next
+change: unlink `etc/{passwd,group,shadow}` before the existing copies in
+`scripts/stage-auzix-alpha-hdd-root.sh`. Failed work dirs stay as
+evidence. Same `hdd_id` retry needs those dirs parked after the commit
+is on r730. Result:
+`notes/alpha-hdd-phase2-fail-passwd-2026-09-05.md`.
+
+September 5 20:22 PDT — AX-012/task65, before commit: operator confirmed
+prior HDD images already had sshd, passwd, and users through E. Read-only
+VM145 and staged r20 have regular `/etc/{passwd,group,shadow,gshadow}`.
+Failed r11 export still has those four as absolute leaf links. Stager
+now unlinks all four and copies Settings as regular files, then asserts
+the same. Plan: `notes/alpha-hdd-passwd-materialize-2026-09-05.md`.
+No BKC until that commit is on r730 and r11 dirs are parked. VM145
+untouched.
+
+September 5 20:24 PDT — AX-012/task65, before retry: operator asked to
+run HDD again. Keep `hdd_id=alpha-apk-20260905-alpha-unlock-r11` so the
+pipeline finds the unlock-r11 pre-hdd receipt. Park the failed
+`a4e49aa4` work dirs first. Target 146. Plan:
+`notes/alpha-hdd-r12-retry-2026-09-05.md`.

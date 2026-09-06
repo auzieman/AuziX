@@ -75,8 +75,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Start the image so its runtime entrypoint materializes the real /etc account
-# databases required by shadow-utils, then export that exact validated state.
+# Start the image so its runtime entrypoint publishes Docker /etc leaf
+# links, then export that validated userspace. Disk images still need
+# regular account files at /etc; those are materialized after Settings
+# edits below. Shadow 4.17.4 opens databases with O_NOFOLLOW.
 docker create --name "${container}" "${IMAGE}" >/dev/null
 docker start "${container}" >/dev/null
 docker export "${container}" | tar -xpf - -C "${OUTPUT_ROOT}"
@@ -342,6 +344,12 @@ grep -q '^messagebus:' "${OUTPUT_ROOT}/System/Settings/group" ||
   printf '%s\n' 'messagebus:x:101:' >>"${OUTPUT_ROOT}/System/Settings/group"
 grep -q '^lightdm:' "${OUTPUT_ROOT}/System/Settings/group" ||
   printf '%s\n' 'lightdm:x:102:' >>"${OUTPUT_ROOT}/System/Settings/group"
+# Prior HDD roots and VM145 keep regular files at /etc/{passwd,group,shadow,
+# gshadow}, matching /System/Settings. docker export leaves the entrypoint's
+# absolute leaf links; host cp would resolve those on the builder.
+for database in passwd group shadow gshadow; do
+  rm -f "${OUTPUT_ROOT}/etc/${database}"
+done
 cp -a "${OUTPUT_ROOT}/System/Settings/passwd" "${OUTPUT_ROOT}/etc/passwd"
 cp -a "${OUTPUT_ROOT}/System/Settings/group" "${OUTPUT_ROOT}/etc/group"
 # Key-only SSH still requires an account that is not marked locked.  Use an
@@ -349,6 +357,7 @@ cp -a "${OUTPUT_ROOT}/System/Settings/group" "${OUTPUT_ROOT}/etc/group"
 # remains impossible while authorized_keys works for the alpha recovery lane.
 sed -i -E 's/^(root|auzix):!:/\1:x:/' "${OUTPUT_ROOT}/System/Settings/shadow"
 cp -a "${OUTPUT_ROOT}/System/Settings/shadow" "${OUTPUT_ROOT}/etc/shadow"
+cp -a "${OUTPUT_ROOT}/System/Settings/gshadow" "${OUTPUT_ROOT}/etc/gshadow"
 
 # Docker creates a real /etc in exported images.  Recreate the two package and
 # trust views that the AUZiX filesystem contract normally publishes there.
@@ -485,6 +494,13 @@ test "$(readlink "${OUTPUT_ROOT}/etc/apk")" = /System/Settings/apk
 test "$(readlink "${OUTPUT_ROOT}/etc/ssl")" = /System/Compatibility/etc/ssl
 grep -Eq '^root:[^!*:]' "${OUTPUT_ROOT}/etc/shadow"
 grep -Eq '^auzix:[^!*:]' "${OUTPUT_ROOT}/etc/shadow"
+for database in passwd group shadow gshadow; do
+  [[ -f "${OUTPUT_ROOT}/etc/${database}" && ! -L "${OUTPUT_ROOT}/etc/${database}" ]] \
+    || fail "etc/${database} must be a regular file, not an export leaf link"
+  cmp -s "${OUTPUT_ROOT}/System/Settings/${database}" \
+    "${OUTPUT_ROOT}/etc/${database}" \
+    || fail "etc/${database} does not match System/Settings/${database}"
+done
 test -s "${OUTPUT_ROOT}/System/State/apk/db/installed"
 test "$(find "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons" -type f | wc -l)" -ge 40
 test -L "${OUTPUT_ROOT}/System/Compatibility/usr/share/fonts/auzix/FontsDejavuCore"
