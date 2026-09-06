@@ -1,0 +1,89 @@
+#!/bin/sh
+AUZIX_PACKAGE_ROOT=${AUZIX_PACKAGE_ROOT:-/Programs/Enlightenment/0.27.1-1}
+AUZIX_SETTINGS=${AUZIX_SETTINGS:-/System/Settings}
+AUZIX_STATE=${AUZIX_STATE:-/System/State}
+AUZIX_CACHE=${AUZIX_CACHE:-/System/Cache}
+AUZIX_LOGS=${AUZIX_LOGS:-/System/Logs}
+AUZIX_RUN=${AUZIX_RUN:-/System/Run}
+AUZIX_TMP=${AUZIX_TMP:-/Work/Temp}
+AUZIX_ROOT_USER=${AUZIX_ROOT_USER:-/Users/root}
+export AUZIX_PACKAGE_ROOT AUZIX_SETTINGS AUZIX_STATE AUZIX_CACHE AUZIX_LOGS
+export AUZIX_RUN AUZIX_TMP AUZIX_ROOT_USER
+auzix_ensure_system_account() {
+	account=$1
+	id "$account" >/dev/null 2>&1 && return 0
+	if command -v adduser >/dev/null 2>&1; then
+		adduser --system --quiet --group "$account" || true
+	fi
+	id "$account" >/dev/null 2>&1 && return 0
+	groupadd --system "$account" 2>/dev/null || true
+	useradd --system --gid "$account" --no-create-home --shell /usr/sbin/nologin "$account"
+}
+auzix_apply_statoverride() {
+	user=$1
+	group=$2
+	mode=$3
+	path=$4
+	[ -n "$path" ] && [ ! -L "$path" ] && [ -e "$path" ] || return 0
+	id "$group" >/dev/null 2>&1 || return 1
+	chown "$user:$group" "$path"
+	chmod "$mode" "$path"
+}
+auzix_upgrade_cmp() {
+	previous=$1
+	_operator=$2
+	_than=$3
+	[ -n "$previous" ] || return 1
+	return 1
+}
+auzix_apply_sysctl() {
+	pattern=$1
+	command -v sysctl >/dev/null 2>&1 || return 0
+	sysctl --quiet --pattern "$pattern" --system || true
+}
+auzix_needed_step() {
+	kind=${1:-own}
+	shift || true
+	case "$kind" in
+	list)
+		find "${AUZIX_PACKAGE_ROOT}/RootFS" 2>/dev/null || true
+		;;
+	rename)
+		[ -n "$1" ] && [ -n "$2" ] && [ -e "$1" ] && [ ! -e "$2" ] && mv -- "$1" "$2" || true
+		;;
+	own)
+		return 0
+		;;
+	trigger|named)
+		name=${1:-}
+		if [ "$name" = update-initramfs ] && command -v update-initramfs >/dev/null 2>&1; then
+			update-initramfs -u || true
+		fi
+		if [ "$name" = ldconfig ] && command -v ldconfig >/dev/null 2>&1; then
+			ldconfig || true
+		fi
+		return 0
+		;;
+	*)
+		return 0
+		;;
+	esac
+}
+auzix_maintainer_main() {
+
+set -e
+
+wm=enlightenment_start
+
+case "$1" in
+  remove|upgrade|failed-upgrade)
+      update-alternatives  --remove x-window-manager ${AUZIX_PACKAGE_ROOT}/RootFS/usr/bin/$wm
+;;
+*)
+;;
+esac
+
+
+}
+auzix_maintainer_main 'remove' ''
+

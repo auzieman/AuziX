@@ -12,7 +12,9 @@ receipt. Fallout on 145 stays diagnostic.
    `AX-012-376e00389e32`, compare findings, **do not** treat
    `completed-with-review` as a crash. Install still untested.
 4. Container lane only: zero → nginx → netinstall / pre-HDD image checks.
-5. HDD (`auzix-release-hdd-build-deploy`) stays locked.
+5. HDD (`auzix-release-hdd-build-deploy`) unlocked 18:10 PDT after
+   r8 + HDD 117 receipts. New assemble uses a free VMID (146), never 145.
+   See `notes/alpha-hdd-unlock-2026-09-05.md`.
 
 ## Pipeline mess to clean, not replace
 

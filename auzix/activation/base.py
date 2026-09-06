@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
 from ..contracts import ContractError, content_sha256
+from ..paths import REPOSITORY_ROOT
 
 BUSYBOX = "/Programs/BusyBox/1.36.1/Commands/busybox"
 
@@ -60,6 +62,9 @@ for service in /Services/*/run; do
   name=${{service#/Services/}}; name=${{name%/run}}
   "$service" >"/System/Logs/$name.log" 2>&1 &
 done
+if [ -x /System/Boot/PostInstall ]; then
+  /System/Boot/PostInstall >"/System/Logs/post-install.log" 2>&1 || true
+fi
 echo "[StartSequence] base activation complete"
 """
 
@@ -184,6 +189,24 @@ def activate_base(root: Path, target_plan: dict[str, Any]) -> dict[str, Any]:
     write_text(root, "/System/Boot/StartSequence", START_SEQUENCE, 0o755)
     write_text(root, "/System/Boot/InstalledInit", INSTALLED_INIT, 0o755)
     write_text(root, "/init", INSTALLED_INIT, 0o755)
+    leftover_src = REPOSITORY_ROOT / "packaging/legacy-leftovers"
+    leftover_dest = rooted(root, "/System/Settings/legacy-leftovers")
+    if leftover_src.is_dir():
+        leftover_dest.mkdir(parents=True, exist_ok=True)
+        for item in leftover_src.rglob("*"):
+            if not item.is_file():
+                continue
+            target = leftover_dest / item.relative_to(leftover_src)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+            target.chmod(0o644)
+        service_template = REPOSITORY_ROOT / "packaging/templates/service-run.sh"
+        if service_template.is_file():
+            shutil.copy2(service_template, leftover_dest / "service-run.sh")
+            (leftover_dest / "service-run.sh").chmod(0o644)
+    post_install = REPOSITORY_ROOT / "packaging/templates/post-install-legacy.sh"
+    if post_install.is_file():
+        write_text(root, "/System/Boot/PostInstall", post_install.read_text(encoding="utf-8"), 0o755)
     adopt_apk_namespace(root)
     publish_runtime_loader(root)
     link(root, "/lib", "/System/Compatibility/lib")
@@ -209,7 +232,12 @@ def activate_base(root: Path, target_plan: dict[str, Any]) -> dict[str, Any]:
         "target": target_plan["target"],
         "target_plan_sha256": target_plan["content_sha256"],
         "stages": [item["id"] for item in target_plan["activation"]],
-        "created": ["/System/Boot/StartSequence", "/System/Boot/InstalledInit", "/init"],
+        "created": [
+            "/System/Boot/StartSequence",
+            "/System/Boot/InstalledInit",
+            "/init",
+            "/System/Boot/PostInstall",
+        ],
         "apk_namespace": {"database": "/System/State/apk", "configuration": "/System/Settings/apk"},
         "status": "passed",
     }

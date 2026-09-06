@@ -1,0 +1,77 @@
+{
+  "format": "auzix-legacy-leftover-index-v1",
+  "source_proof": "AX-012-5f73ec794f55-hdd",
+  "not_executed": true,
+  "packages": [
+    {
+      "name": "OpensshServer",
+      "apk_name": "openssh-server",
+      "already": ["install-service-runner", "ensure-system-account", "generate-host-key", "/Services/ssh/run"],
+      "still_missing": ["ucf/ucfr sshd_config merge", "leftover invoke-rc.d ssh after converted comments"],
+      "files": ["after-install", "after-remove", "before-remove"]
+    },
+    {
+      "name": "Acpid",
+      "apk_name": "acpid",
+      "already": ["comments name /Services/acpid/run"],
+      "still_missing": ["own-service file may be absent", "leftover invoke-rc.d acpid"],
+      "files": ["after-install", "after-remove", "before-remove"]
+    },
+    {
+      "name": "OpensshClient",
+      "apk_name": "openssh-client",
+      "already": ["ensure-system-group", "retain-user-invoked-agent"],
+      "still_missing": ["update-alternatives rcp/rlogin/rsh"],
+      "files": ["after-install"]
+    },
+    {
+      "name": "Adduser",
+      "apk_name": "adduser",
+      "already": ["install-configuration", "donor-conffile-migration"],
+      "still_missing": ["dpkg conffile question on adduser.conf"],
+      "files": ["after-remove", "before-install"]
+    },
+    {
+      "name": "Passwd",
+      "apk_name": "passwd",
+      "already": ["ensure-shadow-databases", "ensure-system-group", "boot-cleanup"],
+      "still_missing": [],
+      "files": ["after-install"]
+    },
+    {
+      "name": "Enlightenment",
+      "apk_name": "enlightenment",
+      "already": ["install-configuration"],
+      "still_missing": ["update-alternatives x-window-manager"],
+      "files": ["after-install", "before-remove"]
+    },
+    {
+      "name": "Glances",
+      "apk_name": "glances",
+      "already": ["comments name /Services/glances/run"],
+      "still_missing": ["glances system account", "own-service file may be absent"],
+      "files": ["after-install"]
+    },
+    {
+      "name": "UtilLinux",
+      "apk_name": "util-linux",
+      "already": ["donor-command-alternative", "comments name /Services/fstrim/run"],
+      "still_missing": ["update-alternatives pager -> more"],
+      "files": ["after-install", "before-remove"]
+    },
+    {
+      "name": "Python3",
+      "apk_name": "python3",
+      "already": ["discard-donor-maintainer-protocol"],
+      "still_missing": ["update-alternatives python3"],
+      "files": ["before-install"]
+    },
+    {
+      "name": "Python313Minimal",
+      "apk_name": "python3.13-minimal",
+      "already": ["discard-donor-maintainer-protocol"],
+      "still_missing": ["leftover dpkg db question"],
+      "files": ["after-install"]
+    }
+  ]
+}
