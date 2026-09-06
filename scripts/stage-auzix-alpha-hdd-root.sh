@@ -365,6 +365,7 @@ cp -a "${OUTPUT_ROOT}/System/Settings/gshadow" "${OUTPUT_ROOT}/etc/gshadow"
 if [[ -d "${OUTPUT_ROOT}/Programs/Sudo/host" && ! -e "${OUTPUT_ROOT}/Programs/Sudo/current" ]]; then
   ln -sfn /Programs/Sudo/host "${OUTPUT_ROOT}/Programs/Sudo/current"
 fi
+printf 'alpha-hdd-stage: published Sudo current -> host\n'
 
 # Docker creates a real /etc in exported images.  Recreate the two package and
 # trust views that the AUZiX filesystem contract normally publishes there.
@@ -508,8 +509,14 @@ for database in passwd group shadow gshadow; do
     "${OUTPUT_ROOT}/etc/${database}" \
     || fail "etc/${database} does not match System/Settings/${database}"
 done
-test "$(readlink "${OUTPUT_ROOT}/Programs/Sudo/current")" = /Programs/Sudo/host
-test -x "${OUTPUT_ROOT}/Programs/Sudo/current/Commands/sudo"
+test "$(readlink "${OUTPUT_ROOT}/Programs/Sudo/current")" = /Programs/Sudo/host \
+  || fail "Sudo current must point at the host generation"
+# current is an in-guest absolute link. Do not follow it on the builder.
+test -x "${OUTPUT_ROOT}/Programs/Sudo/host/Commands/sudo" \
+  || fail "Sudo host command is missing"
+chroot "${OUTPUT_ROOT}" /Programs/BusyBox/current/Commands/busybox \
+  test -x /Programs/Sudo/current/Commands/sudo \
+  || fail "Sudo current does not resolve inside the staged root"
 test -s "${OUTPUT_ROOT}/System/State/apk/db/installed"
 test "$(find "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons" -type f | wc -l)" -ge 40
 test -L "${OUTPUT_ROOT}/System/Compatibility/usr/share/fonts/auzix/FontsDejavuCore"

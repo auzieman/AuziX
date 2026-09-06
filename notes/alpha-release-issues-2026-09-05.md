@@ -438,3 +438,9 @@ continue on r730. Sudo binary and Compatibility links exist; publish
 `Programs/Sudo/current -> /Programs/Sudo/host` like Terminology. Plan:
 `notes/alpha-hdd-sudo-current-2026-09-05.md`. Park `a5eae325` dirs, then
 same hdd_id to VM 146.
+
+September 5 20:47 PDT — AX-012/task65: BKC `cce7464a` was not hung.
+`failed rc=1` after Sudo `current` was published. Builder `test -x`
+followed `/Programs/Sudo/host` on r730. Next assert uses the staged
+host file plus chroot. Plan:
+`notes/alpha-hdd-sudo-current-host-assert-2026-09-05.md`.
