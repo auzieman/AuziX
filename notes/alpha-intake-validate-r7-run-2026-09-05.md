@@ -20,3 +20,12 @@ Rollback: leave the new proof directory; do not reuse this run ID.
 Acceptance: conversion completes, `validation-boundary.json` exists,
 report hold/finding delta vs r6 and whether leftover `dpkg-query` /
 confmodule rows converted or stripped. Install/HDD remain untested.
+
+Outcome: BKC `7986f70b` completed-with-review. Proof
+`/var/lib/auzix-build/package-proof/AX-012-ff8a8071363c`.
+Log `apk-alpha-20260905-intake-validate-r7-resume-ff8a8071363c.log`.
+Vs r6: holds 22→17, findings 61→40, unmapped-path 22→1, debconf 6→3.
+Newly ready: DBus, Gzip, Python313, SgmlBase, XMLCore. No regressions.
+DBus component-passed. Remaining unmapped-path is `/bin/systemctl`.
+Leftover debconf is `ucf`/`ucfr`. Three new `shell-syntax` rows.
+Install/HDD not tested.

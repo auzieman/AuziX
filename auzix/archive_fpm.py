@@ -150,6 +150,39 @@ def _review_summary(packages: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _legacy_summary(packages: list[dict[str, Any]]) -> dict[str, Any]:
+    parked: list[dict[str, Any]] = []
+    by_kind: dict[str, set[str]] = {}
+    for package in packages:
+        intake = package.get("intake", {})
+        leftovers = intake.get("legacy_findings") or []
+        scripts = intake.get("legacy_scripts") or []
+        if not leftovers and not scripts:
+            continue
+        kinds = []
+        for finding in leftovers:
+            kind = finding.get("kind", "unclassified")
+            by_kind.setdefault(kind, set()).add(package["name"])
+            kinds.append(kind)
+        parked.append({
+            "name": package["name"],
+            "apk_name": package.get("apk_name"),
+            "legacy_scripts": len(scripts),
+            "legacy_findings": len(leftovers),
+            "kinds": sorted(set(kinds)),
+        })
+    return {
+        "packages": len(parked),
+        "by_kind": [
+            {"kind": key, "count": len(names), "packages": sorted(names)}
+            for key, names in sorted(by_kind.items(), key=lambda item: (-len(item[1]), item[0]))
+        ],
+        "parked": sorted(
+            parked, key=lambda item: (-item["legacy_findings"], item["name"])
+        ),
+    }
+
+
 def archive_profile_plan(repository: Path, profile_path: Path) -> dict[str, Any]:
     profile = read_json(profile_path)
     if profile.get("format") != "auzix-archive-profile-v1":
@@ -398,6 +431,7 @@ def convert_archive_profile(
         "summary": counts,
         "workers": workers,
         "review_summary": _review_summary(plan["packages"]),
+        "legacy_summary": _legacy_summary(plan["packages"]),
         "proof": str(proof),
     }
     proof.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

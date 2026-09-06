@@ -3,27 +3,48 @@ set -euo pipefail
 [[ "$(hostname -s)" == r730-ai-01 || "$(hostname -s)" == lab-ai-worker ]]
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 prior=/var/lib/auzix-build/pre-hdd-apk/20260905-alpha-bkc-r10
-output=${1:?new proof directory}
+requested=${1:?new proof directory}
+run_id=${AUZIX_CONTAINER_RUN_ID:-}
+# Same commit cannot reuse AX-012-<source12>. HDD lane writes a sibling dir.
+if [[ "$run_id" == *hdd* ]]; then
+  scope=hdd-selected-runtime
+  output=${requested}-hdd
+else
+  scope=held-park-legacy
+  output=$requested
+fi
 test ! -e "$output"
 test -s "$prior/selected-repo/profile.json"
 test -x "$prior/apk-tool/apk"
 mkdir -p "$output"
 baseline=/var/lib/auzix-build/package-proof/AX-012-376e00389e32
 held_source=/var/lib/auzix-build/package-proof/AX-012-dcbcdda180fb
-compare_from=/var/lib/auzix-build/package-proof/AX-012-732a2d4b318e
+held_compare=/var/lib/auzix-build/package-proof/AX-012-ff8a8071363c
 test -s "$baseline/repository/conversion-proof.json"
 test -s "$held_source/repository/conversion-proof.json"
-test -s "$compare_from/repository/conversion-proof.json"
+if [[ "$scope" == hdd-selected-runtime ]]; then
+  compare_from=$baseline
+else
+  compare_from=$held_compare
+  test -s "$compare_from/repository/conversion-proof.json"
+fi
 docker image inspect auzix/trixie-builder:lab --format '{{.Id}}' >"$output/trixie-builder-image.txt"
 docker run --rm --network none --read-only --tmpfs /tmp \
   -e PYTHONDONTWRITEBYTECODE=1 -v "$ROOT_DIR:/workspace:ro" -w /workspace \
   auzix/trixie-builder:lab python3 -m unittest discover -s tests \
   2>&1 | tee "$output/trixie-tests.log"
 printf '%s\n' "${AUZIX_SOURCE_REF:?immutable source ref required}" >"$output/source-commit.txt"
-# Same original held names as r2–r6. Score this cut against r6.
-jq --slurpfile proof "$held_source/repository/conversion-proof.json" \
-  '.name="alpha-held-bml" | .packages=[$proof[0].packages[] | select(.status=="needs-review") | .name]' \
-  "$baseline/inputs/profile.json" >"$output/profile.json"
+if [[ "$scope" == hdd-selected-runtime ]]; then
+  # The 117 names that actually go on the r10 disk. Not an HDD assemble.
+  jq --slurpfile hdd "$prior/selected-repo/profile.json" \
+    '.name="alpha-hdd-runtime-bml" | .packages=$hdd[0].packages' \
+    "$baseline/inputs/profile.json" >"$output/profile.json"
+else
+  # Same original held names as r2–r7. Score this cut against r7.
+  jq --slurpfile proof "$held_source/repository/conversion-proof.json" \
+    '.name="alpha-held-bml" | .packages=[$proof[0].packages[] | select(.status=="needs-review") | .name]' \
+    "$baseline/inputs/profile.json" >"$output/profile.json"
+fi
 docker image inspect auzix/package-factory:pre-hdd-20260905-alpha-bkc-r10 \
   --format '{{.Id}}' >"$output/factory-image.txt"
 docker run --rm \
@@ -41,10 +62,11 @@ python3 "$ROOT_DIR/scripts/compare-repackage-findings.py" \
 python3 "$ROOT_DIR/scripts/test-held-package-effects.py" \
   "$output/repository/conversion-proof.json" "$output/effects" --source "$ROOT_DIR" \
   2>&1 | tee "$output/effects.log"
-python3 - <<'PY' "$output"
+python3 - "$output" "$scope" <<'PY'
 import json, sys
 from pathlib import Path
 out = Path(sys.argv[1])
+scope = sys.argv[2]
 proof = json.loads((out / "repository/conversion-proof.json").read_text())
 comparison = json.loads((out / "comparison.json").read_text())
 status = proof.get("status")
@@ -52,10 +74,12 @@ if status not in {"passed", "completed-with-review"}:
     raise SystemExit(f"conversion did not complete: {status}")
 receipt = {
     "boundary": "intake-convert",
-    "scope": "held-convert-or-strip",
+    "scope": scope,
     "status": status,
     "install_tested": False,
     "hdd_locked": True,
+    "packages": len(proof.get("packages") or []),
+    "legacy_after": comparison.get("legacy_after"),
     "newly_verified": comparison.get("newly_verified", []),
     "newly_regressed": comparison.get("newly_regressed", []),
     "findings_before": comparison.get("findings_before"),

@@ -20,5 +20,7 @@ question protocol (`db_*`), not a file we keep under Compatibility.
 The sed map restores that donor path after `/usr/share/` rewrite.
 Unused import can still be pruned; a live `db_*` script stays `debconf`.
 
-Not this family: debconf questions, `systemctl` as a binary, `adduser`.
-Those are different kinds. HDD still locked.
+`systemctl` is this family: `Programs/Systemd/.../Commands/systemctl` plus
+Compatibility/bin. Convert leftover `../bin/systemctl`, do not flag it as
+foreign. Still not this family: debconf questions, `adduser`.
+HDD still locked.

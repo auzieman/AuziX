@@ -107,7 +107,7 @@ mkdir -p /usr/local/lib/python3.13
                 "name": "Python", "version": "1", "prefix": "/Programs/Python/1",
                 "maintainer_surfaces": ["/Programs/Python/1/Metadata/control/postinst"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
+            self.assertEqual(result["status"], "ready")
             self.assertEqual(result["operations"], [])
             self.assertEqual(result["effect_candidates"][0]["type"], "package-payload-query")
             self.assertEqual(result["effect_candidates"][0]["stage"], "after_install")
@@ -404,9 +404,10 @@ mkdir -p /usr/local/lib/python3.13
                 "name": "Example", "version": "1", "prefix": "/Programs/Example/1",
                 "maintainer_surfaces": ["/Programs/Example/1/Metadata/control/conffiles"],
             }, Path(directory) / "review")
-            self.assertEqual(result["status"], "needs-review")
-            self.assertEqual(result["findings"][0]["kind"], "conffile-directive")
-            self.assertEqual(result["rules"][0]["state"], "residual")
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["legacy_findings"][0]["kind"], "conffile-directive")
+            self.assertEqual(result["rules"][0]["state"], "parked")
+            self.assertTrue(result["legacy_scripts"])
 
     def test_exact_trigger_is_named_but_remains_residual_until_implemented(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -87,3 +87,11 @@ No `own` wrap. Local units first. HDD still locked.
 17:42 PDT: prove-factory r7 convert-or-strip vs r6. Run
 `20260905-intake-validate-r7`. HDD still locked.
 `notes/alpha-intake-validate-r7-run-2026-09-05.md`.
+
+Result: BKC `7986f70b`. Holds 22→17, findings 61→40. DBus, Gzip,
+Python313, SgmlBase, XMLCore passed. unmapped-path 22→1. HDD locked.
+
+17:56 PDT: park leftover donor logic in Package/legacy, then held r8
+and HDD 117 conversion. No HDD assemble.
+`notes/alpha-intake-validate-r8-run-2026-09-05.md`
+`notes/alpha-intake-validate-hdd-r8-run-2026-09-05.md`.

@@ -33,3 +33,5 @@ s|/sbin\>|/System/Compatibility/sbin|g
 # Relative ../bin stays relative; do not invent Compatibility in the middle.
 s|\.\./System/Compatibility/bin/|../bin/|g
 s|\.\./System/Compatibility/sbin/|../sbin/|g
+# systemctl is Programs/Systemd/Commands/systemctl, published at Compatibility.
+s|\.\./bin/systemctl|/System/Compatibility/bin/systemctl|g

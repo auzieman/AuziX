@@ -37,10 +37,13 @@ class LifecyclePreservationTests(unittest.TestCase):
         result = self.normalize("#!/bin/sh\nfiles=$(dpkg -L libpython)\n")
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertIn("auzix_needed_step list", rendered)
+        self.assertIn("files=$(auzix_needed_step list)", rendered)
         self.assertNotIn("dpkg -L", rendered)
+        self.assertEqual(result["status"], "ready")
         self.assertFalse(
-            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+            any(finding.get("kind") in {"dpkg-helper", "shell-syntax"} for finding in result["findings"])
         )
+        self.assertFalse(result.get("legacy_scripts"))
 
     def test_leftover_dpkg_query_is_stripped_not_owned_helper(self):
         result = self.normalize(
@@ -346,6 +349,47 @@ class LifecyclePreservationTests(unittest.TestCase):
             any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
         )
 
+    def test_leftover_stray_logic_is_parked_not_run(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name) / "root"
+        prefix = root / "Programs/LibExample/1"
+        control = prefix / "Metadata/debian-control-dir"
+        control.mkdir(parents=True)
+        (control / "postinst").write_text("#!/bin/sh\nadduser --system leftover\n")
+        receipt = {
+            "name": "LibExample",
+            "version": "1",
+            "prefix": "/Programs/LibExample/1",
+            "maintainer_surfaces": [],
+        }
+        review = Path(temporary.name) / "review"
+        result = normalize_lifecycle(root, receipt, review)
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["scripts"], [])
+        self.assertTrue(result["legacy_scripts"])
+        parked = Path(result["legacy_scripts"][0]["artifact"])
+        self.assertTrue(parked.is_file())
+        self.assertEqual(parked.stat().st_mode & 0o111, 0)
+        self.assertIn("adduser --system leftover", parked.read_text())
+        self.assertTrue(
+            any(item.get("type") == "park-legacy-script" for item in result["operations"])
+        )
+        self.assertFalse(result["findings"])
+        self.assertTrue(
+            any(finding.get("kind") == "package-account-helper" for finding in result["legacy_findings"])
+        )
+        receipt_path = root / "System/PackageDB/LibExample-1.json"
+        receipt_path.parent.mkdir(parents=True)
+        receipt_path.write_text(json.dumps(receipt))
+        package_json, fpm_scripts = promote_auzix_package(root, receipt_path, result, None)
+        legacy = root / "Programs/LibExample/1/Package/legacy/after-install"
+        self.assertTrue(legacy.is_file())
+        self.assertEqual(legacy.stat().st_mode & 0o111, 0)
+        self.assertIsNone(package_json["lifecycle"]["after_install"])
+        self.assertEqual(package_json["legacy"][0]["path"], "/Programs/LibExample/1/Package/legacy/after-install")
+        self.assertFalse(any(flag == "--after-install" for flag, _ in fpm_scripts))
+
     def test_divert_truename_is_the_owned_path(self):
         result = self._stage_helper(
             "#!/bin/sh\n"
@@ -355,9 +399,17 @@ class LifecyclePreservationTests(unittest.TestCase):
         rendered = Path(result["scripts"][0]["candidate"]).read_text()
         self.assertNotIn("dpkg-divert", rendered)
         self.assertIn("fn=/System/Compatibility/sbin/halt", rendered)
-        self.assertIn('ln -sf ../bin/systemctl "$fn"', rendered)
+        self.assertIn('ln -sf /System/Compatibility/bin/systemctl "$fn"', rendered)
+        self.assertNotIn("../bin/systemctl", rendered)
         self.assertFalse(
-            any(finding.get("kind") == "dpkg-helper" for finding in result["findings"])
+            any(
+                finding.get("kind") in {
+                    "dpkg-helper",
+                    "unmapped-path",
+                    "foreign-service-manager",
+                }
+                for finding in result["findings"]
+            )
         )
 
     def test_dpkg_bak_filename_does_not_fail_intake(self):

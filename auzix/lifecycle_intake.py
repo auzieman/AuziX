@@ -108,7 +108,7 @@ UNSUPPORTED_PATTERNS = {
     "debian-service-helper": re.compile(
         r"\b(?:deb-systemd-helper|deb-systemd-invoke|invoke-rc\.d|update-rc\.d)\b"
     ),
-    "foreign-service-manager": re.compile(r"\b(?:systemctl|runit-helper)\b|(?<![\w.])service(?!\.)\b"),
+    "foreign-service-manager": re.compile(r"\b(?:runit-helper)\b|(?<![\w.])service(?!\.)\b"),
     "package-account-helper": re.compile(r"\b(?:adduser|useradd|groupadd|addgroup)\b"),
     "package-trigger-helper": re.compile(
         r"\b(?:update-alternatives|update-menus|ldconfig|sysctl|update-desktop-database|update-mime-database|gtk-update-icon-cache)\b"
@@ -343,7 +343,7 @@ DPKG_QUERY_OWNS = re.compile(
 DPKG_QUERY_CONFFILES = re.compile(
     r"\$\(dpkg-query -W -f='\$\{Conffiles\}'[^)]*\)"
 )
-DPKG_L_COMMAND = re.compile(r"(?:LC_ALL=\S+\s+)?dpkg -L \S+")
+DPKG_L_COMMAND = re.compile(r"(?:LC_ALL=\S+\s+)?dpkg -L [^\s)]+")
 DPKG_TRIGGER_LINE = re.compile(
     r"(?P<indent>[ \t]*)(?:which dpkg-trigger >/dev/null 2>&1 &&\s*)?"
     r"dpkg-trigger(?:\s+--\S+)*\s+(?P<name>\S+)[^\n]*\n"
@@ -1206,6 +1206,8 @@ def rewrite_classic_paths(text: str) -> str:
     )
     text = text.replace("../System/Compatibility/bin/", "../bin/")
     text = text.replace("../System/Compatibility/sbin/", "../sbin/")
+    # systemctl is Programs/Systemd/Commands/systemctl, published here.
+    text = text.replace("../bin/systemctl", "/System/Compatibility/bin/systemctl")
     return _apply_rewrite_paths(text)
 
 
@@ -1305,10 +1307,12 @@ def normalize_lifecycle(
         raise ContractError("receipt has no AUZiX program prefix")
     output_dir.mkdir(parents=True, exist_ok=True)
     scripts: list[dict[str, str]] = []
+    legacy_scripts: list[dict[str, Any]] = []
     donor_objects: list[dict[str, Any]] = []
     effect_candidates: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
+    legacy_findings: list[dict[str, Any]] = []
     configuration: list[str] = []
     library_publications: list[dict[str, str]] = []
     compatibility_links: list[dict[str, str]] = []
@@ -1597,8 +1601,6 @@ def normalize_lifecycle(
             and not re.match(r"^\s*:\s+#", line)
         )
         for kind, pattern in UNSUPPORTED_PATTERNS.items():
-            if kind == "dpkg-helper":
-                continue
             if kind == "debconf" and stripped_debconf:
                 continue
             if kind == "lifecycle-arguments" and wrapped_arguments:
@@ -1622,24 +1624,47 @@ def normalize_lifecycle(
         )
         if syntax.returncode:
             script_findings.append({"kind": "shell-syntax", "message": syntax.stderr.strip()})
-        findings.extend(
+        staged_findings = [
             {"stage": lifecycle_name, **finding} for finding in script_findings
-        )
+        ]
         for finding in script_findings:
             rule_id = FINDING_RULES.get(finding["kind"])
             if rule_id:
                 rule = rules.setdefault(
-                    rule_id, {"id": rule_id, "state": "recognized", "stages": []}
+                    rule_id, {"id": rule_id, "state": "parked", "stages": []}
                 )
                 stages = rule.setdefault("stages", [])
                 if lifecycle_name not in stages:
                     stages.append(lifecycle_name)
-        scripts.append({
-            "stage": lifecycle_name,
-            "flag": fpm_flag,
-            "source": source_path,
-            "candidate": str(candidate),
-        })
+        if script_findings:
+            # Leftover donor logic stays in the package for later. Do not run it.
+            legacy_dir = output_dir / "legacy"
+            legacy_dir.mkdir(parents=True, exist_ok=True)
+            parked = legacy_dir / candidate.name
+            parked.write_text(candidate_text, encoding="utf-8")
+            parked.chmod(0o644)
+            legacy_path = f"{prefix}/Package/legacy/{candidate.name}"
+            legacy_scripts.append({
+                "stage": lifecycle_name,
+                "source": source_path,
+                "artifact": str(parked),
+                "path": legacy_path,
+                "findings": staged_findings,
+            })
+            operations.append({
+                "type": "park-legacy-script",
+                "stage": lifecycle_name,
+                "path": legacy_path,
+                "findings": [finding.get("kind") for finding in script_findings],
+            })
+            legacy_findings.extend(staged_findings)
+        else:
+            scripts.append({
+                "stage": lifecycle_name,
+                "flag": fpm_flag,
+                "source": source_path,
+                "candidate": str(candidate),
+            })
 
     needed_names = list(dict.fromkeys(pending_named_steps))
     if needed_names:
@@ -1830,6 +1855,46 @@ def normalize_lifecycle(
             "retained_state": adapter.get("retained_state", []),
         }
 
+    if findings:
+        # Surfaces we cannot convert yet (conffile directives, leftover
+        # control files) are artifacts, not a conversion hold.
+        legacy_dir = output_dir / "legacy"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        for finding in findings:
+            source = finding.get("source")
+            if not isinstance(source, str):
+                continue
+            src = stage / source.lstrip("/")
+            if not src.is_file():
+                continue
+            parked = legacy_dir / src.name
+            if not parked.exists():
+                shutil.copy2(src, parked)
+                parked.chmod(0o644)
+            legacy_path = f"{prefix}/Package/legacy/{src.name}"
+            if not any(item.get("artifact") == str(parked) for item in legacy_scripts):
+                legacy_scripts.append({
+                    "stage": finding.get("stage", "package"),
+                    "source": source,
+                    "artifact": str(parked),
+                    "path": legacy_path,
+                    "findings": [finding],
+                })
+                operations.append({
+                    "type": "park-legacy-surface",
+                    "path": legacy_path,
+                    "kind": finding.get("kind"),
+                })
+        for finding in findings:
+            rule_id = FINDING_RULES.get(finding.get("kind", ""))
+            if rule_id and rule_id in rules:
+                rules[rule_id]["state"] = "parked"
+        for rule in rules.values():
+            if rule.get("state") == "residual":
+                rule["state"] = "parked"
+        legacy_findings.extend(findings)
+        findings = []
+
     status = "needs-review" if findings else "ready"
     manifest = {
         "format": "auzix-lifecycle-intake-v1",
@@ -1837,6 +1902,7 @@ def normalize_lifecycle(
         "version": receipt.get("version"),
         "status": status,
         "scripts": scripts,
+        "legacy_scripts": legacy_scripts,
         "triggers": trigger_scripts,
         "donor_objects": donor_objects,
         "effect_candidates": effect_candidates,
@@ -1848,6 +1914,7 @@ def normalize_lifecycle(
         "migrations": migrations,
         "rules": sorted(rules.values(), key=lambda rule: rule["id"]),
         "residual_findings": findings,
+        "legacy_findings": legacy_findings,
         "donor_residual_findings": donor_findings,
         "findings": findings,
     }
@@ -1866,8 +1933,10 @@ def normalize_lifecycle(
         "library_publications": library_publications,
         "compatibility_links": compatibility_links,
         "rendered_scripts": scripts,
+        "legacy_scripts": legacy_scripts,
         "rendered_triggers": trigger_scripts,
         "residual_findings": findings,
+        "legacy_findings": legacy_findings,
         "donor_residual_findings": donor_findings,
     }
     native_ir_dir = output_dir / "auzix"
@@ -1999,6 +2068,24 @@ def promote_auzix_package(
         absolute = "/" + str(destination.relative_to(stage))
         lifecycle[script["stage"]] = absolute
         fpm_scripts.append((script["flag"], destination))
+    legacy_index: list[dict[str, Any]] = []
+    leftover_dir = native_dir / "legacy"
+    for item in intake.get("legacy_scripts", []):
+        artifact = Path(item["artifact"])
+        if not artifact.is_file():
+            raise ContractError(
+                f"{receipt.get('name')}: parked leftover script is missing: {artifact}"
+            )
+        leftover_dir.mkdir(parents=True, exist_ok=True)
+        destination = leftover_dir / artifact.name
+        shutil.copy2(artifact, destination)
+        destination.chmod(0o644)
+        legacy_index.append({
+            "stage": item.get("stage"),
+            "path": "/" + str(destination.relative_to(stage)),
+            "source": item.get("source"),
+            "findings": item.get("findings", []),
+        })
     triggers = []
     for trigger in intake.get("triggers", []):
         destination = scripts_dir / Path(trigger["candidate"]).name
@@ -2025,6 +2112,7 @@ def promote_auzix_package(
         "migrations": intake.get("migrations", []),
         "lifecycle": lifecycle,
         "triggers": triggers,
+        "legacy": legacy_index,
     }
     native_dir.mkdir(parents=True, exist_ok=True)
     (native_dir / "package.json").write_text(
@@ -2045,6 +2133,8 @@ def promote_auzix_package(
         "rules": intake.get("rules", []),
         "adapter": intake.get("adapter"),
         "operations": intake.get("operations", []),
+        "legacy": legacy_index,
+        "legacy_findings": intake.get("legacy_findings", []),
     }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     for key in (
         "depends", "direct_depends", "recommends", "maintainer_surfaces",
