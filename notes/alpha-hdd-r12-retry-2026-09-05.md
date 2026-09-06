@@ -33,3 +33,20 @@ and existing `sshd -t`; VM 146 start is follow-on. Desktop still
 untested.
 
 Kanboard task65 comment sync pending until posted.
+
+Started: commit `521f14f` on r730 `cursor-auzix`. Park receipt
+`/var/lib/auzix-build/receipts/park-hdd-alpha-apk-20260905-alpha-unlock-r11.receipt`.
+BKC `a5eae325-cf6b-4ba5-9598-5239859d6ca7` queued. Work
+`/var/lib/auzix-build/hdd-runs/alpha-apk-20260905-alpha-unlock-r11`.
+Stager is running against image
+`sha256:372909481e60db52cd10015fb867a4859fa79ca1e4a3ac47aca29d4ad3250d8e`.
+VM145 untouched. VM146 not created yet.
+
+Monitor:
+```sh
+ssh r730-ai-01 'tail -F /var/lib/auzix-build/hdd-runs/alpha-apk-20260905-alpha-unlock-r11/build.log'
+```
+
+Outcome: staging PASS, then
+`alpha-final validation: missing or dangling /Programs/Sudo/current/Commands/sudo`.
+See `notes/alpha-hdd-r12-sudo-current-2026-09-05.md`.

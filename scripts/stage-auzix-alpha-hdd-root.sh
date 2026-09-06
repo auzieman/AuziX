@@ -359,6 +359,13 @@ sed -i -E 's/^(root|auzix):!:/\1:x:/' "${OUTPUT_ROOT}/System/Settings/shadow"
 cp -a "${OUTPUT_ROOT}/System/Settings/shadow" "${OUTPUT_ROOT}/etc/shadow"
 cp -a "${OUTPUT_ROOT}/System/Settings/gshadow" "${OUTPUT_ROOT}/etc/gshadow"
 
+# The auzix-sudo APK installs the host generation only. Terminology already
+# publishes current -> host; Compatibility already points at host sudo.
+# The alpha-final validator and the auzix sudo probe use current/Commands.
+if [[ -d "${OUTPUT_ROOT}/Programs/Sudo/host" && ! -e "${OUTPUT_ROOT}/Programs/Sudo/current" ]]; then
+  ln -sfn /Programs/Sudo/host "${OUTPUT_ROOT}/Programs/Sudo/current"
+fi
+
 # Docker creates a real /etc in exported images.  Recreate the two package and
 # trust views that the AUZiX filesystem contract normally publishes there.
 rm -rf "${OUTPUT_ROOT}/etc/apk" "${OUTPUT_ROOT}/etc/ssl"
@@ -501,6 +508,8 @@ for database in passwd group shadow gshadow; do
     "${OUTPUT_ROOT}/etc/${database}" \
     || fail "etc/${database} does not match System/Settings/${database}"
 done
+test "$(readlink "${OUTPUT_ROOT}/Programs/Sudo/current")" = /Programs/Sudo/host
+test -x "${OUTPUT_ROOT}/Programs/Sudo/current/Commands/sudo"
 test -s "${OUTPUT_ROOT}/System/State/apk/db/installed"
 test "$(find "${OUTPUT_ROOT}/System/Compatibility/usr/share/icons" -type f | wc -l)" -ge 40
 test -L "${OUTPUT_ROOT}/System/Compatibility/usr/share/fonts/auzix/FontsDejavuCore"

@@ -422,3 +422,19 @@ run HDD again. Keep `hdd_id=alpha-apk-20260905-alpha-unlock-r11` so the
 pipeline finds the unlock-r11 pre-hdd receipt. Park the failed
 `a4e49aa4` work dirs first. Target 146. Plan:
 `notes/alpha-hdd-r12-retry-2026-09-05.md`.
+
+Outcome: BKC `a5eae325` queued. Park receipt written. Stager running
+from `521f14f` against the unlock-r11 image. VM145 untouched.
+
+September 5 20:28 PDT — AX-012/task65, after retry: BKC `a5eae325`
+failed `rc=1`. Passwd materialize PASS. Validator then required
+`/Programs/Sudo/current/Commands/sudo`; payload is
+`/Programs/Sudo/host/Commands/sudo`, same as VM145. No image, no VM146.
+r730 KVM idle. Result:
+`notes/alpha-hdd-r12-sudo-current-2026-09-05.md`.
+
+September 5 20:42 PDT — AX-012/task65, before retry: operator asked to
+continue on r730. Sudo binary and Compatibility links exist; publish
+`Programs/Sudo/current -> /Programs/Sudo/host` like Terminology. Plan:
+`notes/alpha-hdd-sudo-current-2026-09-05.md`. Park `a5eae325` dirs, then
+same hdd_id to VM 146.
