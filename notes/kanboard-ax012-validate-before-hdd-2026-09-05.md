@@ -95,3 +95,8 @@ Python313, SgmlBase, XMLCore passed. unmapped-path 22→1. HDD locked.
 and HDD 117 conversion. No HDD assemble.
 `notes/alpha-intake-validate-r8-run-2026-09-05.md`
 `notes/alpha-intake-validate-hdd-r8-run-2026-09-05.md`.
+
+Result r8: BKC `1f5356d5` passed. Holds 17→0. 37 leftovers parked.
+
+Result HDD 117: BKC `b915d9f4` passed. 97 passed + 20 static, 0
+regressions. 10 packages parked leftovers. Disk still locked.

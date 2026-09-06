@@ -20,5 +20,11 @@ Rollback: leave the new proof directory; do not reuse this run ID.
 Acceptance: conversion completes, `validation-boundary.json` exists,
 report hold/finding/legacy delta vs r7. Parked leftovers are in
 `Package/legacy` and must not appear as FPM hooks. Install/HDD remain
-untested. Do not start this run until local units are green and the
-cut is committed.
+untested.
+
+Outcome: BKC `1f5356d5` conversion passed. Proof
+`/var/lib/auzix-build/package-proof/AX-012-5f73ec794f55`.
+Log `apk-alpha-20260905-intake-validate-r8-resume-5f73ec794f55.log`.
+Vs r7: holds 17→0, findings 40→0, legacy_after 37. Newly ready: the
+remaining 17 including Systemd, SystemdSysv, Apparmor, Udev. No
+regressions. DBus component-passed. Install/HDD not tested.

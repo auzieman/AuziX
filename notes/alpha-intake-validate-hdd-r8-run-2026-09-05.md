@@ -20,3 +20,11 @@ Parked leftovers stay in `Package/legacy`.
 
 Start only after held r8 has a receipt. Same source commit. Rollback: leave
 the new proof directory. Install/HDD remain untested.
+
+Outcome: BKC `b915d9f4` conversion passed. Proof
+`/var/lib/auzix-build/package-proof/AX-012-5f73ec794f55-hdd`.
+Log `apk-alpha-20260905-intake-validate-hdd-r8-resume-5f73ec794f55.log`.
+Vs baseline 376e003: 97 passed + 20 static, 0 holds, 0 regressions,
+findings 0→0. Ten packages parked leftover scripts (31 findings):
+OpensshServer, Acpid, OpensshClient, Adduser, Passwd, Enlightenment,
+Glances, UtilLinux, Python3, Python313Minimal. Install/HDD not tested.
